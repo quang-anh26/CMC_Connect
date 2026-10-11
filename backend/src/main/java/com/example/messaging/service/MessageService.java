@@ -1,17 +1,27 @@
 package com.example.messaging.service;
 
 import com.example.messaging.dto.chat.AttachmentResponse;
-import com.example.messaging.dto.chat.MessageRequest;
 import com.example.messaging.dto.chat.MessageReactionRequest;
 import com.example.messaging.dto.chat.MessageReactionResponse;
 import com.example.messaging.dto.chat.MessageReactionUpdate;
+import com.example.messaging.dto.chat.MessageRequest;
 import com.example.messaging.dto.chat.MessageResponse;
-import com.example.messaging.entity.*;
+import com.example.messaging.entity.Conversation;
+import com.example.messaging.entity.ConversationMember;
+import com.example.messaging.entity.Message;
+import com.example.messaging.entity.MessageReaction;
+import com.example.messaging.entity.MessageStatus;
+import com.example.messaging.entity.User;
+import com.example.messaging.entity.enums.ConversationType;
+import com.example.messaging.entity.enums.FriendRequestStatus;
 import com.example.messaging.entity.enums.MessageDeliveryStatus;
 import com.example.messaging.entity.enums.MessageType;
 import com.example.messaging.exception.ApiException;
-import com.example.messaging.repository.*;
-import com.example.messaging.entity.enums.FriendRequestStatus;
+import com.example.messaging.repository.ConversationMemberRepository;
+import com.example.messaging.repository.FriendRequestRepository;
+import com.example.messaging.repository.MessageReactionRepository;
+import com.example.messaging.repository.MessageRepository;
+import com.example.messaging.repository.MessageStatusRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -20,20 +30,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-/**
- * Core chat 1-1 messaging logic (plan section 3 "Chat 1-1 - ưu tiên cao nhất"
- * and section 7 "Kiến trúc nghiệp vụ chính", steps 3-5):
- *   - send message -> persist -> broadcast realtime
- *   - Sent / Seen status
- *   - Reply, thu hồi (recall/unsend)
- *   - history with lazy loading, 20 messages per page
- */
 @Service
 @RequiredArgsConstructor
 public class MessageService {
@@ -50,6 +53,16 @@ public class MessageService {
 
     @Transactional
     public MessageResponse sendMessage(Long senderId, MessageRequest request) {
+        if (request == null) {
+            throw ApiException.badRequest("Yêu cầu tin nhắn không hợp lệ");
+        }
+        if (request.getConversationId() == null) {
+            throw ApiException.badRequest("conversationId là bắt buộc");
+        }
+        if (senderId == null) {
+            throw ApiException.unauthorized("Người dùng chưa đăng nhập");
+        }
+
         conversationService.assertMember(request.getConversationId(), senderId);
 
         User sender = userService.getByIdOrThrow(senderId);
@@ -57,13 +70,13 @@ public class MessageService {
         List<ConversationMember> members = conversationMemberRepository
                 .findByConversationConversationId(conversation.getConversationId());
 
-        if (conversation.getType() == com.example.messaging.entity.enums.ConversationType.PRIVATE
-                && !conversation.isMessageRequestAccepted()) {
+        if (conversation.getType() == ConversationType.PRIVATE && !conversation.isMessageRequestAccepted()) {
             Long otherUserId = members.stream()
                     .map(member -> member.getUser().getUserId())
                     .filter(id -> !id.equals(senderId))
                     .findFirst()
                     .orElse(null);
+
             boolean friends = otherUserId != null && friendRequestRepository.findRelationship(senderId, otherUserId)
                     .stream().anyMatch(friend -> friend.getStatus() == FriendRequestStatus.ACCEPTED);
 
@@ -87,17 +100,26 @@ public class MessageService {
             }
         }
 
+        String normalizedMessageType = request.getMessageType() == null ? "TEXT" : request.getMessageType().trim().toUpperCase(Locale.ROOT);
+        if ("TEXT".equals(normalizedMessageType) && (request.getContent() == null || request.getContent().isBlank())) {
+            throw ApiException.badRequest("Nội dung tin nhắn không được để trống");
+        }
+
         Message replyTo = null;
         if (request.getReplyToMessageId() != null) {
             replyTo = messageRepository.findById(request.getReplyToMessageId())
                     .orElseThrow(() -> ApiException.notFound("Không tìm thấy tin nhắn được reply"));
+            if (!replyTo.getConversation().getConversationId().equals(request.getConversationId())) {
+                throw ApiException.badRequest("Tin nhắn trả lời phải thuộc cùng cuộc trò chuyện");
+            }
         }
 
         MessageType type = MessageType.TEXT;
         if (request.getMessageType() != null) {
             try {
-                type = MessageType.valueOf(request.getMessageType());
-            } catch (IllegalArgumentException ignored) { }
+                type = MessageType.valueOf(normalizedMessageType);
+            } catch (IllegalArgumentException ignored) {
+            }
         }
 
         Message message = Message.builder()
@@ -111,7 +133,6 @@ public class MessageService {
 
         message = messageRepository.save(message);
 
-        // Create a MESSAGE_STATUS row for every other member of the conversation (Sent by default)
         for (ConversationMember member : members) {
             if (member.getUser().getUserId().equals(senderId)) continue;
             messageStatusRepository.save(MessageStatus.builder()
@@ -126,22 +147,34 @@ public class MessageService {
 
     @Transactional
     public MessageReactionUpdate toggleReaction(Long userId, MessageReactionRequest request) {
+        if (request == null || request.getMessageId() == null || request.getConversationId() == null) {
+            throw ApiException.badRequest("Dữ liệu cảm xúc không hợp lệ");
+        }
+
         Message message = messageRepository.findById(request.getMessageId())
                 .orElseThrow(() -> ApiException.notFound("Không tìm thấy tin nhắn"));
+
         Long conversationId = message.getConversation().getConversationId();
         if (!conversationId.equals(request.getConversationId())) {
             throw ApiException.badRequest("Tin nhắn không thuộc cuộc trò chuyện này");
         }
+
         conversationService.assertMember(conversationId, userId);
+
         if (message.isDeleted() || message.getMessageType() == MessageType.SYSTEM) {
             throw ApiException.badRequest("Không thể thả cảm xúc cho tin nhắn này");
         }
 
+        String emoji = request.getEmoji() == null ? "" : request.getEmoji().trim();
+        if (emoji.isEmpty()) {
+            throw ApiException.badRequest("Emoji cảm xúc không hợp lệ");
+        }
+
         Optional<MessageReaction> existing = messageReactionRepository
                 .findByMessageMessageIdAndUserUserId(message.getMessageId(), userId);
-        String emoji = request.getEmoji() == null ? "" : request.getEmoji().trim();
-        if (emoji.isEmpty() || existing.map(reaction -> reaction.getEmoji().equals(emoji)).orElse(false)) {
-            existing.ifPresent(messageReactionRepository::delete);
+
+        if (existing.isPresent() && existing.get().getEmoji().equals(emoji)) {
+            messageReactionRepository.delete(existing.get());
         } else if (existing.isPresent()) {
             existing.get().setEmoji(emoji);
             messageReactionRepository.save(existing.get());
@@ -160,26 +193,12 @@ public class MessageService {
                 .build();
     }
 
-    private List<MessageReactionResponse> getReactionSummary(Long messageId) {
-        Map<String, List<MessageReaction>> grouped = messageReactionRepository
-                .findByMessageMessageIdOrderByCreatedAtAsc(messageId).stream()
-                .collect(Collectors.groupingBy(MessageReaction::getEmoji, LinkedHashMap::new, Collectors.toList()));
-        return grouped.entrySet().stream()
-                .map(entry -> MessageReactionResponse.builder()
-                        .emoji(entry.getKey())
-                        .count(entry.getValue().size())
-                        .userIds(entry.getValue().stream()
-                                .map(reaction -> reaction.getUser().getUserId())
-                                .collect(Collectors.toList()))
-                        .build())
-                .collect(Collectors.toList());
-    }
-
     @Transactional
     public MessageResponse createSystemMessage(Long conversationId, Long actorId, String content) {
         conversationService.assertMember(conversationId, actorId);
         Conversation conversation = conversationService.getByIdOrThrow(conversationId);
         User actor = userService.getByIdOrThrow(actorId);
+
         Message message = messageRepository.save(Message.builder()
                 .conversation(conversation)
                 .sender(actor)
@@ -220,7 +239,10 @@ public class MessageService {
         }
 
         message.setContent(nextContent);
+        message.setEdited(true);
+        message.setEditedAt(LocalDateTime.now());
         messageRepository.save(message);
+
         return toResponse(message, requesterId);
     }
 
@@ -240,12 +262,10 @@ public class MessageService {
         return toResponse(message, requesterId);
     }
 
-    /** Marks every unseen message in the conversation as SEEN for this user (plan step 5). */
     @Transactional
     public void markConversationSeen(Long conversationId, Long userId) {
         conversationService.assertMember(conversationId, userId);
 
-        // Iterate messages in the conversation not authored by this user and flip their status rows to SEEN
         Page<Message> page = messageRepository.findByConversationConversationIdOrderByCreatedAtDesc(
                 conversationId, PageRequest.of(0, 1000, Sort.unsorted()));
 
@@ -262,8 +282,11 @@ public class MessageService {
         }
     }
 
-    /** History with lazy loading: page 0 = latest 20 messages, page 1 = next 20 older, etc. */
     public List<MessageResponse> getHistory(Long conversationId, Long requesterId, int page) {
+        if (page < 0) {
+            throw ApiException.badRequest("page phải lớn hơn hoặc bằng 0");
+        }
+
         conversationService.assertMember(conversationId, requesterId);
 
         Page<Message> result = messageRepository.findByConversationConversationIdOrderByCreatedAtDesc(
@@ -272,17 +295,31 @@ public class MessageService {
         List<MessageResponse> responses = result.getContent().stream()
                 .map(m -> toResponse(m, requesterId))
                 .collect(Collectors.toList());
-        // reverse so the frontend receives oldest -> newest for the requested page, like a real chat window
         java.util.Collections.reverse(responses);
         return responses;
+    }
+
+    private List<MessageReactionResponse> getReactionSummary(Long messageId) {
+        Map<String, List<MessageReaction>> grouped = messageReactionRepository
+                .findByMessageMessageIdOrderByCreatedAtAsc(messageId).stream()
+                .collect(Collectors.groupingBy(MessageReaction::getEmoji, LinkedHashMap::new, Collectors.toList()));
+
+        return grouped.entrySet().stream()
+                .map(entry -> MessageReactionResponse.builder()
+                        .emoji(entry.getKey())
+                        .count(entry.getValue().size())
+                        .userIds(entry.getValue().stream()
+                                .map(reaction -> reaction.getUser().getUserId())
+                                .collect(Collectors.toList()))
+                        .build())
+                .collect(Collectors.toList());
     }
 
     private MessageResponse toResponse(Message m, Long viewerId) {
         String deliveryStatus = "SENT";
         if (!m.getSender().getUserId().equals(viewerId)) {
-            deliveryStatus = null; // not meaningful when viewer is the recipient, not the sender
+            deliveryStatus = null;
         } else {
-            // For the sender's view, report the "best" status among recipients (SEEN > SENT)
             List<MessageStatus> statuses = messageStatusRepository.findByMessageMessageId(m.getMessageId());
             boolean anySeen = statuses.stream().anyMatch(s -> s.getStatus() == MessageDeliveryStatus.SEEN);
             deliveryStatus = anySeen ? "SEEN" : "SENT";
@@ -303,8 +340,6 @@ public class MessageService {
                 replyPreview = "hình ảnh";
             } else if (m.getReplyToMessage().getMessageType() == MessageType.FILE) {
                 replyPreview = "tệp đính kèm";
-            } else if (m.getReplyToMessage().getMessageType() == MessageType.AUDIO) {
-                replyPreview = "tin nhắn thoại";
             } else {
                 replyPreview = truncate(m.getReplyToMessage().getContent());
             }
@@ -322,6 +357,8 @@ public class MessageService {
                 .replyToMessageId(m.getReplyToMessage() != null ? m.getReplyToMessage().getMessageId() : null)
                 .replyToContentPreview(replyPreview)
                 .deleted(m.isDeleted())
+                .edited(m.isEdited())
+                .editedAt(m.getEditedAt())
                 .deliveryStatus(deliveryStatus)
                 .attachments(attachments)
                 .reactions(getReactionSummary(m.getMessageId()))

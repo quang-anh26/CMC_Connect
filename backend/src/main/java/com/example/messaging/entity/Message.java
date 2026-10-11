@@ -46,6 +46,16 @@ public class Message {
     @Builder.Default
     private boolean deleted = false;
 
+    @Column(name = "is_edited")
+    @Builder.Default
+    private boolean edited = false;
+
+    @Column(name = "edited_at")
+    private LocalDateTime editedAt;
+
+    @Column(name = "reaction_type", length = 32)
+    private String reactionType;
+
     @OneToMany(mappedBy = "message", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<Attachment> attachments = new ArrayList<>();
