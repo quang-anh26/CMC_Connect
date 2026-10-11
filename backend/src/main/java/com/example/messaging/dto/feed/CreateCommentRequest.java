@@ -9,4 +9,6 @@ public class CreateCommentRequest {
     @NotBlank
     @Size(max = 1000)
     private String content;
+
+    private Long parentCommentId;
 }

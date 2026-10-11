@@ -15,6 +15,13 @@ Các mục "Nên có" / "Nếu còn thời gian" trong bản kế hoạch (emoji
 đẩy, group chat nâng cao, v.v.) **chưa** được triển khai ở bản này — nhắn để mình làm
 tiếp khi cần.
 
+### Marketplace
+
+Marketplace có tại `/marketplace`: tìm kiếm và lọc tin đăng, xem sản phẩm, đăng/sửa/xóa
+tin, lưu sản phẩm, theo dõi người bán, chia sẻ liên kết, nhắn tin trực tiếp và báo cáo.
+Ảnh được tải lên nhiều tệp (tối đa 8 ảnh/tin); chỉ chủ tin mới được sửa, xóa hoặc đánh
+dấu đã bán. Chưa tích hợp thanh toán hoặc vận chuyển.
+
 ---
 
 ## 1. Yêu cầu môi trường
@@ -25,18 +32,17 @@ tiếp khi cần.
 - Microsoft SQL Server (2019+) — cài trực tiếp, hoặc chạy nhanh qua Docker (xem mục 2)
 - (Tùy chọn) Docker + Docker Compose, nếu muốn dựng SQL Server bằng 1 lệnh thay vì cài thủ công
 
-> Lưu ý: mình **chưa build/compile thử** được project này vì môi trường tạo file không
-> có quyền truy cập Maven Central / npm registry đầy đủ. Trước khi dùng thật, hãy chạy
-> `mvn clean install` và `npm install` để bắt các lỗi phát sinh (nếu có) — mã nguồn đã
-> được rà soát kỹ theo logic nhưng chưa qua compiler.
+> Kiểm tra gần nhất: frontend build bằng `npm run build`; backend compile và test bằng
+> Maven. Vite hiện cảnh báo bundle JavaScript chính lớn hơn 500 kB.
 
 ## 2. Cơ sở dữ liệu (SQL Server)
 
 **Cách A — Có sẵn SQL Server:** chỉ cần tạo 1 database rỗng (ví dụ `messaging_db`) rồi
-chạy `backend/database/schema.sql` để tạo đủ 9 bảng (khớp chính xác với 9 JPA entity).
+chạy `backend/database/schema.sql` để tạo các bảng nền.
 Muốn có dữ liệu mẫu để test ngay, chạy tiếp `backend/database/seed-data.sql` — script
 này tạo sẵn 3 tài khoản (`admin` / `alice` / `bob`, mật khẩu đều là `Password123`),
 1 quan hệ bạn bè đã accepted, và 1 cuộc trò chuyện có sẵn 2 tin nhắn giữa alice & bob.
+Các bảng Marketplace được Hibernate tạo/cập nhật khi backend khởi động (`ddl-auto: update`).
 
 **Cách B — Chưa có SQL Server:** dùng Docker để dựng nhanh:
 
@@ -75,8 +81,7 @@ mvn spring-boot:run
 ```
 
 - `spring.jpa.hibernate.ddl-auto=update` → Hibernate sẽ tự tạo bảng trong `messaging_db`
-  khi chạy lần đầu (9 bảng: USERS, FRIEND_REQUEST, CONVERSATION, CONVERSATION_MEMBER,
-  MESSAGE, MESSAGE_STATUS, ATTACHMENT, BLOCK, REFRESH_TOKEN).
+  khi chạy lần đầu (các bảng lõi và bảng mạng xã hội/nhóm).
 - Backend chạy ở `http://localhost:8080`.
 - Khi cần tài khoản Admin đầu tiên: đăng ký một user bình thường qua `/api/auth/register`,
   sau đó vào SQL Server đổi cột `role` của user đó thành `ADMIN` (chưa có endpoint tạo
@@ -100,7 +105,7 @@ npm run dev
 ```
 backend/
   src/main/java/com/example/messaging/
-    entity/          9 JPA entity theo đúng bảng DB trong bản kế hoạch
+    entity/          JPA entities theo các bảng nghiệp vụ
     repository/      Spring Data JPA repositories
     security/        JwtUtil, JwtAuthenticationFilter, @CurrentUser, UserDetailsService
     dto/             request/response DTO theo từng module (auth/user/friend/chat/admin)
@@ -135,9 +140,27 @@ frontend/
    `/api/admin/**` (chặn ở `SecurityConfig`), xem dashboard tổng quan + khóa/mở khóa
    tài khoản.
 
-## 7. Việc cần làm tiếp (theo đúng bảng ưu tiên trong bản kế hoạch)
+## 7. Groups
 
-- **Nên có**: group chat nâng cao (đổi vai trò thành viên, xóa nhóm), emoji reaction,
+Nhóm mạng xã hội dùng chung `USERS`, JWT, bạn bè và bộ lưu tệp hiện có; dữ liệu bài viết
+được tách khỏi `SOCIAL_POST` để kiểm soát riêng tư. Route giao diện: `/groups` và
+`/groups/{groupId}`. Backend đặt dưới `controller/GroupController`, `service/GroupService`,
+`entity/Group*` và `repository/Group*`.
+
+- Chủ nhóm được cấp role `OWNER`; các role hỗ trợ: `ADMIN`, `MODERATOR`, `MEMBER`.
+- Có nhóm công khai/riêng tư, join request, invitation cho bạn bè đã kết nối, quản lý
+  thành viên, bài viết/media, reaction, comment/reply, ghim, tìm kiếm/sắp xếp, poll và event.
+- Khu vực quản trị gồm duyệt thành viên/bài viết, báo cáo, cảnh cáo, xóa/cấm/bỏ cấm,
+  phân quyền, bộ lọc từ khóa và cài đặt ảnh nhóm.
+- Các endpoint Groups yêu cầu JWT; backend kiểm tra membership/role cho nội dung riêng tư
+  và hành động quản trị. Giới hạn mặc định là 5 bài hoặc poll và 20 bình luận/phút/người/nhóm.
+- `ddl-auto=update` tự tạo các bảng khi chạy ứng dụng. Nếu quản lý schema thủ công, chạy
+  `backend/database/migrations/20261004_add_social_groups.sql` rồi
+  `backend/database/migrations/20261005_add_group_events_polls.sql` trên `messaging_db`.
+
+## 8. Việc cần làm tiếp (theo đúng bảng ưu tiên trong bản kế hoạch)
+
+- **Nên có**: group chat nâng cao (đổi vai trò thành viên, xóa nhóm), push notification khi offline,
   push notification khi offline, tìm kiếm tin nhắn trong hội thoại.
 - **Nếu còn thời gian**: giao diện dark mode, thống kê chi tiết hơn cho Admin, i18n.
 - Viết test (JUnit cho service layer, React Testing Library cho frontend) — hiện chưa có.

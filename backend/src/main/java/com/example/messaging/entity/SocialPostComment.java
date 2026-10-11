@@ -26,6 +26,10 @@ public class SocialPostComment {
     @JoinColumn(name = "author_id", nullable = false)
     private User author;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_comment_id", foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT))
+    private SocialPostComment parentComment;
+
     @Column(nullable = false, columnDefinition = "NVARCHAR(1000)")
     private String content;
 

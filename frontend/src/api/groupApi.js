@@ -1,0 +1,47 @@
+import axiosClient from './axiosClient'
+
+export const groupApi = {
+  list: (params = {}) => axiosClient.get('/api/groups', { params }),
+  get: (groupId) => axiosClient.get(`/api/groups/${groupId}`),
+  create: (payload) => axiosClient.post('/api/groups', payload),
+  update: (groupId, payload) => axiosClient.put(`/api/groups/${groupId}`, payload),
+  remove: (groupId) => axiosClient.delete(`/api/groups/${groupId}`),
+  join: (groupId) => axiosClient.post(`/api/groups/${groupId}/join`),
+  leave: (groupId) => axiosClient.delete(`/api/groups/${groupId}/membership`),
+  members: (groupId) => axiosClient.get(`/api/groups/${groupId}/members`),
+  posts: (groupId, params = {}) => axiosClient.get(`/api/groups/${groupId}/posts`, { params }),
+  createPost: (groupId, payload) => axiosClient.post(`/api/groups/${groupId}/posts`, payload),
+  updatePost: (groupId, postId, payload) => axiosClient.put(`/api/groups/${groupId}/posts/${postId}`, payload),
+  removePost: (groupId, postId) => axiosClient.delete(`/api/groups/${groupId}/posts/${postId}`),
+  react: (groupId, postId, type = 'LIKE') => axiosClient.post(`/api/groups/${groupId}/posts/${postId}/reactions`, null, { params: { type } }),
+  comment: (groupId, postId, payload) => axiosClient.post(`/api/groups/${groupId}/posts/${postId}/comments`, payload),
+  removeComment: (groupId, commentId) => axiosClient.delete(`/api/groups/${groupId}/comments/${commentId}`),
+  pin: (groupId, postId) => axiosClient.patch(`/api/groups/${groupId}/posts/${postId}/pin`),
+  createPoll: (groupId, payload) => axiosClient.post(`/api/groups/${groupId}/polls`, payload),
+  votePoll: (groupId, postId, optionId) => axiosClient.post(`/api/groups/${groupId}/posts/${postId}/poll-votes`, { optionId }),
+  events: (groupId) => axiosClient.get(`/api/groups/${groupId}/events`),
+  createEvent: (groupId, payload) => axiosClient.post(`/api/groups/${groupId}/events`, payload),
+  participateEvent: (groupId, eventId) => axiosClient.post(`/api/groups/${groupId}/events/${eventId}/participation`),
+  report: (groupId, payload) => axiosClient.post(`/api/groups/${groupId}/reports`, payload),
+  joinRequests: (groupId) => axiosClient.get(`/api/groups/${groupId}/join-requests`),
+  decideJoin: (groupId, requestId, approved) => axiosClient.patch(`/api/groups/${groupId}/join-requests/${requestId}`, { approved }),
+  pendingPosts: (groupId) => axiosClient.get(`/api/groups/${groupId}/posts/pending`),
+  reviewPost: (groupId, postId, approved) => axiosClient.patch(`/api/groups/${groupId}/posts/${postId}/review`, { approved }),
+  changeRole: (groupId, userId, role) => axiosClient.patch(`/api/groups/${groupId}/members/${userId}/role`, { role }),
+  removeMember: (groupId, userId) => axiosClient.delete(`/api/groups/${groupId}/members/${userId}`),
+  banMember: (groupId, userId, reason) => axiosClient.post(`/api/groups/${groupId}/members/${userId}/ban`, { reason }),
+  unbanMember: (groupId, userId) => axiosClient.delete(`/api/groups/${groupId}/bans/${userId}`),
+  bans: (groupId) => axiosClient.get(`/api/groups/${groupId}/bans`),
+  warnMember: (groupId, userId, reason) => axiosClient.post(`/api/groups/${groupId}/members/${userId}/warning`, { reason }),
+  reports: (groupId) => axiosClient.get(`/api/groups/${groupId}/reports`),
+  decideReport: (groupId, reportId, removeContent) => axiosClient.patch(`/api/groups/${groupId}/reports/${reportId}`, { removeContent }),
+  invite: (groupId, userId) => axiosClient.post(`/api/groups/${groupId}/invites`, { userId }),
+  upload: (groupId, file, purpose = 'POST') => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return axiosClient.post(`/api/groups/${groupId}/upload`, formData, { params: { purpose }, headers: { 'Content-Type': 'multipart/form-data' } })
+  },
+  notifications: () => axiosClient.get('/api/groups/notifications'),
+  markNotificationRead: (notificationId) => axiosClient.post(`/api/groups/notifications/${notificationId}/read`),
+  respondInvite: (inviteId, approved) => axiosClient.post(`/api/groups/invites/${inviteId}/response`, { approved }),
+}

@@ -30,4 +30,10 @@ public interface FriendRequestRepository extends JpaRepository<FriendRequest, Lo
             "(f.sender.userId = :userB AND f.receiver.userId = :userA) " +
             "ORDER BY f.createdAt DESC")
     List<FriendRequest> findRelationship(@Param("userA") Long userA, @Param("userB") Long userB);
+
+        @Query("SELECT CASE WHEN COUNT(f) > 0 THEN true ELSE false END FROM FriendRequest f WHERE " +
+                        "f.status = com.example.messaging.entity.enums.FriendRequestStatus.ACCEPTED AND " +
+                        "((f.sender.userId = :userA AND f.receiver.userId = :userB) OR " +
+                        "(f.sender.userId = :userB AND f.receiver.userId = :userA))")
+        boolean areAcceptedFriends(@Param("userA") Long userA, @Param("userB") Long userB);
 }

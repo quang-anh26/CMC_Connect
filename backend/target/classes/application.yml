@@ -15,7 +15,7 @@ spring:
   sql:
     init:
       mode: always
-      schema-locations: classpath:db/migration/ensure-user-cover-image.sql
+      schema-locations: classpath:db/migration/ensure-user-cover-image.sql,classpath:db/migration/ensure-video-schema.sql,classpath:db/migration/ensure-marketplace-category.sql
 
   jpa:
     hibernate:
@@ -28,8 +28,8 @@ spring:
 
   servlet:
     multipart:
-      max-file-size: 10MB
-      max-request-size: 10MB
+      max-file-size: 200MB
+      max-request-size: 210MB
 
 app:
   jwt:
@@ -41,6 +41,7 @@ app:
   upload:
     dir: ${UPLOAD_DIR:./uploads}
     max-file-size-mb: 10
+    video-max-file-size-mb: ${VIDEO_MAX_FILE_SIZE_MB:200}
 
 logging:
   level:

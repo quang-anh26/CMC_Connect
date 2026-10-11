@@ -34,6 +34,17 @@ public class SocialPost {
     @Column(name = "image_url", length = 1000)
     private String imageUrl;
 
+    @Column(name = "media_type", length = 10)
+    private String mediaType;
+
+    @Column(nullable = false, length = 20)
+    @Builder.Default
+    private String privacy = "PUBLIC";
+
+    @Column(name = "view_count", nullable = false)
+    @Builder.Default
+    private long viewCount = 0;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 

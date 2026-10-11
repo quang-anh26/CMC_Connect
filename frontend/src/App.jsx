@@ -14,6 +14,13 @@ import ProfilePage from './pages/ProfilePage'
 import FeedPage from './pages/FeedPage'
 import EventsPage from './pages/EventsPage'
 import AdminDashboardPage from './pages/admin/AdminDashboardPage'
+import GroupsPage from './pages/GroupsPage'
+import GroupDetailPage from './pages/GroupDetailPage'
+import ExplorePage from './pages/ExplorePage'
+
+const VideosPage = React.lazy(() => import('./pages/VideosPage'))
+const MarketplacePage = React.lazy(() => import('./pages/MarketplacePage'))
+const SavedPage = React.lazy(() => import('./pages/SavedPage'))
 
 export default function App() {
   return (
@@ -43,8 +50,15 @@ export default function App() {
             >
               <Route index element={<EmptyChatPage />} />
               <Route path="feed" element={<FeedPage />} />
+              <Route path="explore" element={<ExplorePage />} />
+              <Route path="video" element={<React.Suspense fallback={<main className="video-page"><div className="video-state">Đang mở video...</div></main>}><VideosPage /></React.Suspense>} />
+              <Route path="marketplace" element={<React.Suspense fallback={<main className="marketplace-page"><div className="market-state">Đang mở Marketplace...</div></main>}><MarketplacePage /></React.Suspense>} />
+              <Route path="marketplace/:listingId" element={<React.Suspense fallback={<main className="marketplace-page"><div className="market-state">Đang mở Marketplace...</div></main>}><MarketplacePage /></React.Suspense>} />
+              <Route path="saved" element={<React.Suspense fallback={<main className="saved-page"><div className="saved-state">Đang tải nội dung đã lưu...</div></main>}><SavedPage /></React.Suspense>} />
               <Route path="events" element={<EventsPage />} />
               <Route path="events/:eventId" element={<EventsPage />} />
+              <Route path="groups" element={<GroupsPage />} />
+              <Route path="groups/:groupId" element={<GroupDetailPage />} />
               <Route path="feed/profile" element={<ProfilePage />} />
               <Route path="feed/profile/:profileUserId" element={<ProfilePage />} />
               <Route path="chat/:conversationId" element={<ChatWindow />} />
