@@ -2,12 +2,16 @@ package com.example.messaging.service;
 
 import com.example.messaging.dto.chat.AttachmentResponse;
 import com.example.messaging.dto.chat.MessageRequest;
+import com.example.messaging.dto.chat.MessageReactionRequest;
+import com.example.messaging.dto.chat.MessageReactionResponse;
+import com.example.messaging.dto.chat.MessageReactionUpdate;
 import com.example.messaging.dto.chat.MessageResponse;
 import com.example.messaging.entity.*;
 import com.example.messaging.entity.enums.MessageDeliveryStatus;
 import com.example.messaging.entity.enums.MessageType;
 import com.example.messaging.exception.ApiException;
 import com.example.messaging.repository.*;
+import com.example.messaging.entity.enums.FriendRequestStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -17,6 +21,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -35,6 +42,8 @@ public class MessageService {
 
     private final MessageRepository messageRepository;
     private final MessageStatusRepository messageStatusRepository;
+    private final MessageReactionRepository messageReactionRepository;
+    private final FriendRequestRepository friendRequestRepository;
     private final ConversationMemberRepository conversationMemberRepository;
     private final ConversationService conversationService;
     private final UserService userService;
@@ -45,6 +54,38 @@ public class MessageService {
 
         User sender = userService.getByIdOrThrow(senderId);
         Conversation conversation = conversationService.getByIdOrThrow(request.getConversationId());
+        List<ConversationMember> members = conversationMemberRepository
+                .findByConversationConversationId(conversation.getConversationId());
+
+        if (conversation.getType() == com.example.messaging.entity.enums.ConversationType.PRIVATE
+                && !conversation.isMessageRequestAccepted()) {
+            Long otherUserId = members.stream()
+                    .map(member -> member.getUser().getUserId())
+                    .filter(id -> !id.equals(senderId))
+                    .findFirst()
+                    .orElse(null);
+            boolean friends = otherUserId != null && friendRequestRepository.findRelationship(senderId, otherUserId)
+                    .stream().anyMatch(friend -> friend.getStatus() == FriendRequestStatus.ACCEPTED);
+
+            if (friends) {
+                conversation.setMessageRequestAccepted(true);
+                members.forEach(member -> member.setMessageRequestPending(false));
+                conversationMemberRepository.saveAll(members);
+            } else if (conversation.getMessageRequestSenderId() == null) {
+                conversation.setMessageRequestSenderId(senderId);
+                members.stream()
+                        .filter(member -> !member.getUser().getUserId().equals(senderId))
+                        .findFirst()
+                        .ifPresent(recipient -> {
+                            recipient.setMessageRequestPending(true);
+                            conversationMemberRepository.save(recipient);
+                        });
+            } else if (!conversation.getMessageRequestSenderId().equals(senderId)) {
+                conversation.setMessageRequestAccepted(true);
+                members.forEach(member -> member.setMessageRequestPending(false));
+                conversationMemberRepository.saveAll(members);
+            }
+        }
 
         Message replyTo = null;
         if (request.getReplyToMessageId() != null) {
@@ -71,9 +112,6 @@ public class MessageService {
         message = messageRepository.save(message);
 
         // Create a MESSAGE_STATUS row for every other member of the conversation (Sent by default)
-        List<ConversationMember> members = conversationMemberRepository
-                .findByConversationConversationId(conversation.getConversationId());
-
         for (ConversationMember member : members) {
             if (member.getUser().getUserId().equals(senderId)) continue;
             messageStatusRepository.save(MessageStatus.builder()
@@ -84,6 +122,106 @@ public class MessageService {
         }
 
         return toResponse(message, senderId);
+    }
+
+    @Transactional
+    public MessageReactionUpdate toggleReaction(Long userId, MessageReactionRequest request) {
+        Message message = messageRepository.findById(request.getMessageId())
+                .orElseThrow(() -> ApiException.notFound("Không tìm thấy tin nhắn"));
+        Long conversationId = message.getConversation().getConversationId();
+        if (!conversationId.equals(request.getConversationId())) {
+            throw ApiException.badRequest("Tin nhắn không thuộc cuộc trò chuyện này");
+        }
+        conversationService.assertMember(conversationId, userId);
+        if (message.isDeleted() || message.getMessageType() == MessageType.SYSTEM) {
+            throw ApiException.badRequest("Không thể thả cảm xúc cho tin nhắn này");
+        }
+
+        Optional<MessageReaction> existing = messageReactionRepository
+                .findByMessageMessageIdAndUserUserId(message.getMessageId(), userId);
+        String emoji = request.getEmoji() == null ? "" : request.getEmoji().trim();
+        if (emoji.isEmpty() || existing.map(reaction -> reaction.getEmoji().equals(emoji)).orElse(false)) {
+            existing.ifPresent(messageReactionRepository::delete);
+        } else if (existing.isPresent()) {
+            existing.get().setEmoji(emoji);
+            messageReactionRepository.save(existing.get());
+        } else {
+            messageReactionRepository.save(MessageReaction.builder()
+                    .message(message)
+                    .user(userService.getByIdOrThrow(userId))
+                    .emoji(emoji)
+                    .build());
+        }
+
+        return MessageReactionUpdate.builder()
+                .conversationId(conversationId)
+                .messageId(message.getMessageId())
+                .reactions(getReactionSummary(message.getMessageId()))
+                .build();
+    }
+
+    private List<MessageReactionResponse> getReactionSummary(Long messageId) {
+        Map<String, List<MessageReaction>> grouped = messageReactionRepository
+                .findByMessageMessageIdOrderByCreatedAtAsc(messageId).stream()
+                .collect(Collectors.groupingBy(MessageReaction::getEmoji, LinkedHashMap::new, Collectors.toList()));
+        return grouped.entrySet().stream()
+                .map(entry -> MessageReactionResponse.builder()
+                        .emoji(entry.getKey())
+                        .count(entry.getValue().size())
+                        .userIds(entry.getValue().stream()
+                                .map(reaction -> reaction.getUser().getUserId())
+                                .collect(Collectors.toList()))
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public MessageResponse createSystemMessage(Long conversationId, Long actorId, String content) {
+        conversationService.assertMember(conversationId, actorId);
+        Conversation conversation = conversationService.getByIdOrThrow(conversationId);
+        User actor = userService.getByIdOrThrow(actorId);
+        Message message = messageRepository.save(Message.builder()
+                .conversation(conversation)
+                .sender(actor)
+                .content(content)
+                .messageType(MessageType.SYSTEM)
+                .deleted(false)
+                .build());
+
+        for (ConversationMember member : conversationMemberRepository
+                .findByConversationConversationId(conversationId)) {
+            if (!member.getUser().getUserId().equals(actorId)) {
+                messageStatusRepository.save(MessageStatus.builder()
+                        .message(message)
+                        .user(member.getUser())
+                        .status(MessageDeliveryStatus.SENT)
+                        .build());
+            }
+        }
+
+        return toResponse(message, actorId);
+    }
+
+    @Transactional
+    public MessageResponse editMessage(Long messageId, Long requesterId, String content) {
+        Message message = messageRepository.findById(messageId)
+                .orElseThrow(() -> ApiException.notFound("Không tìm thấy tin nhắn"));
+
+        if (!message.getSender().getUserId().equals(requesterId)) {
+            throw ApiException.forbidden("Chỉ người gửi mới có thể chỉnh sửa tin nhắn này");
+        }
+        if (message.isDeleted() || message.getMessageType() == MessageType.SYSTEM) {
+            throw ApiException.badRequest("Không thể chỉnh sửa tin nhắn này");
+        }
+
+        String nextContent = content == null ? "" : content.trim();
+        if (nextContent.isEmpty()) {
+            throw ApiException.badRequest("Nội dung tin nhắn không được để trống");
+        }
+
+        message.setContent(nextContent);
+        messageRepository.save(message);
+        return toResponse(message, requesterId);
     }
 
     @Transactional
@@ -165,6 +303,8 @@ public class MessageService {
                 replyPreview = "hình ảnh";
             } else if (m.getReplyToMessage().getMessageType() == MessageType.FILE) {
                 replyPreview = "tệp đính kèm";
+            } else if (m.getReplyToMessage().getMessageType() == MessageType.AUDIO) {
+                replyPreview = "tin nhắn thoại";
             } else {
                 replyPreview = truncate(m.getReplyToMessage().getContent());
             }
@@ -184,6 +324,7 @@ public class MessageService {
                 .deleted(m.isDeleted())
                 .deliveryStatus(deliveryStatus)
                 .attachments(attachments)
+                .reactions(getReactionSummary(m.getMessageId()))
                 .createdAt(m.getCreatedAt())
                 .build();
     }

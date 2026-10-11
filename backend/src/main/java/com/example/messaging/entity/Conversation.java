@@ -32,12 +32,25 @@ public class Conversation {
     @Column(length = 500)
     private String avatar; // used for GROUP only
 
+    @Column(length = 50)
+    private String nickname;
+
+    @Column(length = 255)
+    private String topic;
+
     @OneToMany(mappedBy = "conversation", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<ConversationMember> members = new ArrayList<>();
 
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
+
+    @Column(name = "message_request_accepted", nullable = false)
+    @Builder.Default
+    private boolean messageRequestAccepted = false;
+
+    @Column(name = "message_request_sender_id")
+    private Long messageRequestSenderId;
 
     @PrePersist
     protected void onCreate() {

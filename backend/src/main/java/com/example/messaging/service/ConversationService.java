@@ -2,16 +2,19 @@ package com.example.messaging.service;
 
 import com.example.messaging.dto.chat.ConversationResponse;
 import com.example.messaging.dto.chat.CreateGroupRequest;
+import com.example.messaging.dto.chat.UpdateConversationDetailsRequest;
 import com.example.messaging.entity.Conversation;
 import com.example.messaging.entity.ConversationMember;
 import com.example.messaging.entity.Message;
 import com.example.messaging.entity.User;
 import com.example.messaging.entity.enums.ConversationType;
+import com.example.messaging.entity.enums.FriendRequestStatus;
 import com.example.messaging.entity.enums.MemberRole;
 import com.example.messaging.entity.enums.MessageDeliveryStatus;
 import com.example.messaging.exception.ApiException;
 import com.example.messaging.repository.ConversationMemberRepository;
 import com.example.messaging.repository.ConversationRepository;
+import com.example.messaging.repository.FriendRequestRepository;
 import com.example.messaging.repository.MessageRepository;
 import com.example.messaging.repository.MessageStatusRepository;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +35,7 @@ public class ConversationService {
     private final ConversationMemberRepository memberRepository;
     private final MessageRepository messageRepository;
     private final MessageStatusRepository messageStatusRepository;
+    private final FriendRequestRepository friendRequestRepository;
     private final UserService userService;
 
     /**
@@ -43,7 +47,16 @@ public class ConversationService {
         Optional<Conversation> existing = conversationRepository
                 .findPrivateConversationBetween(ConversationType.PRIVATE, userAId, userBId);
         if (existing.isPresent()) {
-            return existing.get();
+            Conversation conversation = existing.get();
+            boolean areFriends = friendRequestRepository.findRelationship(userAId, userBId).stream()
+                    .anyMatch(request -> request.getStatus() == FriendRequestStatus.ACCEPTED);
+            if (areFriends && !conversation.isMessageRequestAccepted()) {
+                conversation.setMessageRequestAccepted(true);
+                conversation.getMembers().forEach(member -> member.setMessageRequestPending(false));
+                conversationRepository.save(conversation);
+                memberRepository.saveAll(conversation.getMembers());
+            }
+            return conversation;
         }
 
         User userA = userService.getByIdOrThrow(userAId);
@@ -52,12 +65,16 @@ public class ConversationService {
         Conversation conversation = Conversation.builder()
                 .type(ConversationType.PRIVATE)
                 .build();
+        conversation.setMessageRequestAccepted(friendRequestRepository.findRelationship(userAId, userBId).stream()
+            .anyMatch(request -> request.getStatus() == FriendRequestStatus.ACCEPTED));
         conversation = conversationRepository.save(conversation);
 
-        memberRepository.save(ConversationMember.builder()
-                .conversation(conversation).user(userA).role(MemberRole.MEMBER).build());
-        memberRepository.save(ConversationMember.builder()
-                .conversation(conversation).user(userB).role(MemberRole.MEMBER).build());
+        ConversationMember creatorMember = ConversationMember.builder()
+            .conversation(conversation).user(userA).role(MemberRole.MEMBER).build();
+        ConversationMember otherMember = ConversationMember.builder()
+            .conversation(conversation).user(userB).role(MemberRole.MEMBER).build();
+        memberRepository.save(creatorMember);
+        memberRepository.save(otherMember);
 
         return conversation;
     }
@@ -135,8 +152,22 @@ public class ConversationService {
     public List<ConversationResponse> listForUser(Long userId) {
         return conversationRepository.findActiveByMemberUserId(userId).stream()
                 .map(c -> toResponse(c, userId))
+                .filter(response -> !response.isMessageRequestPending())
                 .sorted((a, b) -> {
-                    if (a.getLastMessageAt() == null) return 1;
+                    if (a.isNewFriend() != b.isNewFriend()) return a.isNewFriend() ? -1 : 1;
+                    if (a.getLastMessageAt() == null) return b.getLastMessageAt() == null ? 0 : 1;
+                    if (b.getLastMessageAt() == null) return -1;
+                    return b.getLastMessageAt().compareTo(a.getLastMessageAt());
+                })
+                .collect(Collectors.toList());
+    }
+
+    public List<ConversationResponse> listMessageRequestsForUser(Long userId) {
+        return conversationRepository.findActiveByMemberUserId(userId).stream()
+                .map(c -> toResponse(c, userId))
+            .filter(response -> response.isMessageRequestPending() && response.getLastMessageAt() != null)
+                .sorted((a, b) -> {
+                    if (a.getLastMessageAt() == null) return b.getLastMessageAt() == null ? 0 : 1;
                     if (b.getLastMessageAt() == null) return -1;
                     return b.getLastMessageAt().compareTo(a.getLastMessageAt());
                 })
@@ -163,13 +194,51 @@ public class ConversationService {
         memberRepository.save(member);
     }
 
+    @Transactional
+    public ConversationResponse updateDetails(Long conversationId, Long userId,
+                                               UpdateConversationDetailsRequest request) {
+        assertMember(conversationId, userId);
+        Conversation conversation = getByIdOrThrow(conversationId);
+        if (request.getNickname() != null) {
+            if (conversation.getType() != ConversationType.PRIVATE) {
+                throw ApiException.badRequest("Chỉ có thể đổi biệt danh trong trò chuyện cá nhân");
+            }
+            Long targetUserId = request.getTargetUserId() == null ? userId : request.getTargetUserId();
+            ConversationMember target = memberRepository
+                    .findByConversationConversationIdAndUserUserId(conversationId, targetUserId)
+                    .orElseThrow(() -> ApiException.badRequest("Người được đổi biệt danh không thuộc cuộc trò chuyện"));
+            target.setNickname(normalizeDetail(request.getNickname()));
+            memberRepository.save(target);
+        } else {
+            assertMember(conversationId, userId);
+        }
+
+        if (request.getTopic() != null) {
+            assertMember(conversationId, userId);
+            conversation.setTopic(normalizeDetail(request.getTopic()));
+        }
+        conversationRepository.save(conversation);
+        return toResponse(conversation, userId);
+    }
+
+    private String normalizeDetail(String value) {
+        if (value == null || value.isBlank()) return null;
+        return value.trim();
+    }
+
     private ConversationResponse toResponse(Conversation conversation, Long viewerUserId) {
         String name = conversation.getName();
         String avatar = conversation.getAvatar();
         Long otherUserId = null;
         String otherUsername = null;
+        String otherDisplayName = null;
+        String otherNickname = null;
         boolean otherOnline = false;
         java.time.LocalDateTime otherLastSeenAt = null;
+        ConversationMember currentMember = conversation.getMembers().stream()
+            .filter(m -> m.getUser().getUserId().equals(viewerUserId))
+            .findFirst()
+            .orElse(null);
 
         if (conversation.getType() == ConversationType.PRIVATE) {
             Optional<ConversationMember> other = conversation.getMembers().stream()
@@ -178,7 +247,11 @@ public class ConversationService {
             if (other.isPresent()) {
                 User otherUser = other.get().getUser();
                 otherUserId = otherUser.getUserId();
-                name = otherUser.getDisplayName();
+                otherDisplayName = otherUser.getDisplayName();
+                otherNickname = other.get().getNickname();
+                name = otherNickname != null ? otherNickname
+                    : conversation.getNickname() != null ? conversation.getNickname()
+                    : otherUser.getDisplayName();
                 avatar = otherUser.getAvatar();
                 otherUsername = otherUser.getUsername();
                 otherOnline = otherUser.isOnline();
@@ -192,17 +265,33 @@ public class ConversationService {
 
         long unread = messageStatusRepository.countUnseenInConversationForUser(
                 conversation.getConversationId(), viewerUserId);
+        boolean newFriend = conversation.getType() == ConversationType.PRIVATE
+            && last == null
+            && otherUserId != null
+            && (friendRequestRepository.existsBySenderUserIdAndReceiverUserIdAndStatus(
+                viewerUserId, otherUserId, FriendRequestStatus.ACCEPTED)
+                || friendRequestRepository.existsBySenderUserIdAndReceiverUserIdAndStatus(
+                otherUserId, viewerUserId, FriendRequestStatus.ACCEPTED));
 
         return ConversationResponse.builder()
                 .conversationId(conversation.getConversationId())
                 .type(conversation.getType().name())
                 .name(name)
                 .avatar(avatar)
+                .nickname(otherNickname != null ? otherNickname : conversation.getNickname())
+                .topic(conversation.getTopic())
+                .currentUserId(viewerUserId)
+                .currentUserDisplayName(currentMember != null ? currentMember.getUser().getDisplayName() : null)
+                .otherUserDisplayName(otherDisplayName)
+                .currentUserNickname(currentMember != null ? currentMember.getNickname() : null)
+                .otherUserNickname(otherNickname)
                 .otherUserId(otherUserId)
                 .otherUserUsername(otherUsername)
                 .lastMessage(buildLastMessagePreview(last, viewerUserId))
                 .lastMessageAt(last != null ? last.getCreatedAt() : null)
                 .unreadCount(unread)
+                .newFriend(newFriend)
+                .messageRequestPending(currentMember != null && currentMember.isMessageRequestPending())
                 .otherUserOnline(otherOnline)
                 .otherUserLastSeenAt(otherLastSeenAt)
                 .build();
@@ -229,6 +318,10 @@ public class ConversationService {
 
         if (last.getMessageType() == com.example.messaging.entity.enums.MessageType.FILE) {
             return "Tệp đính kèm";
+        }
+
+        if (last.getMessageType() == com.example.messaging.entity.enums.MessageType.AUDIO) {
+            return "Tin nhắn thoại";
         }
 
         return last.getContent();

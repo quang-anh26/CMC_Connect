@@ -39,6 +39,13 @@ public class ConversationMember {
     @Builder.Default
     private boolean archived = false;
 
+    @Column(name = "nickname", columnDefinition = "NVARCHAR(50)")
+    private String nickname;
+
+    @Column(name = "message_request_pending", nullable = false)
+    @Builder.Default
+    private boolean messageRequestPending = false;
+
     @PrePersist
     protected void onCreate() {
         this.joinedAt = LocalDateTime.now();

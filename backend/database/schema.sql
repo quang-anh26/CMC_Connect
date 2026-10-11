@@ -74,6 +74,10 @@ CREATE TABLE dbo.CONVERSATION (
     type            VARCHAR(20)   NOT NULL,       -- PRIVATE, GROUP
     name            NVARCHAR(100) NULL,           -- GROUP only
     avatar          VARCHAR(500)  NULL,           -- GROUP only
+    nickname        NVARCHAR(50)  NULL,
+    topic           NVARCHAR(255) NULL,
+    message_request_accepted BIT  NOT NULL DEFAULT 0,
+    message_request_sender_id BIGINT NULL,
     created_at      DATETIME2     NOT NULL DEFAULT SYSUTCDATETIME()
 );
 GO
@@ -90,6 +94,8 @@ CREATE TABLE dbo.CONVERSATION_MEMBER (
     role            VARCHAR(20) NOT NULL DEFAULT 'MEMBER',  -- ADMIN, MEMBER
     joined_at       DATETIME2   NOT NULL DEFAULT SYSUTCDATETIME(),
     is_archived     BIT         NOT NULL DEFAULT 0,
+    nickname        NVARCHAR(50) NULL,
+    message_request_pending BIT  NOT NULL DEFAULT 0,
     CONSTRAINT FK_convmember_conversation FOREIGN KEY (conversation_id) REFERENCES dbo.CONVERSATION(conversation_id),
     CONSTRAINT FK_convmember_user         FOREIGN KEY (user_id)         REFERENCES dbo.USERS(user_id),
     CONSTRAINT UQ_convmember_conv_user UNIQUE (conversation_id, user_id)
@@ -101,6 +107,8 @@ GO
 /* ---------------------------------------------------------------------
    5. MESSAGE
    --------------------------------------------------------------------- */
+IF OBJECT_ID('dbo.MESSAGE_REACTION', 'U') IS NOT NULL DROP TABLE dbo.MESSAGE_REACTION;
+GO
 IF OBJECT_ID('dbo.MESSAGE', 'U') IS NOT NULL DROP TABLE dbo.MESSAGE;
 GO
 CREATE TABLE dbo.MESSAGE (
@@ -119,6 +127,20 @@ CREATE TABLE dbo.MESSAGE (
 GO
 -- Primary access pattern: latest N messages of a conversation (history pagination, 20/page)
 CREATE INDEX IX_message_conversation_created ON dbo.MESSAGE(conversation_id, created_at DESC);
+GO
+
+CREATE TABLE dbo.MESSAGE_REACTION (
+    reaction_id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    message_id  BIGINT NOT NULL,
+    user_id     BIGINT NOT NULL,
+    emoji       NVARCHAR(16) NOT NULL,
+    created_at  DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+    CONSTRAINT FK_reaction_message FOREIGN KEY (message_id) REFERENCES dbo.MESSAGE(message_id),
+    CONSTRAINT FK_reaction_user FOREIGN KEY (user_id) REFERENCES dbo.USERS(user_id),
+    CONSTRAINT UQ_reaction_message_user UNIQUE (message_id, user_id)
+);
+GO
+CREATE INDEX IX_reaction_message ON dbo.MESSAGE_REACTION(message_id);
 GO
 
 /* ---------------------------------------------------------------------

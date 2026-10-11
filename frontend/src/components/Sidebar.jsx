@@ -6,7 +6,7 @@ import { userApi } from '../api/userApi'
 import { friendApi } from '../api/friendApi'
 import { blockApi } from '../api/blockApi'
 import { useSocket } from '../context/SocketContext'
-import { SearchIcon, MoreVerticalIcon } from './Icons'
+import { SearchIcon, MoreVerticalIcon, ChatIcon } from './Icons'
 
 export function formatConversationTime(dateStr) {
   if (!dateStr) return ''
@@ -44,7 +44,6 @@ export default function Sidebar({ activeConversationId }) {
   const [showArchivedOnly, setShowArchivedOnly] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [searchResults, setSearchResults] = useState([])
-  const [suggestedUsers, setSuggestedUsers] = useState([])
   const [groupOpen, setGroupOpen] = useState(false)
   const [groupName, setGroupName] = useState('')
   const [groupMembers, setGroupMembers] = useState([])
@@ -57,13 +56,6 @@ export default function Sidebar({ activeConversationId }) {
       .then((activeRes) => {
         const list = activeRes.data || []
         setConversations(list)
-        if (list.length === 0) {
-          // Load suggestions if no conversations yet
-          userApi
-            .search('')
-            .then((uRes) => setSuggestedUsers(uRes.data || []))
-            .catch(() => {})
-        }
       })
       .catch(() => setConversations([]))
 
@@ -95,7 +87,17 @@ export default function Sidebar({ activeConversationId }) {
     setOpenConversationMenu(null)
   }
 
+  const clearConversationUnread = (conversationId) => {
+    localStorage.removeItem(`kapatalk-unread-${conversationId}`)
+    setConversations((current) => current.map((conversation) => (
+      String(conversation.conversationId) === String(conversationId)
+        ? { ...conversation, unreadCount: 0 }
+        : conversation
+    )))
+  }
+
   const openConversation = (conversationId) => {
+    clearConversationUnread(conversationId)
     navigate(`/chat/${conversationId}`)
   }
 
@@ -143,6 +145,16 @@ export default function Sidebar({ activeConversationId }) {
   }, [])
 
   useEffect(() => {
+    if (activeConversationId) clearConversationUnread(activeConversationId)
+  }, [activeConversationId])
+
+  useEffect(() => {
+    const refreshConversations = () => loadConversations()
+    window.addEventListener('kapatalk-conversations-updated', refreshConversations)
+    return () => window.removeEventListener('kapatalk-conversations-updated', refreshConversations)
+  }, [])
+
+  useEffect(() => {
     const showArchived = () => setShowArchivedOnly(true)
     const showActive = () => setShowArchivedOnly(false)
     window.addEventListener('kapatalk-show-archived', showArchived)
@@ -166,9 +178,11 @@ export default function Sidebar({ activeConversationId }) {
 
   useEffect(() => {
     if (!connected) return
-    const unsubs = conversations.map((c) =>
-      subscribe(`/topic/conversation/${c.conversationId}`, () => loadConversations())
-    )
+    const unsubs = conversations.flatMap((c) => [
+      subscribe(`/topic/conversation/${c.conversationId}`, () => loadConversations()),
+      subscribe(`/topic/conversation/${c.conversationId}/seen`, () => loadConversations()),
+      subscribe(`/topic/conversation/${c.conversationId}/details`, () => loadConversations()),
+    ])
     const unsubPresence = subscribe('/topic/presence', () => loadConversations())
     return () => {
       unsubs.forEach((u) => u())
@@ -342,24 +356,53 @@ export default function Sidebar({ activeConversationId }) {
         <div className="search-results-panel">
           <div className="search-results-title">Kết quả tìm kiếm</div>
           {searchResults.map((u) => (
-            <div key={u.userId} className="conversation-item search-item">
+            <div
+              key={u.userId}
+              className="conversation-item search-item"
+              onClick={() => u.relationshipStatus === 'ACCEPTED' && openPrivateChat(u.userId)}
+              title={u.relationshipStatus === 'ACCEPTED' ? 'Mở cuộc trò chuyện' : undefined}
+            >
               <Avatar src={u.avatar} name={u.displayName} size={42} />
-              <div className="conv-meta" onClick={() => openPrivateChat(u.userId)}>
+              <div className="conv-meta">
                 <div className="conv-name">{u.displayName}</div>
                 <div className="conv-last">@{u.username}</div>
               </div>
               {u.friendshipStatus === 'ACCEPTED' ? (
                 <span className="search-friend-status">Đã kết bạn</span>
+<<<<<<< HEAD
+              ) : u.relationshipStatus === 'PENDING' ? (
+                <>
+                  <span className="search-friend-status">Đã gửi</span>
+                  <button type="button" className="icon-btn" title="Nhắn tin" onClick={(event) => {
+                    event.stopPropagation()
+                    openPrivateChat(u.userId)
+                  }}>
+                    <ChatIcon size={18} />
+                  </button>
+                </>
+=======
               ) : u.friendshipStatus === 'PENDING' ? (
                 <span className="search-friend-status">Đã gửi</span>
+>>>>>>> origin/main
               ) : (
-                <button
-                  className="icon-btn"
-                  onClick={() => sendFriendRequest(u.userId)}
-                  title="Gửi lời mời kết bạn"
-                >
-                  ➕
-                </button>
+                <>
+                  <button
+                    className="icon-btn"
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      sendFriendRequest(u.userId)
+                    }}
+                    title="Gửi lời mời kết bạn"
+                  >
+                    ➕
+                  </button>
+                  <button type="button" className="icon-btn" title="Nhắn tin" onClick={(event) => {
+                    event.stopPropagation()
+                    openPrivateChat(u.userId)
+                  }}>
+                    <ChatIcon size={18} />
+                  </button>
+                </>
               )}
             </div>
           ))}
@@ -379,42 +422,6 @@ export default function Sidebar({ activeConversationId }) {
             <p style={{ fontSize: 13, marginBottom: 8, color: 'var(--text-secondary)' }}>
               Chưa có cuộc trò chuyện nào
             </p>
-
-            {/* Suggested users list (Alice, etc.) */}
-            {suggestedUsers.length > 0 && (
-              <div style={{ marginTop: 14, textAlign: 'left' }}>
-                <div style={{ fontSize: 11.5, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 8, textTransform: 'uppercase' }}>
-                  Gợi ý liên hệ
-                </div>
-                {suggestedUsers.map((u) => (
-                  <div
-                    key={u.userId}
-                    className="conversation-item"
-                    style={{ padding: '8px 6px' }}
-                    onClick={() => openPrivateChat(u.userId)}
-                  >
-                    <Avatar src={u.avatar} name={u.displayName} size={38} />
-                    <div className="conv-meta">
-                      <div className="conv-name" style={{ fontSize: 13.5 }}>{u.displayName}</div>
-                      <div className="conv-last" style={{ fontSize: 11.5 }}>@{u.username}</div>
-                    </div>
-                    <button
-                      type="button"
-                      style={{
-                        padding: '4px 10px',
-                        background: 'var(--accent)',
-                        color: '#fff',
-                        borderRadius: 6,
-                        fontSize: 11.5,
-                        fontWeight: 600,
-                      }}
-                    >
-                      Chat
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         ) : (
           conversations.map((c) => {
@@ -441,7 +448,7 @@ export default function Sidebar({ activeConversationId }) {
                     </span>
                   </div>
                   <div className="conv-bottom-row">
-                    <span className="conv-last">{c.lastMessage || 'Chưa có tin nhắn'}</span>
+                    <span className="conv-last">{c.newFriend ? 'Bạn mới' : c.lastMessage || 'Chưa có tin nhắn'}</span>
                     {(c.unreadCount > 0 || localStorage.getItem(`kapatalk-unread-${c.conversationId}`) === 'true') && (
                       <span className="unread-dot" title="Tin nhắn chưa đọc" />
                     )}
