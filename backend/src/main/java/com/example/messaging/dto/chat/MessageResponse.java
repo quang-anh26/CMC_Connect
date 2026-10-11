@@ -24,5 +24,6 @@ public class MessageResponse {
     private boolean deleted;
     private String deliveryStatus; // SENT / DELIVERED / SEEN (relative to the requester's conversation partner)
     private List<AttachmentResponse> attachments;
+    private List<MessageReactionResponse> reactions;
     private LocalDateTime createdAt;
 }

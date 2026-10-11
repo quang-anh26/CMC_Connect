@@ -1,6 +1,7 @@
 package com.example.messaging.websocket;
 
 import com.example.messaging.dto.chat.MessageRequest;
+import com.example.messaging.dto.chat.MessageReactionRequest;
 import com.example.messaging.dto.chat.MessageResponse;
 import com.example.messaging.dto.chat.SeenRequest;
 import com.example.messaging.dto.chat.TypingEvent;
@@ -39,6 +40,14 @@ public class ChatWebSocketController {
                 saved);
     }
 
+    @MessageMapping("/chat.react")
+    public void reactToMessage(MessageReactionRequest request, Principal principal) {
+        User user = userService.getByUsernameOrThrow(principal.getName());
+        messagingTemplate.convertAndSend(
+                "/topic/conversation/" + request.getConversationId() + "/reactions",
+                messageService.toggleReaction(user.getUserId(), request));
+    }
+
     @MessageMapping("/chat.seen")
     public void markSeen(SeenRequest request, Principal principal) {
         User user = userService.getByUsernameOrThrow(principal.getName());
@@ -60,6 +69,19 @@ public class ChatWebSocketController {
         messagingTemplate.convertAndSend(
                 "/topic/conversation/" + event.getConversationId() + "/typing",
                 event);
+    }
+
+    @MessageMapping("/chat.edit")
+    public void editMessage(java.util.Map<String, Object> payload, Principal principal) {
+        User user = userService.getByUsernameOrThrow(principal.getName());
+        Long messageId = Long.valueOf(String.valueOf(payload.get("messageId")));
+        Long conversationId = Long.valueOf(String.valueOf(payload.get("conversationId")));
+        String content = String.valueOf(payload.getOrDefault("content", ""));
+
+        MessageResponse edited = messageService.editMessage(messageId, user.getUserId(), content);
+        messagingTemplate.convertAndSend(
+                "/topic/conversation/" + conversationId,
+                edited);
     }
 
     @MessageMapping("/chat.recall")

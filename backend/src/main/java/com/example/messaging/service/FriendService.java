@@ -5,6 +5,7 @@ import com.example.messaging.entity.FriendRequest;
 import com.example.messaging.entity.User;
 import com.example.messaging.entity.enums.FriendRequestStatus;
 import com.example.messaging.exception.ApiException;
+import com.example.messaging.service.ConversationService;
 import com.example.messaging.repository.FriendRequestRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -23,6 +24,7 @@ public class FriendService {
 
     private final FriendRequestRepository friendRequestRepository;
     private final UserService userService;
+    private final ConversationService conversationService;
 
     @Transactional
     public FriendRequestResponse sendRequest(Long senderId, Long receiverId) {
@@ -59,7 +61,12 @@ public class FriendService {
         }
 
         fr.setStatus(accept ? FriendRequestStatus.ACCEPTED : FriendRequestStatus.REJECTED);
-        return toResponse(friendRequestRepository.save(fr));
+        FriendRequest saved = friendRequestRepository.save(fr);
+        if (accept) {
+            conversationService.getOrCreatePrivateConversation(
+                fr.getSender().getUserId(), fr.getReceiver().getUserId());
+        }
+        return toResponse(saved);
     }
 
     public List<FriendRequestResponse> getPendingReceived(Long userId) {

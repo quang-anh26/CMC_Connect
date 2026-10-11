@@ -1,11 +1,16 @@
 import React, { useEffect, useState } from 'react'
+import { useAuth } from '../context/AuthContext'
 import Avatar from './Avatar'
 import { blockApi } from '../api/blockApi'
+import { conversationApi } from '../api/conversationApi'
 import {
   UserProfileIcon,
   SearchIcon,
   BellIcon,
   ChevronRight,
+  NicknameIcon,
+  TopicIcon,
+  CloseIcon,
 } from './Icons'
 
 function formatLastSeen(dateStr, now) {
@@ -18,21 +23,22 @@ function formatLastSeen(dateStr, now) {
   return `${Math.floor(elapsedHours / 24)} ngày trước`
 }
 
-export default function ContactInfoPanel({ conversationInfo, otherUserId, images = [], onClose }) {
+export default function ContactInfoPanel({ conversationInfo, otherUserId, images = [], messages = [], onClose, onDetailsUpdated, onJumpToMessage }) {
+  const { user } = useAuth()
   const [blocked, setBlocked] = useState(false)
   const [muted, setMuted] = useState(false)
   const [now, setNow] = useState(() => Date.now())
+  const [editingField, setEditingField] = useState(null)
+  const [editValue, setEditValue] = useState('')
+  const [nicknameTargetUserId, setNicknameTargetUserId] = useState(otherUserId)
+  const [savingDetail, setSavingDetail] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 60000)
     return () => window.clearInterval(timer)
   }, [])
-
-  if (!conversationInfo) return null
-
-  const displayName = conversationInfo?.name || 'Cuộc trò chuyện'
-  const isOnline = conversationInfo?.otherUserOnline
-  const isGroup = conversationInfo?.type === 'GROUP'
 
   const toggleBlock = async () => {
     if (!otherUserId) return
@@ -50,8 +56,59 @@ export default function ContactInfoPanel({ conversationInfo, otherUserId, images
     }
   }
 
+  const openDetailEditor = (field) => {
+    setEditingField(field)
+    setNicknameTargetUserId(otherUserId)
+    setEditValue(field === 'nickname'
+      ? conversationInfo.otherUserNickname || ''
+      : conversationInfo.topic || '')
+  }
+
+  const saveDetail = async (event) => {
+    event.preventDefault()
+    if (!editingField) return
+    setSavingDetail(true)
+    const details = editingField === 'nickname'
+      ? { targetUserId: Number(nicknameTargetUserId), nickname: editValue }
+      : { topic: editValue }
+    try {
+      const { data } = await conversationApi.updateDetails(conversationInfo.conversationId, details)
+      onDetailsUpdated?.(data)
+      setEditingField(null)
+    } catch (err) {
+      alert(err.response?.data?.message || 'Không thể cập nhật thông tin cuộc trò chuyện')
+    } finally {
+      setSavingDetail(false)
+    }
+  }
+
   const previewMedia = (images || []).slice(0, 4)
   const remainingCount = images.length > 4 ? images.length - 3 : 0
+
+  const matchingMessages = React.useMemo(() => {
+    const term = searchQuery.trim().toLowerCase()
+    if (!term) return []
+
+    return (messages || [])
+      .filter((message) => !message.deleted && message.messageType !== 'SYSTEM')
+      .filter((message) => {
+        const content = String(message.content || '').toLowerCase()
+        return content.includes(term)
+      })
+      .slice(0, 8)
+      .map((message) => ({
+        messageId: message.messageId,
+        senderName: message.senderDisplayName || 'Bạn',
+        content: String(message.content || '').replace(/\s+/g, ' ').trim(),
+        time: message.createdAt,
+      }))
+  }, [messages, searchQuery])
+
+  if (!conversationInfo) return null
+
+  const displayName = conversationInfo?.name || 'Cuộc trò chuyện'
+  const isOnline = conversationInfo?.otherUserOnline
+  const isGroup = conversationInfo?.type === 'GROUP'
 
   return (
     <div className="info-panel">
@@ -75,6 +132,21 @@ export default function ContactInfoPanel({ conversationInfo, otherUserId, images
         </div>
       </div>
 
+      <div className="info-metadata-grid">
+        {!isGroup && (
+          <button type="button" className="info-metadata-card" onClick={() => openDetailEditor('nickname')}>
+            <span className="info-metadata-icon"><NicknameIcon size={20} /></span>
+            <span className="info-metadata-label">Biệt danh</span>
+            <span className="info-metadata-value">{conversationInfo.otherUserNickname || 'Đặt biệt danh'}</span>
+          </button>
+        )}
+        <button type="button" className="info-metadata-card" onClick={() => openDetailEditor('topic')}>
+          <span className="info-metadata-icon"><TopicIcon size={20} /></span>
+          <span className="info-metadata-label">Chủ đề</span>
+          <span className="info-metadata-value">{conversationInfo.topic || 'Thêm chủ đề'}</span>
+        </button>
+      </div>
+
       {/* Action list */}
       <div className="info-actions-list">
         <button className="info-action-item" type="button" title="Xem thông tin">
@@ -84,12 +156,51 @@ export default function ContactInfoPanel({ conversationInfo, otherUserId, images
           <span className="info-action-text">Xem thông tin</span>
         </button>
 
-        <button className="info-action-item" type="button" title="Tìm kiếm trong cuộc trò chuyện">
+        <button className="info-action-item" type="button" title="Tìm kiếm trong cuộc trò chuyện" onClick={() => setSearchOpen((value) => !value)}>
           <span className="info-action-icon">
             <SearchIcon size={18} color="#94a3b8" />
           </span>
           <span className="info-action-text">Tìm kiếm trong cuộc trò chuyện</span>
         </button>
+
+        {searchOpen && (
+          <div className="conversation-search-panel">
+            <input
+              className="conversation-search-input"
+              type="text"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Nhập chữ để tìm trong đoạn chat..."
+              autoFocus
+            />
+
+            {searchQuery.trim() && matchingMessages.length === 0 && (
+              <div className="conversation-search-empty">Không tìm thấy tin nhắn nào phù hợp.</div>
+            )}
+
+            {matchingMessages.length > 0 && (
+              <div className="conversation-search-results">
+                {matchingMessages.map((item) => {
+                  const preview = item.content.length > 90 ? `${item.content.slice(0, 90)}...` : item.content
+                  return (
+                    <button
+                      key={item.messageId}
+                      type="button"
+                      className="conversation-search-item"
+                      onClick={() => onJumpToMessage?.(item.messageId)}
+                    >
+                      <span className="conversation-search-item-header">
+                        <strong>{item.senderName}</strong>
+                        <span>{formatLastSeen(item.time, Date.now())}</span>
+                      </span>
+                      <span className="conversation-search-item-text">{preview}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
         <button
           className="info-action-item"
@@ -165,6 +276,71 @@ export default function ContactInfoPanel({ conversationInfo, otherUserId, images
           </div>
         )}
       </div>
+
+      {editingField && (
+        <div className="detail-editor-backdrop" onClick={() => !savingDetail && setEditingField(null)}>
+          <form
+            className="detail-editor-dialog"
+            onClick={(event) => event.stopPropagation()}
+            onSubmit={saveDetail}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="detail-editor-title"
+          >
+            <div className="detail-editor-header">
+              <h2 id="detail-editor-title">{editingField === 'nickname' ? 'Đổi biệt danh' : 'Đổi chủ đề'}</h2>
+              <button type="button" className="detail-editor-close" onClick={() => setEditingField(null)} title="Đóng">
+                <CloseIcon size={18} />
+              </button>
+            </div>
+            {editingField === 'nickname' && (
+              <>
+                <label className="detail-editor-label" htmlFor="nickname-target">Đổi biệt danh cho</label>
+                <select
+                  id="nickname-target"
+                  className="detail-editor-input detail-editor-select"
+                  value={nicknameTargetUserId || ''}
+                  onChange={(event) => {
+                    const targetUserId = Number(event.target.value)
+                    setNicknameTargetUserId(targetUserId)
+                    setEditValue(targetUserId === Number(user?.userId)
+                      ? conversationInfo.currentUserNickname || ''
+                      : conversationInfo.otherUserNickname || '')
+                  }}
+                >
+                  <option value={user?.userId}>{`Tôi (${conversationInfo.currentUserDisplayName || user?.displayName || 'Bạn'})`}</option>
+                  <option value={otherUserId}>{conversationInfo.otherUserDisplayName || displayName}</option>
+                </select>
+              </>
+            )}
+            <label className="detail-editor-label" htmlFor="detail-editor-input">
+              {editingField === 'nickname' ? 'Biệt danh' : 'Chủ đề'}
+            </label>
+            <input
+              id="detail-editor-input"
+              className="detail-editor-input"
+              autoFocus
+              maxLength={editingField === 'nickname' ? 50 : 255}
+              value={editValue}
+              onChange={(event) => setEditValue(event.target.value)}
+              placeholder={editingField === 'nickname' ? 'Nhập biệt danh' : 'Nhập chủ đề'}
+            />
+            <p className="detail-editor-hint">
+              {editingField === 'nickname'
+                ? 'Cả hai người đều sẽ thấy biệt danh này.'
+                : 'Chủ đề này sẽ hiển thị với cả hai người trong cuộc trò chuyện.'}
+            </p>
+            <div className="detail-editor-actions">
+              <button type="button" className="detail-editor-cancel" onClick={() => setEditingField(null)} disabled={savingDetail}>
+                Hủy
+              </button>
+              <button type="submit" className="detail-editor-save" disabled={savingDetail}>
+                {savingDetail ? 'Đang lưu...' : 'Lưu'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   )
 }

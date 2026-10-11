@@ -54,6 +54,10 @@ public class Message {
     @Builder.Default
     private List<MessageStatus> statuses = new ArrayList<>();
 
+    @OneToMany(mappedBy = "message", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<MessageReaction> reactions = new ArrayList<>();
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 

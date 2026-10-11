@@ -11,6 +11,7 @@ import {
   PhoneCallIcon,
   InfoIcon,
   PaperclipIcon,
+  MicrophoneIcon,
   EmojiIcon,
   SendPaperPlane,
   DoubleCheckIcon,
@@ -38,6 +39,7 @@ function isImageMessage(message) {
   if (!message) return false
 
   if (message.messageType === 'IMAGE') return true
+  if (message.messageType === 'AUDIO' || message.messageType === 'FILE') return false
 
   const content = typeof message.content === 'string' ? message.content.trim() : ''
   if (!content) return false
@@ -63,14 +65,23 @@ export default function ChatWindow() {
   const [replyTo, setReplyTo] = useState(null)
   const [typingUsers, setTypingUsers] = useState({})
   const [uploading, setUploading] = useState(false)
+  const [isRecordingVoice, setIsRecordingVoice] = useState(false)
   const [showInfoPanel, setShowInfoPanel] = useState(true)
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+  const [activeReactionMessage, setActiveReactionMessage] = useState(null)
+  const [editingMessageId, setEditingMessageId] = useState(null)
+  const [editingDraft, setEditingDraft] = useState('')
   const [now, setNow] = useState(() => Date.now())
 
   const bottomRef = useRef(null)
   const messagesContainerRef = useRef(null)
   const typingTimeoutRef = useRef(null)
   const fileInputRef = useRef(null)
+  const messageRefs = useRef({})
+  const voiceRecorderRef = useRef(null)
+  const voiceStreamRef = useRef(null)
+  const voiceChunksRef = useRef([])
+  const sendVoiceOnStopRef = useRef(false)
 
   const quickEmojis = ['👍', '❤️', '😂', '😮', '😢', '👏', '🔥', '🎉']
 
@@ -78,6 +89,12 @@ export default function ChatWindow() {
     const timer = window.setInterval(() => setNow(Date.now()), 60000)
     return () => window.clearInterval(timer)
   }, [])
+
+  useEffect(() => () => {
+    sendVoiceOnStopRef.current = false
+    voiceRecorderRef.current?.stop()
+    voiceStreamRef.current?.getTracks().forEach((track) => track.stop())
+  }, [conversationId])
 
   // Load real conversation metadata
   useEffect(() => {
@@ -137,6 +154,8 @@ export default function ChatWindow() {
     if (!connected || !conversationId) return
 
     const unsubMessages = subscribe(`/topic/conversation/${conversationId}`, (incoming) => {
+      window.dispatchEvent(new Event('kapatalk-conversations-updated'))
+      setConversationInfo((current) => current ? { ...current, newFriend: false } : current)
       setMessages((prev) => {
         const idx = prev.findIndex((m) => m.messageId === incoming.messageId)
         if (idx >= 0) {
@@ -170,7 +189,22 @@ export default function ChatWindow() {
       )
     })
 
+    const unsubReactions = subscribe(`/topic/conversation/${conversationId}/reactions`, (update) => {
+      setMessages((current) => current.map((message) => (
+        String(message.messageId) === String(update.messageId)
+          ? { ...message, reactions: update.reactions || [] }
+          : message
+      )))
+    })
+
     const unsubPresence = subscribe('/topic/presence', () => {
+      conversationApi.list().then((res) => {
+        const found = res.data?.find((c) => String(c.conversationId) === String(conversationId))
+        setConversationInfo(found || null)
+      }).catch(() => {})
+    })
+
+    const unsubDetails = subscribe(`/topic/conversation/${conversationId}/details`, () => {
       conversationApi.list().then((res) => {
         const found = res.data?.find((c) => String(c.conversationId) === String(conversationId))
         setConversationInfo(found || null)
@@ -183,7 +217,9 @@ export default function ChatWindow() {
       unsubMessages()
       unsubTyping()
       unsubSeen()
+      unsubReactions()
       unsubPresence()
+      unsubDetails()
     }
   }, [connected, conversationId, user?.userId])
 
@@ -200,6 +236,49 @@ export default function ChatWindow() {
     setReplyTo(null)
     setShowEmojiPicker(false)
     stopTyping()
+  }
+
+  const handleReaction = async (messageId, emoji) => {
+    if (!conversationId) return
+    try {
+      const { data } = await messageApi.react(messageId, Number(conversationId), emoji)
+      setMessages((current) => current.map((message) => (
+        String(message.messageId) === String(data.messageId)
+          ? { ...message, reactions: data.reactions || [] }
+          : message
+      )))
+      setActiveReactionMessage(null)
+    } catch (err) {
+      alert(err.response?.data?.message || 'Không thể thả cảm xúc')
+    }
+  }
+
+  const handleEditMessage = async (messageId, content) => {
+    const trimmed = content.trim()
+    if (!trimmed) {
+      alert('Nội dung tin nhắn không được để trống')
+      return
+    }
+
+    try {
+      const { data } = await messageApi.edit(messageId, trimmed)
+      setMessages((current) => current.map((message) => (
+        String(message.messageId) === String(messageId)
+          ? { ...message, content: data.content, editedAt: data.createdAt }
+          : message
+      )))
+      if (connected && conversationId) {
+        publish('/app/chat.edit', {
+          messageId,
+          conversationId: Number(conversationId),
+          content: trimmed,
+        })
+      }
+      setEditingMessageId(null)
+      setEditingDraft('')
+    } catch (err) {
+      alert(err.response?.data?.message || 'Không thể chỉnh sửa tin nhắn')
+    }
   }
 
   const handleTyping = (value) => {
@@ -246,6 +325,84 @@ export default function ChatWindow() {
     }
   }
 
+  const handleVoiceRecording = async () => {
+    if (isRecordingVoice) {
+      sendVoiceOnStopRef.current = true
+      voiceRecorderRef.current?.stop()
+      return
+    }
+
+    if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+      alert('Trình duyệt này không hỗ trợ ghi âm. Hãy dùng trình duyệt mới hơn và kết nối qua HTTPS hoặc localhost.')
+      return
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      voiceStreamRef.current = stream
+      voiceChunksRef.current = []
+
+      const mimeType = ['audio/webm;codecs=opus', 'audio/mp4', 'audio/webm']
+        .find((type) => MediaRecorder.isTypeSupported(type))
+      const recorder = mimeType
+        ? new MediaRecorder(stream, { mimeType })
+        : new MediaRecorder(stream)
+
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) voiceChunksRef.current.push(event.data)
+      }
+      recorder.onstop = async () => {
+        stream.getTracks().forEach((track) => track.stop())
+        voiceStreamRef.current = null
+        voiceRecorderRef.current = null
+        setIsRecordingVoice(false)
+
+        const shouldSend = sendVoiceOnStopRef.current
+        sendVoiceOnStopRef.current = false
+        const audioBlob = new Blob(voiceChunksRef.current, { type: recorder.mimeType || 'audio/webm' })
+        voiceChunksRef.current = []
+        if (!shouldSend || !audioBlob.size || !conversationId) return
+
+        const extension = audioBlob.type.includes('mp4') ? 'm4a' : 'webm'
+        setUploading(true)
+        try {
+          const voiceFile = new File([audioBlob], `voice-message.${extension}`, { type: audioBlob.type })
+          const { data } = await messageApi.upload(voiceFile)
+          publish('/app/chat.send', {
+            conversationId: Number(conversationId),
+            content: data.url,
+            messageType: 'AUDIO',
+            replyToMessageId: replyTo?.messageId || null,
+          })
+          setReplyTo(null)
+        } catch (err) {
+          alert(err.response?.data?.message || 'Không thể gửi tin nhắn thoại')
+        } finally {
+          setUploading(false)
+        }
+      }
+
+      voiceRecorderRef.current = recorder
+      sendVoiceOnStopRef.current = false
+      recorder.start()
+      setIsRecordingVoice(true)
+    } catch (err) {
+      const message = err.name === 'NotAllowedError'
+        ? 'Bạn chưa cấp quyền sử dụng microphone. Hãy cho phép trong cài đặt trình duyệt.'
+        : 'Không thể truy cập microphone. Vui lòng kiểm tra thiết bị và quyền trình duyệt.'
+      alert(message)
+    }
+  }
+
+  const jumpToMessage = useCallback((messageId) => {
+    const target = messageRefs.current[messageId]
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      target.classList.add('message-highlight')
+      window.setTimeout(() => target.classList.remove('message-highlight'), 1400)
+    }
+  }, [])
+
   const otherUserId = useMemo(
     () => messages.find((m) => String(m.senderId) !== String(user?.userId))?.senderId ?? null,
     [messages, user?.userId]
@@ -277,7 +434,9 @@ export default function ChatWindow() {
             <div className="chat-header-info">
               <div className="chat-header-name">{headerName}</div>
               <div className="chat-header-status">
-                {conversationInfo?.type === 'GROUP'
+                {conversationInfo?.newFriend
+                  ? 'Bạn mới'
+                  : conversationInfo?.type === 'GROUP'
                   ? 'Nhóm chat'
                   : isOnline
                   ? 'Đang online'
@@ -336,9 +495,20 @@ export default function ChatWindow() {
             const timeDisplay = formatMsgTime(m.createdAt)
             const isImageBubble = isImageMessage(m) && !m.deleted
 
+            if (m.messageType === 'SYSTEM') {
+              return (
+                <div key={m.messageId} className="system-message-row">
+                  <span>{m.content}</span>
+                </div>
+              )
+            }
+
             return (
               <div
                 key={m.messageId}
+                ref={(element) => {
+                  if (element) messageRefs.current[m.messageId] = element
+                }}
                 className={`msg-group-row ${mine ? 'mine' : 'theirs'}`}
               >
                 {!mine && (
@@ -368,6 +538,10 @@ export default function ChatWindow() {
                           alt="attachment"
                           className="msg-image-content"
                         />
+                      ) : m.messageType === 'AUDIO' ? (
+                        <audio className="msg-audio-content" controls preload="metadata" src={m.content}>
+                          Trình duyệt không hỗ trợ phát âm thanh.
+                        </audio>
                       ) : m.messageType === 'FILE' ? (
                         <a
                           href={m.content}
@@ -396,11 +570,83 @@ export default function ChatWindow() {
                     </div>
                   </div>
 
+                  {m.reactions?.length > 0 && (
+                    <div className="msg-reaction-list">
+                      {m.reactions.map((reaction) => {
+                        const reactedByMe = reaction.userIds?.some((id) => String(id) === String(user?.userId))
+                        return (
+                          <button
+                            key={reaction.emoji}
+                            type="button"
+                            className={`msg-reaction-chip ${reactedByMe ? 'active' : ''}`}
+                            title={reactedByMe ? 'Bỏ cảm xúc' : 'Thả cảm xúc'}
+                            onClick={() => handleReaction(m.messageId, reaction.emoji)}
+                          >
+                            <span>{reaction.emoji}</span>
+                            <span>{reaction.count}</span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+
+                  {!m.deleted && m.messageType !== 'SYSTEM' && (
+                    <div className="msg-reaction-tools">
+                      <button
+                        type="button"
+                        className="msg-react-trigger"
+                        title="Thả cảm xúc"
+                        aria-label="Thả cảm xúc"
+                        onClick={() => setActiveReactionMessage((current) => current === m.messageId ? null : m.messageId)}
+                      >
+                        <EmojiIcon size={16} />
+                      </button>
+                      {activeReactionMessage === m.messageId && (
+                        <div className="msg-reaction-picker">
+                          {quickEmojis.map((emoji) => (
+                            <button
+                              key={emoji}
+                              type="button"
+                              className="msg-reaction-option"
+                              title={`Thả ${emoji}`}
+                              onClick={() => handleReaction(m.messageId, emoji)}
+                            >
+                              {emoji}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {/* Actions hover */}
                   {!m.deleted && (
                     <div className="msg-actions-hover">
                       <span onClick={() => setReplyTo(m)}>Trả lời</span>
+                      {mine && <span onClick={() => { setEditingMessageId(m.messageId); setEditingDraft(m.content || '') }}>Sửa</span>}
                       {mine && <span onClick={() => handleRecall(m.messageId)}>Thu hồi</span>}
+                    </div>
+                  )}
+
+                  {editingMessageId === m.messageId && mine && !m.deleted && (
+                    <div className="inline-message-editor">
+                      <input
+                        type="text"
+                        value={editingDraft}
+                        onChange={(event) => setEditingDraft(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') handleEditMessage(m.messageId, editingDraft)
+                          if (event.key === 'Escape') {
+                            setEditingMessageId(null)
+                            setEditingDraft('')
+                          }
+                        }}
+                        autoFocus
+                      />
+                      <div className="inline-message-editor-actions">
+                        <button type="button" onClick={() => handleEditMessage(m.messageId, editingDraft)}>Lưu</button>
+                        <button type="button" onClick={() => { setEditingMessageId(null); setEditingDraft('') }}>Hủy</button>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -480,10 +726,23 @@ export default function ChatWindow() {
             <EmojiIcon size={20} color="#8da2b5" />
           </button>
 
+          <button
+            type="button"
+            className={`input-tool-btn voice-record-btn ${isRecordingVoice ? 'recording' : ''}`}
+            onClick={handleVoiceRecording}
+            disabled={uploading}
+            title={isRecordingVoice ? 'Dừng ghi âm và gửi' : 'Ghi âm tin nhắn thoại'}
+            aria-label={isRecordingVoice ? 'Dừng ghi âm và gửi' : 'Ghi âm tin nhắn thoại'}
+            aria-pressed={isRecordingVoice}
+          >
+            <MicrophoneIcon size={20} />
+          </button>
+
           <div className="chat-input-pill">
+            {isRecordingVoice && <span className="voice-recording-label">Đang ghi âm</span>}
             <input
               type="text"
-              placeholder="Nhập tin nhắn..."
+              placeholder={isRecordingVoice ? 'Dừng để gửi tin nhắn thoại' : 'Nhập tin nhắn...'}
               value={text}
               onChange={(e) => handleTyping(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSend()}
@@ -508,7 +767,10 @@ export default function ChatWindow() {
           conversationInfo={conversationInfo}
           otherUserId={otherUserId}
           images={sharedImages}
+          messages={messages}
           onClose={() => setShowInfoPanel(false)}
+          onJumpToMessage={jumpToMessage}
+          onDetailsUpdated={(updated) => setConversationInfo((current) => current ? { ...current, ...updated } : updated)}
         />
       )}
     </div>

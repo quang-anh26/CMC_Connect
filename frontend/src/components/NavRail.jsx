@@ -3,6 +3,7 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import Avatar from './Avatar'
 import { useAuth } from '../context/AuthContext'
 import { friendApi } from '../api/friendApi'
+import { conversationApi } from '../api/conversationApi'
 import SettingsModal from './SettingsModal'
 import {
   MessengerLogo,
@@ -17,6 +18,7 @@ import {
   SettingsIcon,
   ChevronLeft,
   ChevronRight,
+  MessageActivityIcon,
 } from './Icons'
 
 export default function NavRail() {
@@ -24,7 +26,11 @@ export default function NavRail() {
   const location = useLocation()
   const navigate = useNavigate()
   const [pendingCount, setPendingCount] = useState(0)
+<<<<<<< HEAD
+  const [messageRequestCount, setMessageRequestCount] = useState(0)
+=======
   const [friendNotice, setFriendNotice] = useState('')
+>>>>>>> origin/main
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [archiveSelected, setArchiveSelected] = useState(false)
@@ -55,6 +61,21 @@ export default function NavRail() {
     const intervalId = window.setInterval(checkFriendRequests, 5000)
     return () => window.clearInterval(intervalId)
   }, [])
+
+  useEffect(() => {
+    let mounted = true
+    const loadCount = () => {
+      conversationApi.requests()
+        .then((res) => mounted && setMessageRequestCount((res.data || []).length))
+        .catch(() => {})
+    }
+    loadCount()
+    const timer = window.setInterval(loadCount, 10000)
+    return () => {
+      mounted = false
+      window.clearInterval(timer)
+    }
+  }, [location.pathname])
 
   const displayName = user?.displayName || user?.username || 'Tài khoản'
   const isOnline = user?.isOnline !== false
@@ -98,7 +119,11 @@ export default function NavRail() {
           <NavLink
             to="/"
             className={({ isActive }) =>
+<<<<<<< HEAD
+              `nav-item ${isActive && !location.pathname.startsWith('/friends') && !location.pathname.startsWith('/message-requests') && !location.pathname.startsWith('/profile') ? 'active' : ''}`
+=======
               `nav-item nav-chat-link ${isActive && !archiveSelected && !location.pathname.startsWith('/friends') && !location.pathname.startsWith('/profile') ? 'active' : ''}`
+>>>>>>> origin/main
             }
             title="Trò chuyện"
             onClick={() => {
@@ -110,6 +135,19 @@ export default function NavRail() {
               <ChatIcon size={20} />
             </span>
             <span className="nav-label">Trò chuyện</span>
+          </NavLink>
+
+          <NavLink
+            to="/message-requests"
+            className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+            title="Tin nhắn chờ"
+            onClick={() => setArchiveSelected(false)}
+          >
+            <span className="nav-icon">
+              <MessageActivityIcon size={20} />
+            </span>
+            <span className="nav-label">Tin nhắn chờ</span>
+            {messageRequestCount > 0 && <span className="nav-badge">{messageRequestCount}</span>}
           </NavLink>
 
           <NavLink

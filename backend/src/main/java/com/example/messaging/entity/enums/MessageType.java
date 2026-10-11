@@ -1,5 +1,5 @@
 package com.example.messaging.entity.enums;
 
 public enum MessageType {
-    TEXT, IMAGE, FILE, SYSTEM
+    TEXT, IMAGE, FILE, AUDIO, SYSTEM
 }

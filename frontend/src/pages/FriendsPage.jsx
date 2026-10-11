@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import Avatar from '../components/Avatar'
 import { friendApi } from '../api/friendApi'
 import { conversationApi } from '../api/conversationApi'
+import { userApi } from '../api/userApi'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
@@ -9,6 +10,7 @@ export default function FriendsPage() {
   const [received, setReceived] = useState([])
   const [sent, setSent] = useState([])
   const [accepted, setAccepted] = useState([])
+  const [suggestions, setSuggestions] = useState([])
   const navigate = useNavigate()
   const { user } = useAuth()
 
@@ -16,6 +18,11 @@ export default function FriendsPage() {
     friendApi.received().then((res) => setReceived(res.data))
     friendApi.sent().then((res) => setSent(res.data))
     friendApi.accepted().then((res) => setAccepted(res.data))
+    userApi.search('').then((res) => {
+      setSuggestions((res.data || []).filter((candidate) =>
+        !candidate.relationshipStatus || candidate.relationshipStatus === 'REJECTED'
+      ))
+    })
   }
 
   useEffect(load, [])
@@ -24,12 +31,22 @@ export default function FriendsPage() {
     await friendApi.accept(id)
     load()
     const { data } = await conversationApi.getOrCreatePrivate(senderId)
+    window.dispatchEvent(new Event('kapatalk-conversations-updated'))
     navigate(`/chat/${data.conversationId}`)
   }
 
   const reject = async (id) => {
     await friendApi.reject(id)
     load()
+  }
+
+  const sendRequest = async (receiverId) => {
+    try {
+      await friendApi.send(receiverId)
+      load()
+    } catch (err) {
+      alert(err.response?.data?.message || 'Không thể gửi lời mời kết bạn')
+    }
   }
 
   return (
@@ -78,6 +95,23 @@ export default function FriendsPage() {
             </div>
           )
         })}
+
+        <h3 style={{ marginTop: 24 }}>Gợi ý liên hệ ({suggestions.length})</h3>
+        {suggestions.length === 0 && <p style={{ color: '#999', fontSize: 13 }}>Chưa có gợi ý liên hệ</p>}
+        {suggestions.map((candidate) => (
+          <div key={candidate.userId} className="friend-request-row">
+            <Avatar src={candidate.avatar} name={candidate.displayName} size={36} />
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 600 }}>{candidate.displayName}</div>
+              <div style={{ fontSize: 12, color: '#999' }}>@{candidate.username}</div>
+            </div>
+            <div className="actions">
+              <button className="btn-accept" onClick={() => sendRequest(candidate.userId)}>
+                Kết bạn
+              </button>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   )
