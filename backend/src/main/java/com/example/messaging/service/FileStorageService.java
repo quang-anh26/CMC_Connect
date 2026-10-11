@@ -30,11 +30,15 @@ public class FileStorageService {
     private long maxFileSizeMb;
 
     public String store(MultipartFile file) {
+        return store(file, maxFileSizeMb);
+    }
+
+    public String store(MultipartFile file, long fileLimitMb) {
         if (file.isEmpty()) {
             throw ApiException.badRequest("File rỗng");
         }
-        if (file.getSize() > maxFileSizeMb * 1024 * 1024) {
-            throw ApiException.badRequest("File vượt quá giới hạn " + maxFileSizeMb + "MB");
+        if (fileLimitMb <= 0 || file.getSize() > fileLimitMb * 1024 * 1024) {
+            throw ApiException.badRequest("File vượt quá giới hạn " + fileLimitMb + "MB");
         }
 
         try {

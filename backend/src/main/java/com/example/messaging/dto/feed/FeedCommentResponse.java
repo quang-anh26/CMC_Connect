@@ -9,6 +9,7 @@ import java.time.LocalDateTime;
 @Builder
 public class FeedCommentResponse {
     Long commentId;
+    Long parentCommentId;
     Long authorId;
     String authorName;
     String authorAvatar;

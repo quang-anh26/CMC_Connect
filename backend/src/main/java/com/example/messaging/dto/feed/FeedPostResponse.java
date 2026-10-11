@@ -16,11 +16,14 @@ public class FeedPostResponse {
     String content;
     String imageUrl;
     String mediaType;
+    String privacy;
+    long viewCount;
     LocalDateTime createdAt;
     long likeCount;
     boolean likedByViewer;
     String viewerReaction;
     List<FeedCommentResponse> comments;
     long shareCount;
+    boolean savedByViewer;
     SharedPostResponse sharedPost;
 }

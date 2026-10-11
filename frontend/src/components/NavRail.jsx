@@ -3,7 +3,11 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import Avatar from './Avatar'
 import { useAuth } from '../context/AuthContext'
 import { friendApi } from '../api/friendApi'
+<<<<<<< HEAD
+import { groupApi } from '../api/groupApi'
+=======
 import { conversationApi } from '../api/conversationApi'
+>>>>>>> origin/main
 import SettingsModal from './SettingsModal'
 import {
   MessengerLogo,
@@ -13,7 +17,6 @@ import {
   SearchIcon,
   FeedVideoIcon,
   BellIcon,
-  ArchiveIcon,
   CalendarIcon,
   SettingsIcon,
   ChevronLeft,
@@ -27,13 +30,16 @@ export default function NavRail() {
   const navigate = useNavigate()
   const [pendingCount, setPendingCount] = useState(0)
 <<<<<<< HEAD
+  const [groupNotificationCount, setGroupNotificationCount] = useState(0)
+=======
+<<<<<<< HEAD
   const [messageRequestCount, setMessageRequestCount] = useState(0)
 =======
+>>>>>>> origin/main
   const [friendNotice, setFriendNotice] = useState('')
 >>>>>>> origin/main
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
-  const [archiveSelected, setArchiveSelected] = useState(false)
   const [isCollapsed, setIsCollapsed] = useState(() => {
     return localStorage.getItem('kapatalk-nav-collapsed') === 'true'
   })
@@ -63,6 +69,16 @@ export default function NavRail() {
   }, [])
 
   useEffect(() => {
+<<<<<<< HEAD
+    let active = true
+    const loadGroupNotifications = () => groupApi.notifications()
+      .then(({ data }) => { if (active) setGroupNotificationCount((data || []).filter((item) => !item.read).length) })
+      .catch(() => {})
+    loadGroupNotifications()
+    const intervalId = window.setInterval(loadGroupNotifications, 30000)
+    return () => { active = false; window.clearInterval(intervalId) }
+  }, [])
+=======
     let mounted = true
     const loadCount = () => {
       conversationApi.requests()
@@ -76,14 +92,10 @@ export default function NavRail() {
       window.clearInterval(timer)
     }
   }, [location.pathname])
+>>>>>>> origin/main
 
   const displayName = user?.displayName || user?.username || 'Tài khoản'
   const isOnline = user?.isOnline !== false
-  const showPreviewNotice = (feature) => {
-    setFriendNotice(`${feature} đang ở bản xem trước`)
-    window.setTimeout(() => setFriendNotice(''), 2500)
-  }
-
   const toggleCollapsed = (event) => {
     event.stopPropagation()
     setIsCollapsed((current) => {
@@ -106,9 +118,8 @@ export default function NavRail() {
         <div className="nav-rail-menu">
           <NavLink
             to="/feed"
-            className={({ isActive }) => `nav-item ${isActive && !archiveSelected ? 'active' : ''}`}
+            className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
             title="Bảng tin"
-            onClick={() => setArchiveSelected(false)}
           >
             <span className="nav-icon">
               <FeedIcon size={20} />
@@ -120,16 +131,16 @@ export default function NavRail() {
             to="/"
             className={({ isActive }) =>
 <<<<<<< HEAD
+              `nav-item nav-chat-link ${isActive && !location.pathname.startsWith('/friends') && !location.pathname.startsWith('/profile') ? 'active' : ''}`
+=======
+<<<<<<< HEAD
               `nav-item ${isActive && !location.pathname.startsWith('/friends') && !location.pathname.startsWith('/message-requests') && !location.pathname.startsWith('/profile') ? 'active' : ''}`
 =======
               `nav-item nav-chat-link ${isActive && !archiveSelected && !location.pathname.startsWith('/friends') && !location.pathname.startsWith('/profile') ? 'active' : ''}`
 >>>>>>> origin/main
+>>>>>>> origin/main
             }
             title="Trò chuyện"
-            onClick={() => {
-              setArchiveSelected(false)
-              window.dispatchEvent(new Event('kapatalk-show-active'))
-            }}
           >
             <span className="nav-icon">
               <ChatIcon size={20} />
@@ -152,9 +163,8 @@ export default function NavRail() {
 
           <NavLink
             to="/friends"
-            className={({ isActive }) => `nav-item ${isActive && !archiveSelected ? 'active' : ''}`}
+            className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
             title="Bạn bè"
-            onClick={() => setArchiveSelected(false)}
           >
             <span className="nav-icon">
               <FriendsIcon size={20} />
@@ -172,47 +182,34 @@ export default function NavRail() {
             <span className="nav-label">Sự kiện</span>
           </NavLink>
 
-          <button type="button" className="nav-item preview-nav-item" title="Nhóm · bản xem trước" onClick={() => showPreviewNotice('Nhóm')}>
+          <NavLink to="/groups" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} title="Nhóm">
             <span className="nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="7" r="3.2"/><circle cx="4.8" cy="9" r="2.4"/><circle cx="19.2" cy="9" r="2.4"/><path d="M6.4 18.7v-1.1a5.6 5.6 0 0 1 11.2 0v1.1c0 .8-.6 1.4-1.4 1.4H7.8c-.8 0-1.4-.6-1.4-1.4Z"/><path d="M1.1 17.7v-.8a3.8 3.8 0 0 1 4-3.8c.6 0 1.2.1 1.7.4a7 7 0 0 0-1.8 4.7H2.5c-.8 0-1.4-.2-1.4-.5ZM22.9 17.7v-.8a3.8 3.8 0 0 0-4-3.8c-.6 0-1.2.1-1.7.4a7 7 0 0 1 1.8 4.7h2.5c.8 0 1.4-.2 1.4-.5Z"/></svg></span><span className="nav-label">Nhóm</span>
-          </button>
-          <button type="button" className="nav-item preview-nav-item" title="Khám phá · bản xem trước" onClick={() => showPreviewNotice('Khám phá')}>
+          </NavLink>
+          <NavLink to="/explore" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} title="Khám phá">
             <span className="nav-icon"><SearchIcon size={20} /></span><span className="nav-label">Khám phá</span>
-          </button>
-          <button type="button" className="nav-item preview-nav-item" title="Video · bản xem trước" onClick={() => showPreviewNotice('Video')}>
+          </NavLink>
+          <NavLink to="/video" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} title="Video">
             <span className="nav-icon"><FeedVideoIcon size={20} /></span><span className="nav-label">Video</span>
-          </button>
-          <button type="button" className="nav-item preview-nav-item" title="Marketplace · bản xem trước" onClick={() => showPreviewNotice('Marketplace')}>
+          </NavLink>
+          <NavLink to="/marketplace" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} title="Marketplace">
             <span className="nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9h18l-1.5-6h-15L3 9Z"/><path d="M5 9v12h14V9M9 21v-7h6v7"/><path d="M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0"/></svg></span><span className="nav-label">Marketplace</span>
-          </button>
-          <button type="button" className="nav-item preview-nav-item" title="Thông báo · lời mời kết bạn" onClick={() => navigate('/friends')}>
+          </NavLink>
+          <NavLink to="/saved" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} title="Đã lưu">
+            <span className="nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 4.75A1.75 1.75 0 0 1 7.75 3h8.5A1.75 1.75 0 0 1 18 4.75V21l-6-4-6 4V4.75Z"/></svg></span><span className="nav-label">Đã lưu</span>
+          </NavLink>
+          <NavLink to="/groups" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} title="Thông báo nhóm">
             <span className="nav-icon"><BellIcon size={20} /></span><span className="nav-label">Thông báo</span>
-          </button>
-
-          <button
-            type="button"
-            className={`nav-item nav-archive-button ${archiveSelected ? 'active' : ''}`}
-            onClick={() => {
-              setArchiveSelected(true)
-              window.dispatchEvent(new Event('kapatalk-show-archived'))
-            }}
-            title="Đã lưu trữ"
-          >
-            <span className="nav-icon">
-              <ArchiveIcon size={20} />
-            </span>
-            <span className="nav-label">Đã lưu trữ</span>
-          </button>
+            {groupNotificationCount > 0 && <span className="nav-badge">{groupNotificationCount}</span>}
+          </NavLink>
 
         </div>
 
         {/* Footer: Real user profile & status - clicking opens Settings modal */}
         <div className="nav-shortcuts">
           <div className="nav-shortcuts-title">Lối tắt của bạn</div>
-          {['Lớp CNTT K62', 'Những người thích du lịch', 'Chill cùng nhau', 'Anime & Manga', 'Việt Nam / Du lịch'].map((shortcut, index) => (
-            <button key={shortcut} type="button" className="nav-shortcut" onClick={() => showPreviewNotice(shortcut)} title={`${shortcut} · bản xem trước`}>
-              <span className={`shortcut-avatar shortcut-avatar-${index + 1}`}>{shortcut.charAt(0)}</span><span>{shortcut}</span>
-            </button>
-          ))}
+          <button type="button" className="nav-shortcut" onClick={() => navigate('/groups')} title="Khám phá nhóm">
+            <span className="shortcut-avatar shortcut-avatar-1">+</span><span>Khám phá nhóm</span>
+          </button>
         </div>
         <div className="nav-rail-footer">
           {/* Status indicator row */}

@@ -4,9 +4,11 @@ import { feedApi } from '../api/feedApi'
 import { conversationApi } from '../api/conversationApi'
 import { friendApi } from '../api/friendApi'
 import { storyApi } from '../api/storyApi'
+import { videoApi } from '../api/videoApi'
 import { userApi } from '../api/userApi'
 import { messageApi } from '../api/messageApi'
 import { eventApi } from '../api/eventApi'
+import { savedApi } from '../api/savedApi'
 import Avatar from '../components/Avatar'
 import { MessengerLogo, FriendsIcon, FeedVideoIcon, BellIcon, ChatIcon, CommentIcon, ShareIcon } from '../components/Icons'
 import { useAuth } from '../context/AuthContext'
@@ -398,15 +400,25 @@ export default function FeedPage() {
     event.preventDefault()
     const trimmedContent = content.trim()
     if (!trimmedContent && !postFile) return
+    if (videoApi.isVideoFile(postFile) && !videoApi.isBrowserPlayableVideo(postFile)) {
+      setError('Video cần có định dạng MP4, WebM hoặc Ogg để phát được trên trình duyệt.')
+      return
+    }
     setPosting(true)
     setError('')
     try {
       let imageUrl = null
       let mediaType = null
       if (postFile) {
-        const uploadResponse = await storyApi.upload(postFile)
-        imageUrl = uploadResponse.data.url
-        mediaType = uploadResponse.data.mediaType
+        if (videoApi.isVideoFile(postFile)) {
+          const uploadResponse = await videoApi.upload(postFile)
+          imageUrl = uploadResponse.data.url
+          mediaType = 'VIDEO'
+        } else {
+          const uploadResponse = await storyApi.upload(postFile)
+          imageUrl = uploadResponse.data.url
+          mediaType = uploadResponse.data.mediaType
+        }
       }
       const response = await feedApi.create({ content: trimmedContent || null, imageUrl, mediaType })
       setPosts((current) => [response.data, ...current])
@@ -440,6 +452,19 @@ export default function FeedPage() {
       setPosts((current) => current.map((post) => post.postId === postId ? response.data : post))
     } catch (err) {
       setError(err.response?.data?.message || 'Không thể cập nhật cảm xúc. Vui lòng thử lại.')
+    }
+
+    const togglePostSaved = async (post) => {
+      const contentType = post.mediaType === 'VIDEO' ? 'VIDEO'
+        : /https?:\/\/[^\s<>()]+/i.test(post.content || '') ? 'LINK' : 'POST'
+      try {
+        const { data } = await savedApi.toggle(contentType, post.postId)
+        setPosts((current) => current.map((entry) => entry.postId === post.postId
+          ? { ...entry, savedByViewer: data.saved } : entry))
+        setNotice(data.saved ? 'Đã lưu nội dung.' : 'Đã bỏ lưu nội dung.')
+      } catch (err) {
+        setError(err.response?.data?.message || 'Không thể cập nhật nội dung đã lưu.')
+      }
     }
   }
 
@@ -596,7 +621,7 @@ export default function FeedPage() {
               <span>Ảnh hoặc video</span>
               <input
                 type="file"
-                accept="image/*,video/*"
+                accept="image/*,video/mp4,video/webm,video/ogg,.mp4,.webm,.ogg"
                 onChange={(event) => {
                   setStoryFile(event.target.files?.[0] || null)
                   setStoryError('')
@@ -687,7 +712,7 @@ export default function FeedPage() {
           />
           {postPreview && (
             <div className="post-composer-preview">
-              {postFile?.type.startsWith('video/')
+              {videoApi.isVideoFile(postFile)
                 ? <video src={postPreview} controls />
                 : <img src={postPreview} alt="Xem trước bài đăng" />}
               <button
@@ -772,11 +797,11 @@ export default function FeedPage() {
                 </header>
                 {post.sharedPost.content && <p>{post.sharedPost.content}</p>}
                 {post.sharedPost.imageUrl && (post.sharedPost.mediaType === 'VIDEO'
-                  ? <video className="shared-post-media" src={post.sharedPost.imageUrl} controls preload="metadata" />
+                  ? <video className="shared-post-media" src={videoApi.resolveMediaUrl(post.sharedPost.imageUrl)} controls playsInline preload="metadata" onError={() => setError('Không phát được video đã chia sẻ. Kiểm tra định dạng video hoặc kết nối máy chủ.')} />
                   : <button className="post-image-open" type="button" onClick={() => setActivePostImage({ src: post.sharedPost.imageUrl, alt: post.sharedPost.content || 'Ảnh trong bài viết' })} aria-label="Mở ảnh bài viết gốc"><img className="shared-post-media" src={post.sharedPost.imageUrl} alt="Nội dung bài viết gốc" /></button>)}
               </article>
             ) : post.imageUrl && (post.mediaType === 'VIDEO'
-              ? <video className="post-image" src={post.imageUrl} controls preload="metadata" />
+              ? <video className="post-image" src={videoApi.resolveMediaUrl(post.imageUrl)} controls playsInline preload="metadata" onError={() => setError('Không phát được video trong bài viết. Kiểm tra định dạng video hoặc kết nối máy chủ.')} />
               : <button
                 className="post-image-open"
                 type="button"
@@ -787,6 +812,7 @@ export default function FeedPage() {
               <PostReactionControl post={post} onSelect={selectReaction} />
               <button type="button" onClick={() => document.getElementById(`comment-${post.postId}`)?.focus()}><CommentIcon size={17} /> {post.comments.length > 0 && <span className="action-count">{post.comments.length}</span>} Bình luận </button>
               <button type="button" onClick={() => { setShareTarget(post); setShareCaption('') }}><ShareIcon size={17} /> {post.shareCount > 0 && <span className="action-count">{post.shareCount}</span>} Chia sẻ </button>
+              <button type="button" className={post.savedByViewer ? 'saved-action-active' : ''} onClick={() => togglePostSaved(post)}>{post.savedByViewer ? '▣ Đã lưu' : '▣ Lưu'}</button>
             </div>
             <div className="post-comments">
               {post.comments.map((comment) => (

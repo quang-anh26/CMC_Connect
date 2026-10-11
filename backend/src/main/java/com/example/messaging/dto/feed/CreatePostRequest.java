@@ -13,4 +13,7 @@ public class CreatePostRequest {
 
     @Size(max = 10)
     private String mediaType;
+
+    @Size(max = 20)
+    private String privacy;
 }
