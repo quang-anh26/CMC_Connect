@@ -27,7 +27,7 @@ export default function App() {
   return (
     <AuthProvider>
       <SocketProvider>
-        <BrowserRouter>
+        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
@@ -64,12 +64,8 @@ export default function App() {
               <Route path="feed/profile/:profileUserId" element={<ProfilePage />} />
               <Route path="chat/:conversationId" element={<ChatWindow />} />
               <Route path="friends" element={<FriendsPage />} />
-<<<<<<< HEAD
               <Route path="message-requests" element={<MessageRequestsPage />} />
               <Route path="profile" element={<ProfilePage />} />
-=======
-              <Route path="profile" element={<Navigate to="/feed/profile" replace />} />
->>>>>>> origin/main
             </Route>
 
             <Route path="*" element={<Navigate to="/" replace />} />

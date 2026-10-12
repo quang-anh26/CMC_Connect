@@ -369,7 +369,6 @@ export default function Sidebar({ activeConversationId }) {
               </div>
               {u.friendshipStatus === 'ACCEPTED' ? (
                 <span className="search-friend-status">Đã kết bạn</span>
-<<<<<<< HEAD
               ) : u.relationshipStatus === 'PENDING' ? (
                 <>
                   <span className="search-friend-status">Đã gửi</span>
@@ -380,10 +379,6 @@ export default function Sidebar({ activeConversationId }) {
                     <ChatIcon size={18} />
                   </button>
                 </>
-=======
-              ) : u.friendshipStatus === 'PENDING' ? (
-                <span className="search-friend-status">Đã gửi</span>
->>>>>>> origin/main
               ) : (
                 <>
                   <button
