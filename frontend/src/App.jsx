@@ -65,7 +65,7 @@ export default function App() {
               <Route path="chat/:conversationId" element={<ChatWindow />} />
               <Route path="friends" element={<FriendsPage />} />
               <Route path="message-requests" element={<MessageRequestsPage />} />
-              <Route path="profile" element={<ProfilePage />} />
+              <Route path="profile" element={<Navigate to="/feed/profile" replace />} />
             </Route>
 
             <Route path="*" element={<Navigate to="/" replace />} />

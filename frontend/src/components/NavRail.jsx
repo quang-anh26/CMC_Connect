@@ -27,9 +27,7 @@ export default function NavRail() {
   const navigate = useNavigate()
   const [pendingCount, setPendingCount] = useState(0)
   const [groupNotificationCount, setGroupNotificationCount] = useState(0)
-
   const [messageRequestCount, setMessageRequestCount] = useState(0)
-
   const [friendNotice, setFriendNotice] = useState('')
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
@@ -70,16 +68,20 @@ export default function NavRail() {
     const intervalId = window.setInterval(loadGroupNotifications, 30000)
     return () => { active = false; window.clearInterval(intervalId) }
   }, [])
-
   useEffect(() => {
-    let active = true
-    const loadMessageRequests = () => conversationApi.requests()
-      .then(({ data }) => { if (active) setMessageRequestCount((data || []).length) })
-      .catch(() => {})
-    loadMessageRequests()
-    const intervalId = window.setInterval(loadMessageRequests, 10000)
-    return () => { active = false; window.clearInterval(intervalId) }
-  }, [])
+    let mounted = true
+    const loadMessageRequestCount = () => {
+      conversationApi.requests()
+        .then((res) => mounted && setMessageRequestCount((res.data || []).length))
+        .catch(() => {})
+    }
+    loadMessageRequestCount()
+    const timer = window.setInterval(loadMessageRequestCount, 10000)
+    return () => {
+      mounted = false
+      window.clearInterval(timer)
+    }
+  }, [location.pathname])
 
   const displayName = user?.displayName || user?.username || 'Tài khoản'
   const isOnline = user?.isOnline !== false
@@ -128,18 +130,6 @@ export default function NavRail() {
           </NavLink>
 
           <NavLink
-            to="/message-requests"
-            className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
-            title="Tin nhắn chờ"
-          >
-            <span className="nav-icon">
-              <MessageActivityIcon size={20} />
-            </span>
-            <span className="nav-label">Tin nhắn chờ</span>
-            {messageRequestCount > 0 && <span className="nav-badge">{messageRequestCount}</span>}
-          </NavLink>
-
-          <NavLink
             to="/friends"
             className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
             title="Bạn bè"
@@ -178,6 +168,18 @@ export default function NavRail() {
           <NavLink to="/groups" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} title="Thông báo nhóm">
             <span className="nav-icon"><BellIcon size={20} /></span><span className="nav-label">Thông báo</span>
             {groupNotificationCount > 0 && <span className="nav-badge">{groupNotificationCount}</span>}
+          </NavLink>
+
+          <NavLink
+            to="/message-requests"
+            className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+            title="Tin nhắn chờ"
+          >
+            <span className="nav-icon">
+              <MessageActivityIcon size={20} />
+            </span>
+            <span className="nav-label">Tin nhắn chờ</span>
+            {messageRequestCount > 0 && <span className="nav-badge">{messageRequestCount}</span>}
           </NavLink>
 
         </div>
