@@ -22,6 +22,9 @@ public class MessageResponse {
     private Long replyToMessageId;
     private String replyToContentPreview;
     private boolean deleted;
+    private boolean edited;
+    private LocalDateTime editedAt;
+    private String reactionType;
     private String deliveryStatus; // SENT / DELIVERED / SEEN (relative to the requester's conversation partner)
     private List<AttachmentResponse> attachments;
     private List<MessageReactionResponse> reactions;

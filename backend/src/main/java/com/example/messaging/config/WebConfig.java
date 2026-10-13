@@ -8,6 +8,7 @@ import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Serves uploaded files (avatars, images, attachments) as static resources
@@ -23,7 +24,9 @@ public class WebConfig implements WebMvcConfigurer {
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
         registry.addResourceHandler("/uploads/**")
-            .addResourceLocations(uploadDirectory.resolve().toUri().toString());
+            .addResourceLocations(uploadDirectory.resolveLocations().stream()
+                .map(path -> path.toUri().toString())
+                .collect(Collectors.toList()).toArray(String[]::new));
     }
 
     @Override

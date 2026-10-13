@@ -119,6 +119,9 @@ CREATE TABLE dbo.MESSAGE (
     message_type         VARCHAR(20)   NOT NULL DEFAULT 'TEXT',  -- TEXT, IMAGE, FILE, SYSTEM
     reply_to_message_id  BIGINT        NULL,
     is_deleted           BIT           NOT NULL DEFAULT 0,
+    is_edited            BIT           NOT NULL DEFAULT 0,
+    edited_at            DATETIME2     NULL,
+    reaction_type        VARCHAR(32)   NULL,
     created_at           DATETIME2     NOT NULL DEFAULT SYSUTCDATETIME(),
     CONSTRAINT FK_message_conversation FOREIGN KEY (conversation_id)     REFERENCES dbo.CONVERSATION(conversation_id),
     CONSTRAINT FK_message_sender       FOREIGN KEY (sender_id)           REFERENCES dbo.USERS(user_id),

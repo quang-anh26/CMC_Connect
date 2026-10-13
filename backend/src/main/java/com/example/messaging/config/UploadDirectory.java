@@ -6,6 +6,8 @@ import org.springframework.stereotype.Component;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
 
 @Component
 public class UploadDirectory {
@@ -31,5 +33,42 @@ public class UploadDirectory {
             ancestor = ancestor.getParent();
         }
         return workingDirectory.resolve(configuredPath).normalize();
+    }
+
+    public List<Path> resolveLocations() {
+        Path configuredPath = Paths.get(configuredDirectory);
+        Path primary = resolve();
+        if (configuredPath.isAbsolute()) return List.of(primary);
+
+        Path ancestor = Paths.get("").toAbsolutePath().normalize();
+        Path projectRoot = null;
+        while (ancestor != null) {
+            if (Files.exists(ancestor.resolve("backend").resolve("pom.xml"))) {
+                projectRoot = ancestor;
+                break;
+            }
+            if (ancestor.getFileName() != null
+                    && "backend".equalsIgnoreCase(ancestor.getFileName().toString())
+                    && Files.exists(ancestor.resolve("pom.xml"))) {
+                projectRoot = ancestor.getParent();
+                break;
+            }
+            ancestor = ancestor.getParent();
+        }
+
+        if (projectRoot == null) return List.of(primary);
+
+        List<Path> locations = new ArrayList<>();
+        addExistingDirectory(locations, primary);
+        addExistingDirectory(locations, projectRoot.resolve("uploads"));
+        addExistingDirectory(locations, projectRoot.resolve("backend").resolve("uploads"));
+        return locations.isEmpty() ? List.of(primary) : locations;
+    }
+
+    private void addExistingDirectory(List<Path> locations, Path path) {
+        Path normalized = path.normalize();
+        if (Files.isDirectory(normalized) && !locations.contains(normalized)) {
+            locations.add(normalized);
+        }
     }
 }
