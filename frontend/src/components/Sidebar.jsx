@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import Avatar from './Avatar'
 import { conversationApi } from '../api/conversationApi'
 import { userApi } from '../api/userApi'
 import { friendApi } from '../api/friendApi'
 import { blockApi } from '../api/blockApi'
 import { useSocket } from '../context/SocketContext'
+import { useAuth } from '../context/AuthContext'
 import { SearchIcon, MoreVerticalIcon, ChatIcon } from './Icons'
 
 export function formatConversationTime(dateStr) {
@@ -37,10 +38,15 @@ export function formatConversationTime(dateStr) {
 
 export default function Sidebar({ activeConversationId }) {
   const { subscribe, connected, startCall } = useSocket()
+  const { user } = useAuth()
+  const location = useLocation()
   const navigate = useNavigate()
 
   const [conversations, setConversations] = useState([])
   const [archivedConversations, setArchivedConversations] = useState([])
+  const [acceptedFriends, setAcceptedFriends] = useState([])
+  const [friendSuggestions, setFriendSuggestions] = useState([])
+  const [openingFriendId, setOpeningFriendId] = useState(null)
   const [showArchivedOnly, setShowArchivedOnly] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [searchResults, setSearchResults] = useState([])
@@ -145,6 +151,33 @@ export default function Sidebar({ activeConversationId }) {
   }, [])
 
   useEffect(() => {
+    let active = true
+    friendApi.accepted()
+      .then((res) => {
+        if (active) setAcceptedFriends(res.data || [])
+      })
+      .catch(() => {
+        if (active) setAcceptedFriends([])
+      })
+
+    if (location.pathname === '/friends') {
+      userApi.search('')
+        .then((res) => {
+          if (active) {
+            setFriendSuggestions((res.data || []).filter((candidate) =>
+              !candidate.relationshipStatus || candidate.relationshipStatus === 'REJECTED'
+            ))
+          }
+        })
+        .catch(() => {
+          if (active) setFriendSuggestions([])
+        })
+    }
+
+    return () => { active = false }
+  }, [location.pathname])
+
+  useEffect(() => {
     if (activeConversationId) clearConversationUnread(activeConversationId)
   }, [activeConversationId])
 
@@ -206,20 +239,28 @@ export default function Sidebar({ activeConversationId }) {
   }, [searchTerm])
 
   const openPrivateChat = async (otherUserId) => {
+    setOpeningFriendId(otherUserId)
     try {
       const { data } = await conversationApi.getOrCreatePrivate(otherUserId)
+      if (!data?.conversationId) {
+        throw new Error('Không nhận được mã cuộc trò chuyện')
+      }
       setSearchTerm('')
       setSearchResults([])
       loadConversations()
       navigate(`/chat/${data.conversationId}`)
     } catch (err) {
-      alert(err.response?.data?.message || 'Không thể mở cuộc trò chuyện')
+      const message = err.response?.data?.message || err.message || 'Không thể mở cuộc trò chuyện'
+      alert(message)
+    } finally {
+      setOpeningFriendId(null)
     }
   }
 
   const sendFriendRequest = async (receiverId) => {
     try {
       await friendApi.send(receiverId)
+      setFriendSuggestions((current) => current.filter((candidate) => candidate.userId !== receiverId))
       alert('Đã gửi lời mời kết bạn')
     } catch (err) {
       alert(err.response?.data?.message || 'Không thể gửi lời mời')
@@ -369,8 +410,7 @@ export default function Sidebar({ activeConversationId }) {
               </div>
               {u.friendshipStatus === 'ACCEPTED' ? (
                 <span className="search-friend-status">Đã kết bạn</span>
-<<<<<<< HEAD
-              ) : u.relationshipStatus === 'PENDING' ? (
+              ) : u.relationshipStatus === 'PENDING' || u.friendshipStatus === 'PENDING' ? (
                 <>
                   <span className="search-friend-status">Đã gửi</span>
                   <button type="button" className="icon-btn" title="Nhắn tin" onClick={(event) => {
@@ -380,10 +420,6 @@ export default function Sidebar({ activeConversationId }) {
                     <ChatIcon size={18} />
                   </button>
                 </>
-=======
-              ) : u.friendshipStatus === 'PENDING' ? (
-                <span className="search-friend-status">Đã gửi</span>
->>>>>>> origin/main
               ) : (
                 <>
                   <button
@@ -410,21 +446,75 @@ export default function Sidebar({ activeConversationId }) {
       )}
 
       {/* Real Conversation List */}
-      <div className="conversation-list">
-        {showArchivedOnly ? (
+      <div className={`conversation-list ${location.pathname === '/friends' ? 'friends-sidebar-list' : ''}`}>
+        {location.pathname === '/friends' ? (
+          <>
+            <section className="friends-sidebar-section">
+              <div className="friends-sidebar-heading">Bạn bè ({acceptedFriends.length})</div>
+              {acceptedFriends.length === 0 ? (
+                <div className="sidebar-empty-state" style={{ padding: '12px 10px', textAlign: 'center' }}>
+                  <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Chưa có bạn bè</p>
+                </div>
+              ) : acceptedFriends.map((friend) => {
+                const isSender = String(friend.senderId) === String(user?.userId)
+                const friendId = isSender ? friend.receiverId : friend.senderId
+                const friendName = isSender ? friend.receiverDisplayName : friend.senderDisplayName
+                const friendAvatar = isSender ? friend.receiverAvatar : friend.senderAvatar
+                return (
+                  <div
+                    key={friend.id}
+                    className="conversation-item"
+                    onClick={() => navigate(`/feed/profile/${friendId}`)}
+                    title={`Xem trang cá nhân ${friendName}`}
+                  >
+                    <Avatar src={friendAvatar} name={friendName} size={40} />
+                    <div className="conv-meta">
+                      <div className="conv-name">{friendName}</div>
+                      <div className="conv-last">Đã kết bạn</div>
+                    </div>
+                  </div>
+                )
+              })}
+            </section>
+            <section className="friends-sidebar-section friends-sidebar-suggestions">
+              <div className="friends-sidebar-heading">Gợi ý liên hệ ({friendSuggestions.length})</div>
+              {friendSuggestions.length === 0 ? (
+                <div className="sidebar-empty-state" style={{ padding: '12px 10px', textAlign: 'center' }}>
+                  <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Chưa có gợi ý liên hệ</p>
+                </div>
+              ) : friendSuggestions.map((candidate) => (
+                <div key={candidate.userId} className="conversation-item friend-suggestion-item">
+                  <Avatar src={candidate.avatar} name={candidate.displayName} size={40} />
+                  <div className="conv-meta">
+                    <div className="conv-name">{candidate.displayName}</div>
+                    <div className="conv-last">@{candidate.username}</div>
+                  </div>
+                  <button
+                    type="button"
+                    className="friend-suggestion-add"
+                    onClick={() => sendFriendRequest(candidate.userId)}
+                  >
+                    Kết bạn
+                  </button>
+                </div>
+              ))}
+            </section>
+          </>
+        ) : showArchivedOnly ? (
           archivedConversations.length === 0 ? (
             <div className="sidebar-empty-state" style={{ padding: '20px 14px', textAlign: 'center' }}>
               <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Chưa có đoạn chat lưu trữ</p>
             </div>
           ) : null
-        ) : conversations.length === 0 ? (
+        ) : conversations.length === 0 && acceptedFriends.length === 0 ? (
           <div className="sidebar-empty-state" style={{ padding: '20px 14px', textAlign: 'center' }}>
             <p style={{ fontSize: 13, marginBottom: 8, color: 'var(--text-secondary)' }}>
               Chưa có cuộc trò chuyện nào
             </p>
           </div>
         ) : (
-          conversations.map((c) => {
+          <>
+            {conversations.map((c) => {
             const isActive = String(c.conversationId) === String(activeConversationId)
 
             return (
@@ -485,7 +575,37 @@ export default function Sidebar({ activeConversationId }) {
                 )}
               </div>
             )
-          })
+            })}
+            {acceptedFriends.length > 0 && (
+              <section className="chat-friends-section">
+                <div className="friends-sidebar-heading">Bạn bè ({acceptedFriends.length})</div>
+                {acceptedFriends.map((friend) => {
+                  const isSender = String(friend.senderId) === String(user?.userId)
+                  const friendId = isSender ? friend.receiverId : friend.senderId
+                  const friendName = isSender ? friend.receiverDisplayName : friend.senderDisplayName
+                  const friendAvatar = isSender ? friend.receiverAvatar : friend.senderAvatar
+                  return (
+                    <button
+                      type="button"
+                      key={friend.id}
+                      className="conversation-item friend-chat-entry"
+                      disabled={openingFriendId !== null}
+                      onClick={() => openPrivateChat(friendId)}
+                      title={`Mở cuộc trò chuyện với ${friendName}`}
+                    >
+                      <Avatar src={friendAvatar} name={friendName} size={40} />
+                      <div className="conv-meta">
+                        <div className="conv-name">{friendName}</div>
+                        <div className="conv-last">
+                          {String(openingFriendId) === String(friendId) ? 'Đang mở cuộc trò chuyện...' : 'Bạn bè · Bấm để nhắn tin'}
+                        </div>
+                      </div>
+                    </button>
+                  )
+                })}
+              </section>
+            )}
+          </>
         )}
 
         {archivedConversations.length > 0 && (
