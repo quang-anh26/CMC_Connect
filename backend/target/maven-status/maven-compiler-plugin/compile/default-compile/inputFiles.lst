@@ -26,10 +26,14 @@ D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\dto\auth\Regis
 D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\dto\chat\AttachmentResponse.java
 D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\dto\chat\ConversationResponse.java
 D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\dto\chat\CreateGroupRequest.java
+D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\dto\chat\MessageReactionRequest.java
+D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\dto\chat\MessageReactionResponse.java
+D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\dto\chat\MessageReactionUpdate.java
 D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\dto\chat\MessageRequest.java
 D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\dto\chat\MessageResponse.java
 D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\dto\chat\SeenRequest.java
 D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\dto\chat\TypingEvent.java
+D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\dto\chat\UpdateConversationDetailsRequest.java
 D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\dto\event\EventAttendanceRequest.java
 D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\dto\event\EventAttendeeResponse.java
 D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\dto\event\EventResponse.java
@@ -94,6 +98,7 @@ D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\entity\Marketp
 D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\entity\MarketplaceSearchHistory.java
 D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\entity\MarketplaceSellerFollow.java
 D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\entity\Message.java
+D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\entity\MessageReaction.java
 D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\entity\MessageStatus.java
 D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\entity\RefreshToken.java
 D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\entity\SavedCollection.java
@@ -139,6 +144,7 @@ D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\repository\Mar
 D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\repository\MarketplaceSavedRepository.java
 D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\repository\MarketplaceSearchHistoryRepository.java
 D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\repository\MarketplaceSellerFollowRepository.java
+D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\repository\MessageReactionRepository.java
 D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\repository\MessageRepository.java
 D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\repository\MessageStatusRepository.java
 D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\repository\RefreshTokenRepository.java

@@ -1067,6 +1067,54 @@ input, textarea {
   padding: 4px 8px;
 }
 
+.friends-sidebar-list {
+  padding-top: 0;
+}
+
+.friends-sidebar-heading {
+  padding: 8px 10px 6px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.friends-sidebar-section + .friends-sidebar-section {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.chat-friends-section {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.friend-chat-entry {
+  width: 100%;
+  color: inherit;
+  text-align: left;
+}
+
+.friend-chat-entry:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.friend-suggestion-item {
+  gap: 8px;
+}
+
+.friend-suggestion-add {
+  flex-shrink: 0;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: var(--online);
+  color: #052e16;
+  font-size: 11px;
+  font-weight: 600;
+}
+
 .conversation-item {
   display: flex;
   align-items: center;
@@ -3207,7 +3255,6 @@ table.admin-table th {
 [data-theme="light"] .nav-item { color: #c0cce3; }
 [data-theme="light"] .nav-item:hover { background: rgba(255, 255, 255, .1); color: #fff; }
 [data-theme="light"] .nav-item.active { background: linear-gradient(110deg, #386fd0, #3157aa); color: #fff; }
-[data-theme="light"] .nav-chat-link { order: 8; }
 [data-theme="light"] .nav-archive-button { order: 9; }
 [data-theme="light"] .nav-rail-footer { border-color: rgba(210, 224, 255, .16); }
 [data-theme="light"] .status-text,
