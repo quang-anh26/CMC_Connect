@@ -59,9 +59,9 @@ public class FeedService {
     }
 
     @Transactional(readOnly = true)
-    public Page<FeedPostResponse> searchForExplore(String keyword, boolean videos, boolean popular,
-                                                   boolean savedOnly, boolean followingOnly,
-                                                   Long viewerId, int page, int size) {
+    public Page<FeedPostResponse> searchPosts(String keyword, boolean videos, boolean popular,
+                                              boolean savedOnly, boolean followingOnly,
+                                              Long viewerId, int page, int size) {
         String query = keyword == null ? "" : keyword.trim();
         int safePage = Math.max(page, 0);
         int safeSize = Math.max(1, Math.min(size, 30));
@@ -71,7 +71,7 @@ public class FeedService {
                 viewerId, FriendRequestStatus.ACCEPTED, viewerId, FriendRequestStatus.ACCEPTED)
             .forEach(request -> friendIds.add(request.getSender().getUserId().equals(viewerId)
                 ? request.getReceiver().getUserId() : request.getSender().getUserId()));
-        return postRepository.searchForExplore(query, videos, popular, savedOnly, followingOnly,
+        return postRepository.searchPosts(query, videos, popular, savedOnly, followingOnly,
                 viewerId, friendIds, PageRequest.of(safePage, safeSize))
                 .map(post -> toResponse(post, viewerId));
     }

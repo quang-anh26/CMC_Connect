@@ -44,7 +44,7 @@ public class VideoService {
         boolean popular = sort == null || !"LATEST".equalsIgnoreCase(sort);
         boolean savedOnly = "SAVED".equalsIgnoreCase(filter);
         boolean followingOnly = "FOLLOWING".equalsIgnoreCase(filter);
-        return feedService.searchForExplore(keyword, true, popular, savedOnly, followingOnly, viewerId, page, size)
+        return feedService.searchPosts(keyword, true, popular, savedOnly, followingOnly, viewerId, page, size)
                 .map(response -> card(response, viewerId));
     }
 

@@ -8,11 +8,10 @@ const types = [
   ['ALL', 'Tất cả'],
   ['POST', 'Bài viết'],
   ['VIDEO', 'Video'],
-  ['MARKETPLACE', 'Sản phẩm'],
   ['LINK', 'Link'],
 ]
 
-const typeLabel = (type) => type === 'MARKETPLACE' ? 'Sản phẩm' : type === 'GROUP_POST' ? 'Bài viết nhóm' : type === 'VIDEO' ? 'Video' : type === 'LINK' ? 'Liên kết' : 'Bài viết'
+const typeLabel = (type) => type === 'GROUP_POST' ? 'Bài viết nhóm' : type === 'VIDEO' ? 'Video' : type === 'LINK' ? 'Liên kết' : 'Bài viết'
 const savedDate = (value) => value ? new Date(value).toLocaleString('vi-VN', { dateStyle: 'medium', timeStyle: 'short' }) : ''
 
 export default function SavedPage() {
@@ -161,7 +160,7 @@ export default function SavedPage() {
             <h1>Đã lưu</h1>
             <p>Nội dung bạn muốn xem lại.</p>
             <nav aria-label="Bộ lọc nội dung đã lưu">
-              {types.map(([type, label]) => <button key={type} type="button" className={!collectionId && selectedType === type ? 'active' : ''} onClick={() => { setCollectionId(null); setSelectedType(type) }}><span>{type === 'ALL' ? '▣' : type === 'VIDEO' ? '▷' : type === 'MARKETPLACE' ? '▤' : type === 'LINK' ? '↗' : '▧'}</span>{label}</button>)}
+              {types.map(([type, label]) => <button key={type} type="button" className={!collectionId && selectedType === type ? 'active' : ''} onClick={() => { setCollectionId(null); setSelectedType(type) }}><span>{type === 'ALL' ? '▣' : type === 'VIDEO' ? '▷' : type === 'LINK' ? '↗' : '▧'}</span>{label}</button>)}
             </nav>
             <div className="saved-collections-heading"><strong>Bộ sưu tập</strong><button type="button" disabled={collectionBusy} onClick={createCollection} aria-label="Tạo bộ sưu tập" title="Tạo bộ sưu tập">＋</button></div>
             <button type="button" className={`saved-all-collections ${!collectionId ? 'active' : ''}`} onClick={() => setCollectionId(null)}>Tất cả nội dung đã lưu</button>
@@ -173,18 +172,17 @@ export default function SavedPage() {
             </div>
           </aside>
           <section className="saved-main">
-            <header className="saved-heading"><div><span className="saved-eyebrow">KHO LƯU TRỮ CỦA BẠN</span><h2>{title}</h2><p>Lưu lại bài viết, video, sản phẩm và liên kết để xem sau.</p></div>
+            <header className="saved-heading"><div><span className="saved-eyebrow">KHO LƯU TRỮ CỦA BẠN</span><h2>{title}</h2><p>Lưu lại bài viết, video và liên kết để xem sau.</p></div>
               <label>Sắp xếp<select value={sort} onChange={(event) => setSort(event.target.value)}><option value="NEWEST">Mới lưu nhất</option><option value="OLDEST">Cũ nhất</option></select></label>
             </header>
             <div className="saved-type-tabs">{types.map(([type, label]) => <button type="button" key={type} className={selectedType === type ? 'active' : ''} onClick={() => setSelectedType(type)}>{label}</button>)}</div>
             {error && <div className="saved-state saved-error"><strong>Có lỗi xảy ra</strong><span>{error}</span><button type="button" onClick={() => window.location.reload()}>Tải lại</button></div>}
             {loading && <div className="saved-list">{Array.from({ length: 4 }, (_, index) => <div className="saved-skeleton" key={index} />)}</div>}
-            {!loading && !error && items.length === 0 && <div className="saved-state"><span className="saved-empty-icon">▣</span><strong>{query ? 'Không tìm thấy nội dung' : collectionId ? 'Bộ sưu tập này đang trống' : 'Chưa có nội dung đã lưu'}</strong><span>{query ? 'Thử tìm bằng từ khóa khác.' : 'Khi lưu bài viết, video, sản phẩm hoặc link, nội dung sẽ xuất hiện ở đây.'}</span></div>}
+            {!loading && !error && items.length === 0 && <div className="saved-state"><span className="saved-empty-icon">▣</span><strong>{query ? 'Không tìm thấy nội dung' : collectionId ? 'Bộ sưu tập này đang trống' : 'Chưa có nội dung đã lưu'}</strong><span>{query ? 'Thử tìm bằng từ khóa khác.' : 'Khi lưu bài viết, video hoặc link, nội dung sẽ xuất hiện ở đây.'}</span></div>}
             {!loading && !error && items.length > 0 && <div className="saved-list">{items.map((item) => <article className="saved-card" key={item.savedItemId}>
               <div className="saved-card-head"><Avatar src={item.authorAvatar} name={item.authorName} size={40} /><div className="saved-author"><strong>{item.authorName || 'Nội dung đã lưu'}</strong><span>Đã lưu {savedDate(item.savedAt)} · {typeLabel(item.contentType)}</span></div><button type="button" className="saved-unsave" onClick={() => unsave(item)}>Bỏ lưu</button></div>
               <div className="saved-card-body">
                 <p className="saved-card-title">{item.title || item.description}</p>
-                {item.contentType === 'MARKETPLACE' && item.description && <p className="saved-description">{item.description}</p>}
                 {item.previewUrl && (item.contentType === 'VIDEO'
                   ? <div className="saved-video-preview">▷ <span>Video đã lưu</span></div>
                   : <img className="saved-preview-image" src={videoApi.resolveMediaUrl(item.previewUrl)} alt={item.title || 'Nội dung đã lưu'} loading="lazy" />)}

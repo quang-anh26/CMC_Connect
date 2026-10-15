@@ -248,7 +248,7 @@ export default function EventsPage() {
         ) : (
           <>
             <section className="events-hero">
-              <div><span className="events-eyebrow">KAPATALK · KẾT NỐI NGOÀI ĐỜI</span><h1>Khám phá sự kiện</h1><p>Tìm hoạt động thú vị, gặp gỡ bạn bè và cùng tạo nên những kỷ niệm mới.</p></div>
+              <div><span className="events-eyebrow">KAPATALK · KẾT NỐI NGOÀI ĐỜI</span><h1>Sự kiện nổi bật</h1><p>Tìm hoạt động thú vị, gặp gỡ bạn bè và cùng tạo nên những kỷ niệm mới.</p></div>
               <button type="button" className="event-create-button" onClick={openCreateForm}><span>＋</span> Tạo sự kiện</button>
             </section>
             <nav className="event-filter-tabs" aria-label="Lọc sự kiện">

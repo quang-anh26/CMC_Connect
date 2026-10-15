@@ -11,7 +11,6 @@ import {
   ChatIcon,
   FeedIcon,
   FriendsIcon,
-  SearchIcon,
   FeedVideoIcon,
   BellIcon,
   CalendarIcon,
@@ -153,14 +152,8 @@ export default function NavRail() {
           <NavLink to="/groups" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} title="Nhóm">
             <span className="nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="7" r="3.2"/><circle cx="4.8" cy="9" r="2.4"/><circle cx="19.2" cy="9" r="2.4"/><path d="M6.4 18.7v-1.1a5.6 5.6 0 0 1 11.2 0v1.1c0 .8-.6 1.4-1.4 1.4H7.8c-.8 0-1.4-.6-1.4-1.4Z"/><path d="M1.1 17.7v-.8a3.8 3.8 0 0 1 4-3.8c.6 0 1.2.1 1.7.4a7 7 0 0 0-1.8 4.7H2.5c-.8 0-1.4-.2-1.4-.5ZM22.9 17.7v-.8a3.8 3.8 0 0 0-4-3.8c-.6 0-1.2.1-1.7.4a7 7 0 0 1 1.8 4.7h2.5c.8 0 1.4-.2 1.4-.5Z"/></svg></span><span className="nav-label">Nhóm</span>
           </NavLink>
-          <NavLink to="/explore" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} title="Khám phá">
-            <span className="nav-icon"><SearchIcon size={20} /></span><span className="nav-label">Khám phá</span>
-          </NavLink>
           <NavLink to="/video" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} title="Video">
             <span className="nav-icon"><FeedVideoIcon size={20} /></span><span className="nav-label">Video</span>
-          </NavLink>
-          <NavLink to="/marketplace" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} title="Marketplace">
-            <span className="nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9h18l-1.5-6h-15L3 9Z"/><path d="M5 9v12h14V9M9 21v-7h6v7"/><path d="M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0"/></svg></span><span className="nav-label">Marketplace</span>
           </NavLink>
           <NavLink to="/saved" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} title="Đã lưu">
             <span className="nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 4.75A1.75 1.75 0 0 1 7.75 3h8.5A1.75 1.75 0 0 1 18 4.75V21l-6-4-6 4V4.75Z"/></svg></span><span className="nav-label">Đã lưu</span>
@@ -187,8 +180,8 @@ export default function NavRail() {
         {/* Footer: Real user profile & status - clicking opens Settings modal */}
         <div className="nav-shortcuts">
           <div className="nav-shortcuts-title">Lối tắt của bạn</div>
-          <button type="button" className="nav-shortcut" onClick={() => navigate('/groups')} title="Khám phá nhóm">
-            <span className="shortcut-avatar shortcut-avatar-1">+</span><span>Khám phá nhóm</span>
+          <button type="button" className="nav-shortcut" onClick={() => navigate('/groups')} title="Xem nhóm">
+            <span className="shortcut-avatar shortcut-avatar-1">+</span><span>Xem nhóm</span>
           </button>
         </div>
         <div className="nav-rail-footer">
