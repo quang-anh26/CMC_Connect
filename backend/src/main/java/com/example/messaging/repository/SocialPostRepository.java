@@ -31,7 +31,7 @@ public interface SocialPostRepository extends JpaRepository<SocialPost, Long> {
                     "(:savedOnly = false OR EXISTS (SELECT s.savedItemId FROM SavedItem s WHERE s.contentType = 'VIDEO' AND s.contentId = p.postId AND s.user.userId = :viewerId)) AND " +
                     "(:followingOnly = false OR EXISTS (SELECT f.id FROM VideoFollow f WHERE f.creator.userId = p.author.userId AND f.follower.userId = :viewerId)) AND " +
                     "(:popular = true OR :popular = false)")
-    Page<SocialPost> searchForExplore(@Param("keyword") String keyword,
+    Page<SocialPost> searchPosts(@Param("keyword") String keyword,
                                       @Param("videos") boolean videos,
                                       @Param("popular") boolean popular,
                                       @Param("savedOnly") boolean savedOnly,

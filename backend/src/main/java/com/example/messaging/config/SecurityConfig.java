@@ -21,16 +21,11 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.List;
-import java.util.Locale;
-import java.util.Set;
 
 @Configuration
 @EnableWebSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
-    private static final Set<String> VIDEO_EXTENSIONS = Set.of(
-            ".mp4", ".webm", ".ogg", ".mov", ".m4v", ".avi", ".mkv", ".mpeg", ".mpg", ".3gp");
-
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final UserDetailsService userDetailsService;
 
@@ -65,10 +60,8 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                     .requestMatchers("/api/auth/**").permitAll()
                     .requestMatchers("/ws/**").permitAll()
-                        .requestMatchers(request -> {
-                            String path = request.getRequestURI().toLowerCase(Locale.ROOT);
-                            return path.startsWith("/uploads/") && VIDEO_EXTENSIONS.stream().anyMatch(path::endsWith);
-                        }).denyAll()
+                    // Media elements load their src without an Authorization header, so
+                    // uploaded files must be reachable without a JWT as well.
                     .requestMatchers("/uploads/**").permitAll()
                     .requestMatchers("/api/videos/*/media").permitAll()
                     .requestMatchers("/api/admin/**").hasRole("ADMIN")

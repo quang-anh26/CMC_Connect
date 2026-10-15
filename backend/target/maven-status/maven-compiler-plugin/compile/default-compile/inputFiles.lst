@@ -6,11 +6,9 @@ D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\controller\Aut
 D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\controller\BlockController.java
 D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\controller\ConversationController.java
 D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\controller\EventController.java
-D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\controller\ExploreController.java
 D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\controller\FeedController.java
 D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\controller\FriendController.java
 D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\controller\GroupController.java
-D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\controller\MarketplaceController.java
 D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\controller\MessageController.java
 D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\controller\SavedController.java
 D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\controller\StoryController.java
@@ -49,9 +47,6 @@ D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\dto\feed\Story
 D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\dto\friend\FriendRequestResponse.java
 D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\dto\friend\SendFriendRequestRequest.java
 D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\dto\group\GroupRequests.java
-D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\dto\marketplace\MarketplaceListingResponse.java
-D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\dto\marketplace\MarketplaceReportRequest.java
-D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\dto\marketplace\MarketplaceUpsertRequest.java
 D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\dto\saved\SavedCollectionRequest.java
 D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\dto\saved\SavedCollectionResponse.java
 D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\dto\saved\SavedItemResponse.java
@@ -91,12 +86,6 @@ D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\entity\GroupPo
 D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\entity\GroupPost.java
 D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\entity\GroupReaction.java
 D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\entity\GroupReport.java
-D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\entity\MarketplaceListing.java
-D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\entity\MarketplaceListingImage.java
-D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\entity\MarketplaceReport.java
-D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\entity\MarketplaceSaved.java
-D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\entity\MarketplaceSearchHistory.java
-D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\entity\MarketplaceSellerFollow.java
 D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\entity\Message.java
 D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\entity\MessageReaction.java
 D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\entity\MessageStatus.java
@@ -139,11 +128,6 @@ D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\repository\Gro
 D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\repository\GroupPostRepository.java
 D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\repository\GroupReactionRepository.java
 D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\repository\GroupReportRepository.java
-D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\repository\MarketplaceListingRepository.java
-D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\repository\MarketplaceReportRepository.java
-D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\repository\MarketplaceSavedRepository.java
-D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\repository\MarketplaceSearchHistoryRepository.java
-D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\repository\MarketplaceSellerFollowRepository.java
 D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\repository\MessageReactionRepository.java
 D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\repository\MessageRepository.java
 D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\repository\MessageStatusRepository.java
@@ -176,7 +160,6 @@ D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\service\FeedSe
 D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\service\FileStorageService.java
 D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\service\FriendService.java
 D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\service\GroupService.java
-D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\service\MarketplaceService.java
 D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\service\MessageService.java
 D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\service\RefreshTokenService.java
 D:\CNPM\BTL_CNPhanMem\backend\src\main\java\com\example\messaging\service\SavedService.java

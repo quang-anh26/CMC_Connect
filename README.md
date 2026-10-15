@@ -15,12 +15,6 @@ Các mục "Nên có" / "Nếu còn thời gian" trong bản kế hoạch (emoji
 đẩy, group chat nâng cao, v.v.) **chưa** được triển khai ở bản này — nhắn để mình làm
 tiếp khi cần.
 
-### Marketplace
-
-Marketplace có tại `/marketplace`: tìm kiếm và lọc tin đăng, xem sản phẩm, đăng/sửa/xóa
-tin, lưu sản phẩm, theo dõi người bán, chia sẻ liên kết, nhắn tin trực tiếp và báo cáo.
-Ảnh được tải lên nhiều tệp (tối đa 8 ảnh/tin); chỉ chủ tin mới được sửa, xóa hoặc đánh
-dấu đã bán. Chưa tích hợp thanh toán hoặc vận chuyển.
 
 ---
 
@@ -42,7 +36,6 @@ chạy `backend/database/schema.sql` để tạo các bảng nền.
 Muốn có dữ liệu mẫu để test ngay, chạy tiếp `backend/database/seed-data.sql` — script
 này tạo sẵn 3 tài khoản (`admin` / `alice` / `bob`, mật khẩu đều là `Password123`),
 1 quan hệ bạn bè đã accepted, và 1 cuộc trò chuyện có sẵn 2 tin nhắn giữa alice & bob.
-Các bảng Marketplace được Hibernate tạo/cập nhật khi backend khởi động (`ddl-auto: update`).
 
 **Cách B — Chưa có SQL Server:** dùng Docker để dựng nhanh:
 

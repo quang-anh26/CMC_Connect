@@ -16,7 +16,7 @@ import java.util.regex.Pattern;
 @Service
 @RequiredArgsConstructor
 public class SavedService {
-    private static final Set<String> TYPES = Set.of("POST", "VIDEO", "MARKETPLACE", "GROUP_POST", "LINK");
+    private static final Set<String> TYPES = Set.of("POST", "VIDEO", "GROUP_POST", "LINK");
     private static final Pattern LINK_PATTERN = Pattern.compile("https?://[^\\s<>()]+", Pattern.CASE_INSENSITIVE);
 
     private final SavedItemRepository savedItemRepository;
@@ -27,9 +27,7 @@ public class SavedService {
     private final SocialGroupRepository groupRepository;
     private final GroupMemberRepository groupMemberRepository;
     private final GroupBanRepository groupBanRepository;
-    private final MarketplaceListingRepository marketplaceListingRepository;
     private final VideoSavedRepository legacyVideoSavedRepository;
-    private final MarketplaceSavedRepository legacyMarketplaceSavedRepository;
     private final UserRepository userRepository;
     private final FeedService feedService;
 
@@ -134,14 +132,6 @@ public class SavedService {
             }
             legacyVideoSavedRepository.delete(legacy);
         }
-        for (MarketplaceSaved legacy : legacyMarketplaceSavedRepository.findByUserUserIdOrderBySavedAtDesc(userId)) {
-            Long listingId = legacy.getListing().getListingId();
-            if (!savedItemRepository.existsByUserUserIdAndContentTypeAndContentId(userId, "MARKETPLACE", listingId)) {
-                savedItemRepository.save(SavedItem.builder().user(user).contentType("MARKETPLACE")
-                        .contentId(listingId).savedAt(legacy.getSavedAt()).build());
-            }
-            legacyMarketplaceSavedRepository.delete(legacy);
-        }
     }
 
     private void addToCollection(SavedItem item, Long collectionId, Long userId) {
@@ -164,7 +154,6 @@ public class SavedService {
 
     private String normalizeType(String type) {
         String normalized = type == null ? "" : type.trim().toUpperCase(Locale.ROOT);
-        if ("PRODUCT".equals(normalized)) normalized = "MARKETPLACE";
         if (!TYPES.contains(normalized)) throw ApiException.badRequest("Loại nội dung đã lưu không hợp lệ");
         return normalized;
     }
@@ -182,8 +171,6 @@ public class SavedService {
                 if ("POST".equals(type) && "VIDEO".equalsIgnoreCase(post.getMediaType()))
                     throw ApiException.badRequest("Video cần được lưu theo loại video");
             }
-            case "MARKETPLACE" -> marketplaceListingRepository.findReadableById(contentId, userId)
-                    .orElseThrow(() -> ApiException.notFound("Không tìm thấy sản phẩm"));
             case "GROUP_POST" -> {
                 GroupPost post = groupPostRepository.findById(contentId)
                         .orElseThrow(() -> ApiException.notFound("Không tìm thấy bài viết nhóm"));
@@ -234,17 +221,6 @@ public class SavedService {
                         previewUrl = post.getMediaUrl();
                         sourcePath = "/groups/" + post.getGroup().getGroupId();
                     } else description = "Bài viết nhóm không còn tồn tại.";
-                }
-                case "MARKETPLACE" -> {
-                    MarketplaceListing listing = marketplaceListingRepository.findReadableById(item.getContentId(), userId).orElse(null);
-                    if (listing != null) {
-                        title = listing.getTitle();
-                        description = listing.getDescription();
-                        authorName = displayName(listing.getSeller());
-                        avatar = listing.getSeller().getAvatar();
-                        previewUrl = listing.getImages().isEmpty() ? null : listing.getImages().get(0).getImageUrl();
-                        sourcePath = "/marketplace/" + listing.getListingId();
-                    } else description = "Sản phẩm không còn khả dụng.";
                 }
                 default -> description = "Nội dung không còn khả dụng.";
         }

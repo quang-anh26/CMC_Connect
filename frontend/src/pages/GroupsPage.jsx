@@ -77,7 +77,7 @@ export default function GroupsPage() {
       <div className="groups-toolbar">
         <label className="groups-search"><span aria-hidden="true">⌕</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm nhóm theo tên" aria-label="Tìm nhóm" /></label>
         <div className="groups-tabs" role="tablist" aria-label="Danh sách nhóm">
-          <button type="button" role="tab" aria-selected={tab === 'discover'} className={tab === 'discover' ? 'selected' : ''} onClick={() => setTab('discover')}>Khám phá</button>
+          <button type="button" role="tab" aria-selected={tab === 'discover'} className={tab === 'discover' ? 'selected' : ''} onClick={() => setTab('discover')}>Gợi ý</button>
           <button type="button" role="tab" aria-selected={tab === 'mine'} className={tab === 'mine' ? 'selected' : ''} onClick={() => setTab('mine')}>Nhóm của bạn</button>
         </div>
       </div>
@@ -102,7 +102,7 @@ export default function GroupsPage() {
         <div className="group-section-heading"><div><span className="groups-kicker">{tab === 'mine' ? 'ĐANG THAM GIA' : 'CỘNG ĐỒNG MỞ'}</span><h2>{tab === 'mine' ? 'Nhóm của bạn' : 'Có thể bạn quan tâm'}</h2></div><span className="group-result-count">{groups.length} nhóm</span></div>
         {loading ? <div className="groups-loading"><span className="group-spinner" />Đang tải nhóm...</div>
           : error ? <div className="groups-state groups-error"><strong>Không tải được nhóm</strong><span>{error}</span><button type="button" onClick={loadGroups}>Thử lại</button></div>
-            : groups.length === 0 ? <div className="groups-state"><span className="group-empty-mark" aria-hidden="true">◌</span><strong>{tab === 'mine' ? 'Bạn chưa tham gia nhóm nào' : 'Chưa tìm thấy nhóm phù hợp'}</strong><span>{tab === 'mine' ? 'Khám phá cộng đồng hoặc tạo nhóm đầu tiên.' : 'Thử từ khóa khác hoặc tạo một cộng đồng mới.'}</span></div>
+            : groups.length === 0 ? <div className="groups-state"><span className="group-empty-mark" aria-hidden="true">◌</span><strong>{tab === 'mine' ? 'Bạn chưa tham gia nhóm nào' : 'Chưa tìm thấy nhóm phù hợp'}</strong><span>{tab === 'mine' ? 'Tham gia cộng đồng hoặc tạo nhóm đầu tiên.' : 'Thử từ khóa khác hoặc tạo một cộng đồng mới.'}</span></div>
               : <div className="group-list">{groups.map((group) => <article className="group-list-item" key={group.groupId}>
                 <Link className="group-list-cover" to={`/groups/${group.groupId}`} style={group.coverImage ? { backgroundImage: `linear-gradient(0deg, rgba(9, 17, 23, .18), rgba(9, 17, 23, .04)), url("${group.coverImage}")` } : undefined} aria-label={`Mở nhóm ${group.name}`}>
                   {group.avatar ? <img src={group.avatar} alt="" /> : <span>{group.name.slice(0, 1).toUpperCase()}</span>}
