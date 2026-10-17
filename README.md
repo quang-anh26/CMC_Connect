@@ -92,6 +92,20 @@ npm run dev
 - Mở `http://localhost:5173`.
 - `vite.config.js` đã có sẵn proxy `/api` và `/ws` sang `http://localhost:8080` khi chạy
   dev, nên bạn cũng có thể để `VITE_API_BASE_URL` trống nếu chạy đúng 2 cổng mặc định.
+- Để gọi thoại/video giữa hai thiết bị cùng mạng Wi-Fi/LAN:
+  1. Trong `frontend/.env`, bật `VITE_HTTPS=true`, rồi khởi động lại Vite bằng `npm run dev`.
+     HTTPS cần thiết vì trình duyệt chỉ cấp quyền camera/microphone trên secure context.
+  2. Trên máy chạy ứng dụng, lấy địa chỉ IPv4 bằng `ipconfig`; trên thiết bị còn lại mở
+     `https://<IPv4-của-máy-chạy-app>:5173`. Chấp nhận cảnh báo chứng chỉ tự ký của môi
+     trường phát triển nếu trình duyệt hiển thị.
+  3. Cho phép Node.js/Vite qua Windows Firewall trên mạng Private nếu được hỏi, và đảm
+     bảo hai thiết bị cùng mạng. Đăng nhập hai tài khoản riêng rồi bắt đầu gọi.
+  4. Khi chạy HTTPS, mở frontend bằng `https://localhost:5173` trên máy chủ thay vì HTTP.
+
+  Backend và SQL Server vẫn chạy trên máy chủ; Vite chuyển tiếp `/api`, `/ws` và `/uploads`
+  nội bộ nên không cần mở cổng backend/database ra mạng. Tính năng gọi đang dùng STUN;
+  mạng nội bộ thông thường không cần TURN, nhưng mạng Wi-Fi bị cô lập thiết bị hoặc
+  firewall chặn lưu lượng ngang hàng có thể vẫn không kết nối được.
 
 ## 5. Cấu trúc thư mục chính
 

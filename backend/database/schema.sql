@@ -76,6 +76,7 @@ CREATE TABLE dbo.CONVERSATION (
     avatar          VARCHAR(500)  NULL,           -- GROUP only
     nickname        NVARCHAR(50)  NULL,
     topic           NVARCHAR(255) NULL,
+    background_image VARCHAR(500) NULL,
     message_request_accepted BIT  NOT NULL DEFAULT 0,
     message_request_sender_id BIGINT NULL,
     created_at      DATETIME2     NOT NULL DEFAULT SYSUTCDATETIME()

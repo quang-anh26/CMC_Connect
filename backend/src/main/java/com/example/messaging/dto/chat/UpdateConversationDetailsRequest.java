@@ -14,4 +14,7 @@ public class UpdateConversationDetailsRequest {
 
     @Size(max = 255)
     private String topic;
+
+    @Size(max = 500)
+    private String backgroundImage;
 }

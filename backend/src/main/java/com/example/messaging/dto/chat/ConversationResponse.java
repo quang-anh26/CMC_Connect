@@ -16,6 +16,7 @@ public class ConversationResponse {
     private String avatar;     // group avatar, or the other user's avatar for PRIVATE
     private String nickname;
     private String topic;
+    private String backgroundImage;
     private Long currentUserId;
     private String currentUserDisplayName;
     private String otherUserDisplayName;
@@ -30,4 +31,6 @@ public class ConversationResponse {
     private boolean messageRequestPending;
     private boolean otherUserOnline; // only meaningful for PRIVATE
     private LocalDateTime otherUserLastSeenAt;
+    private boolean blockedByCurrentUser;
+    private boolean blockedByOther;
 }

@@ -29,6 +29,17 @@ export function SocketProvider({ children }) {
       onConnect: () => {
         setConnected(true)
         client.subscribe('/user/queue/call', (message) => setCallSignal(JSON.parse(message.body)))
+        client.subscribe('/user/queue/errors', (message) => {
+          const error = JSON.parse(message.body)
+          window.dispatchEvent(new CustomEvent('kapatalk-server-error', {
+            detail: error.message || 'Không thể thực hiện thao tác.',
+          }))
+        })
+        client.subscribe('/user/queue/block-status', (message) => {
+          window.dispatchEvent(new CustomEvent('kapatalk-block-status-changed', {
+            detail: JSON.parse(message.body),
+          }))
+        })
       },
       onDisconnect: () => {
         setConnected(false)

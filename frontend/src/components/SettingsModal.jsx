@@ -296,6 +296,7 @@ export default function SettingsModal({ isOpen, onClose }) {
                     <span className={`custom-radio ${themeMode === 'auto' ? 'selected' : ''}`} />
                   </label>
                 </div>
+
               </div>
 
               {/* Section 4: Quản lý khác */}

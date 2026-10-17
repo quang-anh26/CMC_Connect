@@ -37,6 +37,7 @@ public class ConversationService {
     private final MessageStatusRepository messageStatusRepository;
     private final FriendRequestRepository friendRequestRepository;
     private final UserService userService;
+    private final BlockService blockService;
 
     /**
      * Chat 1-1: reuse existing PRIVATE conversation between the two users if one exists,
@@ -148,17 +149,12 @@ public class ConversationService {
         }
     }
 
-    /** List all conversations for the sidebar, newest activity first, with unread badge. */
+    /** List conversations with messages for the sidebar, newest message first. */
     public List<ConversationResponse> listForUser(Long userId) {
         return conversationRepository.findActiveByMemberUserId(userId).stream()
                 .map(c -> toResponse(c, userId))
-                .filter(response -> !response.isMessageRequestPending())
-                .sorted((a, b) -> {
-                    if (a.isNewFriend() != b.isNewFriend()) return a.isNewFriend() ? -1 : 1;
-                    if (a.getLastMessageAt() == null) return b.getLastMessageAt() == null ? 0 : 1;
-                    if (b.getLastMessageAt() == null) return -1;
-                    return b.getLastMessageAt().compareTo(a.getLastMessageAt());
-                })
+                .filter(response -> response.getLastMessageAt() != null)
+                .sorted((a, b) -> b.getLastMessageAt().compareTo(a.getLastMessageAt()))
                 .collect(Collectors.toList());
     }
 
@@ -177,11 +173,8 @@ public class ConversationService {
     public List<ConversationResponse> listArchivedForUser(Long userId) {
         return conversationRepository.findArchivedByMemberUserId(userId).stream()
                 .map(c -> toResponse(c, userId))
-                .sorted((a, b) -> {
-                    if (a.getLastMessageAt() == null) return 1;
-                    if (b.getLastMessageAt() == null) return -1;
-                    return b.getLastMessageAt().compareTo(a.getLastMessageAt());
-                })
+                .filter(response -> response.getLastMessageAt() != null)
+                .sorted((a, b) -> b.getLastMessageAt().compareTo(a.getLastMessageAt()))
                 .collect(Collectors.toList());
     }
 
@@ -217,6 +210,9 @@ public class ConversationService {
             assertMember(conversationId, userId);
             conversation.setTopic(normalizeDetail(request.getTopic()));
         }
+        if (request.getBackgroundImage() != null) {
+            conversation.setBackgroundImage(normalizeDetail(request.getBackgroundImage()));
+        }
         conversationRepository.save(conversation);
         return toResponse(conversation, userId);
     }
@@ -235,6 +231,8 @@ public class ConversationService {
         String otherNickname = null;
         boolean otherOnline = false;
         java.time.LocalDateTime otherLastSeenAt = null;
+        boolean blockedByCurrentUser = false;
+        boolean blockedByOther = false;
         ConversationMember currentMember = conversation.getMembers().stream()
             .filter(m -> m.getUser().getUserId().equals(viewerUserId))
             .findFirst()
@@ -256,6 +254,8 @@ public class ConversationService {
                 otherUsername = otherUser.getUsername();
                 otherOnline = otherUser.isOnline();
                 otherLastSeenAt = otherUser.getLastSeenAt();
+                blockedByCurrentUser = blockService.isBlocked(viewerUserId, otherUserId);
+                blockedByOther = blockService.isBlocked(otherUserId, viewerUserId);
             }
         }
 
@@ -280,6 +280,7 @@ public class ConversationService {
                 .avatar(avatar)
                 .nickname(otherNickname != null ? otherNickname : conversation.getNickname())
                 .topic(conversation.getTopic())
+                .backgroundImage(conversation.getBackgroundImage())
                 .currentUserId(viewerUserId)
                 .currentUserDisplayName(currentMember != null ? currentMember.getUser().getDisplayName() : null)
                 .otherUserDisplayName(otherDisplayName)
@@ -294,6 +295,8 @@ public class ConversationService {
                 .messageRequestPending(currentMember != null && currentMember.isMessageRequestPending())
                 .otherUserOnline(otherOnline)
                 .otherUserLastSeenAt(otherLastSeenAt)
+                .blockedByCurrentUser(blockedByCurrentUser)
+                .blockedByOther(blockedByOther)
                 .build();
     }
 

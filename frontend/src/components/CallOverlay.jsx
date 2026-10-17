@@ -84,7 +84,7 @@ export default function CallOverlay({ conversationInfo, visible, onClose }) {
     } catch (err) {
       cleanup()
       setError(!window.isSecureContext
-        ? 'Cuộc gọi cần HTTPS để dùng camera/micro trên điện thoại.'
+        ? 'Cuộc gọi cần HTTPS để trình duyệt cho phép dùng camera/micro.'
         : (err.name === 'NotAllowedError' ? 'Bạn chưa cấp quyền camera/micro.' : `Không thể bắt đầu cuộc gọi: ${err.message || 'lỗi WebRTC'}`))
     }
   }
@@ -111,7 +111,7 @@ export default function CallOverlay({ conversationInfo, visible, onClose }) {
     } catch (err) {
       cleanup()
       setError(!window.isSecureContext
-        ? 'Cuộc gọi cần HTTPS để dùng camera/micro trên điện thoại.'
+        ? 'Cuộc gọi cần HTTPS để trình duyệt cho phép dùng camera/micro.'
         : `Không thể nhận cuộc gọi: ${err.message || 'lỗi WebRTC'}. Hãy cấp quyền camera/micro.`)
     }
   }

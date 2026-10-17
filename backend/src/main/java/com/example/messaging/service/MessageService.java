@@ -50,6 +50,7 @@ public class MessageService {
     private final ConversationMemberRepository conversationMemberRepository;
     private final ConversationService conversationService;
     private final UserService userService;
+    private final BlockService blockService;
 
     @Transactional
     public MessageResponse sendMessage(Long senderId, MessageRequest request) {
@@ -69,6 +70,14 @@ public class MessageService {
         Conversation conversation = conversationService.getByIdOrThrow(request.getConversationId());
         List<ConversationMember> members = conversationMemberRepository
                 .findByConversationConversationId(conversation.getConversationId());
+
+        if (conversation.getType() == ConversationType.PRIVATE) {
+            members.stream()
+                    .map(member -> member.getUser().getUserId())
+                    .filter(memberId -> !memberId.equals(senderId))
+                    .findFirst()
+                    .ifPresent(otherUserId -> blockService.assertCanSendMessage(senderId, otherUserId));
+        }
 
         if (conversation.getType() == ConversationType.PRIVATE && !conversation.isMessageRequestAccepted()) {
             Long otherUserId = members.stream()

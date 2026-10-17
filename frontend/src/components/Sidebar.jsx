@@ -46,7 +46,6 @@ export default function Sidebar({ activeConversationId }) {
   const [archivedConversations, setArchivedConversations] = useState([])
   const [acceptedFriends, setAcceptedFriends] = useState([])
   const [friendSuggestions, setFriendSuggestions] = useState([])
-  const [openingFriendId, setOpeningFriendId] = useState(null)
   const [showArchivedOnly, setShowArchivedOnly] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [searchResults, setSearchResults] = useState([])
@@ -239,7 +238,6 @@ export default function Sidebar({ activeConversationId }) {
   }, [searchTerm])
 
   const openPrivateChat = async (otherUserId) => {
-    setOpeningFriendId(otherUserId)
     try {
       const { data } = await conversationApi.getOrCreatePrivate(otherUserId)
       if (!data?.conversationId) {
@@ -252,8 +250,6 @@ export default function Sidebar({ activeConversationId }) {
     } catch (err) {
       const message = err.response?.data?.message || err.message || 'Không thể mở cuộc trò chuyện'
       alert(message)
-    } finally {
-      setOpeningFriendId(null)
     }
   }
 
@@ -400,8 +396,8 @@ export default function Sidebar({ activeConversationId }) {
             <div
               key={u.userId}
               className="conversation-item search-item"
-              onClick={() => u.relationshipStatus === 'ACCEPTED' && openPrivateChat(u.userId)}
-              title={u.relationshipStatus === 'ACCEPTED' ? 'Mở cuộc trò chuyện' : undefined}
+              onClick={() => openPrivateChat(u.userId)}
+              title="Mở cuộc trò chuyện"
             >
               <Avatar src={u.avatar} name={u.displayName} size={42} />
               <div className="conv-meta">
@@ -506,7 +502,7 @@ export default function Sidebar({ activeConversationId }) {
               <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Chưa có đoạn chat lưu trữ</p>
             </div>
           ) : null
-        ) : conversations.length === 0 && acceptedFriends.length === 0 ? (
+        ) : conversations.length === 0 ? (
           <div className="sidebar-empty-state" style={{ padding: '20px 14px', textAlign: 'center' }}>
             <p style={{ fontSize: 13, marginBottom: 8, color: 'var(--text-secondary)' }}>
               Chưa có cuộc trò chuyện nào
@@ -538,7 +534,7 @@ export default function Sidebar({ activeConversationId }) {
                     </span>
                   </div>
                   <div className="conv-bottom-row">
-                    <span className="conv-last">{c.newFriend ? 'Bạn mới' : c.lastMessage || 'Chưa có tin nhắn'}</span>
+                    <span className="conv-last">{c.lastMessage}</span>
                     {(c.unreadCount > 0 || localStorage.getItem(`kapatalk-unread-${c.conversationId}`) === 'true') && (
                       <span className="unread-dot" title="Tin nhắn chưa đọc" />
                     )}
@@ -576,35 +572,6 @@ export default function Sidebar({ activeConversationId }) {
               </div>
             )
             })}
-            {acceptedFriends.length > 0 && (
-              <section className="chat-friends-section">
-                <div className="friends-sidebar-heading">Bạn bè ({acceptedFriends.length})</div>
-                {acceptedFriends.map((friend) => {
-                  const isSender = String(friend.senderId) === String(user?.userId)
-                  const friendId = isSender ? friend.receiverId : friend.senderId
-                  const friendName = isSender ? friend.receiverDisplayName : friend.senderDisplayName
-                  const friendAvatar = isSender ? friend.receiverAvatar : friend.senderAvatar
-                  return (
-                    <button
-                      type="button"
-                      key={friend.id}
-                      className="conversation-item friend-chat-entry"
-                      disabled={openingFriendId !== null}
-                      onClick={() => openPrivateChat(friendId)}
-                      title={`Mở cuộc trò chuyện với ${friendName}`}
-                    >
-                      <Avatar src={friendAvatar} name={friendName} size={40} />
-                      <div className="conv-meta">
-                        <div className="conv-name">{friendName}</div>
-                        <div className="conv-last">
-                          {String(openingFriendId) === String(friendId) ? 'Đang mở cuộc trò chuyện...' : 'Bạn bè · Bấm để nhắn tin'}
-                        </div>
-                      </div>
-                    </button>
-                  )
-                })}
-              </section>
-            )}
           </>
         )}
 

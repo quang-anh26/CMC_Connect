@@ -4,6 +4,7 @@ import Avatar from '../components/Avatar'
 import ContactInfoPanel from '../components/ContactInfoPanel'
 import { messageApi } from '../api/messageApi'
 import { conversationApi } from '../api/conversationApi'
+import { blockApi } from '../api/blockApi'
 import { useAuth } from '../context/AuthContext'
 import { useSocket } from '../context/SocketContext'
 import {
@@ -62,6 +63,7 @@ export default function ChatWindow() {
   const [hasMore, setHasMore] = useState(false)
   const [loadingHistory, setLoadingHistory] = useState(true)
   const [text, setText] = useState('')
+  const [unblocking, setUnblocking] = useState(false)
   const [replyTo, setReplyTo] = useState(null)
   const [typingUsers, setTypingUsers] = useState({})
   const [uploading, setUploading] = useState(false)
@@ -96,19 +98,57 @@ export default function ChatWindow() {
     voiceStreamRef.current?.getTracks().forEach((track) => track.stop())
   }, [conversationId])
 
-  // Load real conversation metadata
-  useEffect(() => {
-    if (!conversationId) return
-    conversationApi
-      .list()
-      .then((res) => {
-        const found = res.data?.find((c) => String(c.conversationId) === String(conversationId))
-        setConversationInfo(found || null)
-      })
-      .catch(() => {})
+  const otherUserId = useMemo(
+    () => conversationInfo?.otherUserId
+      ?? messages.find((message) => String(message.senderId) !== String(user?.userId))?.senderId
+      ?? null,
+    [conversationInfo?.otherUserId, messages, user?.userId]
+  )
 
-    setShowInfoPanel(true)
+  const refreshConversationInfo = useCallback(() => {
+    if (!conversationId) return Promise.resolve()
+    return conversationApi.list().then((res) => {
+      const found = res.data?.find((conversation) => String(conversation.conversationId) === String(conversationId))
+      setConversationInfo(found || null)
+    })
   }, [conversationId])
+
+  useEffect(() => {
+    refreshConversationInfo().catch(() => {})
+    setShowInfoPanel(true)
+  }, [refreshConversationInfo])
+
+  useEffect(() => {
+    const refresh = (event) => {
+      const blockerId = String(event.detail?.blockerId)
+      if ([String(otherUserId), String(user?.userId)].includes(blockerId)) {
+        refreshConversationInfo().catch(() => {
+          window.alert('Không thể cập nhật trạng thái chặn. Hãy tải lại cuộc trò chuyện.')
+        })
+      }
+    }
+    window.addEventListener('kapatalk-block-status-changed', refresh)
+    return () => window.removeEventListener('kapatalk-block-status-changed', refresh)
+  }, [refreshConversationInfo, otherUserId, user?.userId])
+
+  const cannotMessage = conversationInfo?.type === 'PRIVATE'
+    && (conversationInfo.blockedByCurrentUser === true || conversationInfo.blockedByOther === true)
+
+  const unblockFromChat = async () => {
+    if (!otherUserId || unblocking) return
+    setUnblocking(true)
+    try {
+      await blockApi.unblock(otherUserId)
+      setConversationInfo((current) => current ? {
+        ...current,
+        blockedByCurrentUser: false,
+      } : current)
+    } catch (err) {
+      window.alert(err.response?.data?.message || 'Không thể bỏ chặn người dùng.')
+    } finally {
+      setUnblocking(false)
+    }
+  }
 
   // Load real messages history
   useEffect(() => {
@@ -224,7 +264,7 @@ export default function ChatWindow() {
   }, [connected, conversationId, user?.userId])
 
   const handleSend = () => {
-    if (!text.trim() || !conversationId) return
+    if (!text.trim() || !conversationId || cannotMessage) return
 
     publish('/app/chat.send', {
       conversationId: Number(conversationId),
@@ -305,7 +345,7 @@ export default function ChatWindow() {
 
   const handleFileSelected = async (e) => {
     const file = e.target.files?.[0]
-    if (!file || !conversationId) return
+    if (!file || !conversationId || cannotMessage) return
     setUploading(true)
     try {
       const { data } = await messageApi.upload(file)
@@ -326,6 +366,7 @@ export default function ChatWindow() {
   }
 
   const handleVoiceRecording = async () => {
+    if (cannotMessage) return
     if (isRecordingVoice) {
       sendVoiceOnStopRef.current = true
       voiceRecorderRef.current?.stop()
@@ -361,7 +402,7 @@ export default function ChatWindow() {
         sendVoiceOnStopRef.current = false
         const audioBlob = new Blob(voiceChunksRef.current, { type: recorder.mimeType || 'audio/webm' })
         voiceChunksRef.current = []
-        if (!shouldSend || !audioBlob.size || !conversationId) return
+        if (!shouldSend || !audioBlob.size || !conversationId || cannotMessage) return
 
         const extension = audioBlob.type.includes('mp4') ? 'm4a' : 'webm'
         setUploading(true)
@@ -403,11 +444,6 @@ export default function ChatWindow() {
     }
   }, [])
 
-  const otherUserId = useMemo(
-    () => messages.find((m) => String(m.senderId) !== String(user?.userId))?.senderId ?? null,
-    [messages, user?.userId]
-  )
-
   const sharedImages = useMemo(() => {
     return messages
       .filter((m) => isImageMessage(m) && !m.deleted)
@@ -434,9 +470,7 @@ export default function ChatWindow() {
             <div className="chat-header-info">
               <div className="chat-header-name">{headerName}</div>
               <div className="chat-header-status">
-                {conversationInfo?.newFriend
-                  ? 'Bạn mới'
-                  : conversationInfo?.type === 'GROUP'
+                {conversationInfo?.type === 'GROUP'
                   ? 'Nhóm chat'
                   : isOnline
                   ? 'Đang online'
@@ -454,8 +488,11 @@ export default function ChatWindow() {
             </button>
             <button
               className="header-action-btn"
-              onClick={() => setShowInfoPanel((v) => !v)}
+              onClick={() => setShowInfoPanel(true)}
               title="Thông tin cuộc trò chuyện"
+              aria-label="Mở thông tin cuộc trò chuyện"
+              aria-expanded={showInfoPanel}
+              aria-controls="chat-contact-info"
             >
               <InfoIcon size={20} color="#8da2b5" />
             </button>
@@ -463,7 +500,16 @@ export default function ChatWindow() {
         </div>
 
         {/* Message Stream */}
-        <div className="chat-messages" ref={messagesContainerRef}>
+        <div
+          className="chat-messages"
+          ref={messagesContainerRef}
+          style={conversationInfo?.backgroundImage ? {
+            backgroundImage: `linear-gradient(rgba(8, 14, 22, 0.28), rgba(8, 14, 22, 0.28)), url("${conversationInfo.backgroundImage}")`,
+            backgroundPosition: 'center',
+            backgroundSize: 'cover',
+            backgroundRepeat: 'no-repeat',
+          } : undefined}
+        >
           {hasMore && !loadingHistory && (
             <div className="load-more" onClick={loadMore}>
               ⌃ Tải thêm tin nhắn cũ hơn
@@ -699,6 +745,18 @@ export default function ChatWindow() {
         )}
 
         {/* Bottom Chat Input Bar */}
+        {conversationInfo?.type === 'PRIVATE' && conversationInfo.blockedByCurrentUser ? (
+          <div className="chat-block-status-bar">
+            <span>Bạn đã chặn người này</span>
+            <button type="button" onClick={unblockFromChat} disabled={unblocking}>
+              {unblocking ? 'Đang bỏ chặn...' : 'Bỏ chặn'}
+            </button>
+          </div>
+        ) : conversationInfo?.type === 'PRIVATE' && conversationInfo.blockedByOther ? (
+          <div className="chat-block-status-bar">
+            <span>Người này đã chặn bạn</span>
+          </div>
+        ) : (
         <div className="chat-input-bar">
           <input
             type="file"
@@ -711,7 +769,7 @@ export default function ChatWindow() {
             type="button"
             className="input-tool-btn"
             onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
+            disabled={uploading || cannotMessage}
             title="Đính kèm tệp/ảnh"
           >
             <PaperclipIcon size={20} color="#8da2b5" />
@@ -730,7 +788,7 @@ export default function ChatWindow() {
             type="button"
             className={`input-tool-btn voice-record-btn ${isRecordingVoice ? 'recording' : ''}`}
             onClick={handleVoiceRecording}
-            disabled={uploading}
+            disabled={uploading || cannotMessage}
             title={isRecordingVoice ? 'Dừng ghi âm và gửi' : 'Ghi âm tin nhắn thoại'}
             aria-label={isRecordingVoice ? 'Dừng ghi âm và gửi' : 'Ghi âm tin nhắn thoại'}
             aria-pressed={isRecordingVoice}
@@ -742,10 +800,13 @@ export default function ChatWindow() {
             {isRecordingVoice && <span className="voice-recording-label">Đang ghi âm</span>}
             <input
               type="text"
-              placeholder={isRecordingVoice ? 'Dừng để gửi tin nhắn thoại' : 'Nhập tin nhắn...'}
+              placeholder={cannotMessage
+                ? 'Người này đã chặn bạn; bạn không thể nhắn tin.'
+                : isRecordingVoice ? 'Dừng để gửi tin nhắn thoại' : 'Nhập tin nhắn...'}
               value={text}
               onChange={(e) => handleTyping(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+              disabled={cannotMessage}
             />
           </div>
 
@@ -753,12 +814,13 @@ export default function ChatWindow() {
             type="button"
             className="send-action-btn"
             onClick={handleSend}
-            disabled={!text.trim()}
+            disabled={!text.trim() || cannotMessage}
             title="Gửi"
           >
             <SendPaperPlane size={18} />
           </button>
         </div>
+        )}
       </div>
 
       {/* Right Column: Real Contact Info Panel */}
@@ -771,6 +833,9 @@ export default function ChatWindow() {
           onClose={() => setShowInfoPanel(false)}
           onJumpToMessage={jumpToMessage}
           onDetailsUpdated={(updated) => setConversationInfo((current) => current ? { ...current, ...updated } : updated)}
+          onBlockStatusUpdated={(blockedByCurrentUser) => setConversationInfo((current) => current
+            ? { ...current, blockedByCurrentUser }
+            : current)}
         />
       )}
     </div>

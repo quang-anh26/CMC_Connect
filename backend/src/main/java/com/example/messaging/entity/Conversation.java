@@ -38,6 +38,9 @@ public class Conversation {
     @Column(length = 255)
     private String topic;
 
+    @Column(name = "background_image", length = 500)
+    private String backgroundImage;
+
     @OneToMany(mappedBy = "conversation", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<ConversationMember> members = new ArrayList<>();

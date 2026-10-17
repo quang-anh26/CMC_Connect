@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
+import { useNavigate } from 'react-router-dom'
 import Avatar from './Avatar'
 import { blockApi } from '../api/blockApi'
 import { conversationApi } from '../api/conversationApi'
+import { messageApi } from '../api/messageApi'
 import {
   UserProfileIcon,
   SearchIcon,
@@ -12,6 +14,13 @@ import {
   TopicIcon,
   CloseIcon,
 } from './Icons'
+
+const CHAT_WALLPAPERS = [
+  { id: 'mountain-meadow', name: 'Đồng cỏ', src: '/chat-themes/mountain-meadow.webp' },
+  { id: 'sunset', name: 'Hoàng hôn', src: '/chat-themes/sunset.webp' },
+  { id: 'alpine-lake', name: 'Hồ núi', src: '/chat-themes/alpine-lake.webp' },
+  { id: 'moonlight', name: 'Ánh trăng', src: '/chat-themes/moonlight.jpg' },
+]
 
 function formatLastSeen(dateStr, now) {
   if (!dateStr) return 'chưa rõ thời gian'
@@ -23,15 +32,19 @@ function formatLastSeen(dateStr, now) {
   return `${Math.floor(elapsedHours / 24)} ngày trước`
 }
 
-export default function ContactInfoPanel({ conversationInfo, otherUserId, images = [], messages = [], onClose, onDetailsUpdated, onJumpToMessage }) {
+export default function ContactInfoPanel({ conversationInfo, otherUserId, images = [], messages = [], onClose, onDetailsUpdated, onBlockStatusUpdated, onJumpToMessage }) {
   const { user } = useAuth()
-  const [blocked, setBlocked] = useState(false)
+  const navigate = useNavigate()
+  const [blockSaving, setBlockSaving] = useState(false)
   const [muted, setMuted] = useState(false)
   const [now, setNow] = useState(() => Date.now())
   const [editingField, setEditingField] = useState(null)
   const [editValue, setEditValue] = useState('')
   const [nicknameTargetUserId, setNicknameTargetUserId] = useState(otherUserId)
   const [savingDetail, setSavingDetail] = useState(false)
+  const [backgroundImage, setBackgroundImage] = useState('')
+  const [wallpaperError, setWallpaperError] = useState('')
+  const [uploadingWallpaper, setUploadingWallpaper] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
 
@@ -40,25 +53,32 @@ export default function ContactInfoPanel({ conversationInfo, otherUserId, images
     return () => window.clearInterval(timer)
   }, [])
 
+  const blocked = Boolean(conversationInfo?.blockedByCurrentUser)
+
   const toggleBlock = async () => {
-    if (!otherUserId) return
+    if (!otherUserId || blockSaving) return
+    setBlockSaving(true)
     try {
       if (blocked) {
         await blockApi.unblock(otherUserId)
-        setBlocked(false)
+        onBlockStatusUpdated?.(false)
       } else {
         if (!window.confirm(`Chặn người dùng ${displayName}? Họ sẽ không thể nhắn tin cho bạn.`)) return
         await blockApi.block(otherUserId)
-        setBlocked(true)
+        onBlockStatusUpdated?.(true)
       }
     } catch (err) {
       alert(err.response?.data?.message || 'Không thể thực hiện thao tác')
+    } finally {
+      setBlockSaving(false)
     }
   }
 
   const openDetailEditor = (field) => {
     setEditingField(field)
     setNicknameTargetUserId(otherUserId)
+    setBackgroundImage(conversationInfo.backgroundImage || '')
+    setWallpaperError('')
     setEditValue(field === 'nickname'
       ? conversationInfo.otherUserNickname || ''
       : conversationInfo.topic || '')
@@ -70,7 +90,7 @@ export default function ContactInfoPanel({ conversationInfo, otherUserId, images
     setSavingDetail(true)
     const details = editingField === 'nickname'
       ? { targetUserId: Number(nicknameTargetUserId), nickname: editValue }
-      : { topic: editValue }
+      : { topic: editValue, backgroundImage }
     try {
       const { data } = await conversationApi.updateDetails(conversationInfo.conversationId, details)
       onDetailsUpdated?.(data)
@@ -79,6 +99,31 @@ export default function ContactInfoPanel({ conversationInfo, otherUserId, images
       alert(err.response?.data?.message || 'Không thể cập nhật thông tin cuộc trò chuyện')
     } finally {
       setSavingDetail(false)
+    }
+  }
+
+  const handleWallpaperUpload = async (event) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      setWallpaperError('Vui lòng chọn một tệp hình ảnh.')
+      return
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setWallpaperError('Ảnh không được vượt quá 10 MB.')
+      return
+    }
+
+    setUploadingWallpaper(true)
+    setWallpaperError('')
+    try {
+      const { data } = await messageApi.upload(file)
+      setBackgroundImage(data.url)
+    } catch (error) {
+      setWallpaperError(error.response?.data?.message || 'Không thể tải ảnh lên.')
+    } finally {
+      setUploadingWallpaper(false)
     }
   }
 
@@ -111,7 +156,19 @@ export default function ContactInfoPanel({ conversationInfo, otherUserId, images
   const isGroup = conversationInfo?.type === 'GROUP'
 
   return (
-    <div className="info-panel">
+    <div className="info-panel" id="chat-contact-info">
+      <div className="info-panel-header">
+        <span>Thông tin cuộc trò chuyện</span>
+        <button
+          type="button"
+          className="info-panel-close"
+          onClick={onClose}
+          aria-label="Đóng thông tin cuộc trò chuyện"
+          title="Đóng"
+        >
+          <CloseIcon size={18} />
+        </button>
+      </div>
       {/* Profile Header */}
       <div className="info-profile-section">
         <div className="info-avatar-wrapper">
@@ -149,12 +206,22 @@ export default function ContactInfoPanel({ conversationInfo, otherUserId, images
 
       {/* Action list */}
       <div className="info-actions-list">
-        <button className="info-action-item" type="button" title="Xem thông tin">
-          <span className="info-action-icon">
-            <UserProfileIcon size={18} color="#94a3b8" />
-          </span>
-          <span className="info-action-text">Xem thông tin</span>
-        </button>
+        {!isGroup && (
+          <button
+            className="info-action-item"
+            type="button"
+            title="Xem thông tin"
+            onClick={() => {
+              const profileUserId = otherUserId || conversationInfo.otherUserId
+              if (profileUserId) navigate(`/feed/profile/${profileUserId}`)
+            }}
+          >
+            <span className="info-action-icon">
+              <UserProfileIcon size={18} color="#94a3b8" />
+            </span>
+            <span className="info-action-text">Xem thông tin</span>
+          </button>
+        )}
 
         <button className="info-action-item" type="button" title="Tìm kiếm trong cuộc trò chuyện" onClick={() => setSearchOpen((value) => !value)}>
           <span className="info-action-icon">
@@ -268,14 +335,15 @@ export default function ContactInfoPanel({ conversationInfo, otherUserId, images
           <span className="kv-value">{isGroup ? 'Hoạt động' : (isOnline ? 'Đang online' : `Hoạt động · ${formatLastSeen(conversationInfo.otherUserLastSeenAt, now)}`)}</span>
         </div>
 
-        {!isGroup && otherUserId && (
-          <div className="info-block-btn-row">
-            <button className="info-block-btn" onClick={toggleBlock}>
-              {blocked ? 'Bỏ chặn người dùng' : 'Chặn người dùng'}
-            </button>
-          </div>
-        )}
       </div>
+
+      {!isGroup && otherUserId && (
+        <div className="info-block-btn-row">
+          <button className="info-block-btn" onClick={toggleBlock} disabled={blockSaving}>
+            {blocked ? 'Bỏ chặn người dùng' : 'Chặn người dùng'}
+          </button>
+        </div>
+      )}
 
       {editingField && (
         <div className="detail-editor-backdrop" onClick={() => !savingDetail && setEditingField(null)}>
@@ -325,17 +393,74 @@ export default function ContactInfoPanel({ conversationInfo, otherUserId, images
               onChange={(event) => setEditValue(event.target.value)}
               placeholder={editingField === 'nickname' ? 'Nhập biệt danh' : 'Nhập chủ đề'}
             />
+            {editingField === 'topic' && (
+              <div className="wallpaper-picker">
+                <div className="wallpaper-picker-heading">Hình nền đoạn chat</div>
+                <div className="wallpaper-picker-grid">
+                  {backgroundImage && !CHAT_WALLPAPERS.some((wallpaper) => backgroundImage === wallpaper.src) && (
+                    <div
+                      className="wallpaper-option selected"
+                      style={{ backgroundImage: `url("${backgroundImage}")` }}
+                      role="img"
+                      aria-label="Hình nền ảnh của bạn"
+                    >
+                      <span>Ảnh của bạn</span>
+                    </div>
+                  )}
+                  {CHAT_WALLPAPERS.map((wallpaper) => (
+                    <button
+                      key={wallpaper.id}
+                      type="button"
+                      className={`wallpaper-option ${backgroundImage === wallpaper.src ? 'selected' : ''}`}
+                      style={{ backgroundImage: `url("${wallpaper.src}")` }}
+                      onClick={() => {
+                        setWallpaperError('')
+                        setBackgroundImage(wallpaper.src)
+                      }}
+                      aria-label={`Chọn hình nền ${wallpaper.name}`}
+                      aria-pressed={backgroundImage === wallpaper.src}
+                    >
+                      <span>{wallpaper.name}</span>
+                    </button>
+                  ))}
+                </div>
+                <div className="wallpaper-picker-actions">
+                  <label className="wallpaper-upload-button">
+                    {uploadingWallpaper ? 'Đang tải ảnh...' : 'Chọn ảnh từ máy'}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleWallpaperUpload}
+                      disabled={uploadingWallpaper}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    className="wallpaper-reset-button"
+                    onClick={() => {
+                      setWallpaperError('')
+                      setBackgroundImage('')
+                    }}
+                  >
+                    Mặc định
+                  </button>
+                </div>
+                {wallpaperError && (
+                  <div className="wallpaper-error" role="alert">{wallpaperError}</div>
+                )}
+              </div>
+            )}
             <p className="detail-editor-hint">
               {editingField === 'nickname'
                 ? 'Cả hai người đều sẽ thấy biệt danh này.'
-                : 'Chủ đề này sẽ hiển thị với cả hai người trong cuộc trò chuyện.'}
+                : 'Chủ đề và hình nền này sẽ chỉ áp dụng cho cuộc trò chuyện đang mở.'}
             </p>
             <div className="detail-editor-actions">
-              <button type="button" className="detail-editor-cancel" onClick={() => setEditingField(null)} disabled={savingDetail}>
+              <button type="button" className="detail-editor-cancel" onClick={() => setEditingField(null)} disabled={savingDetail || uploadingWallpaper}>
                 Hủy
               </button>
-              <button type="submit" className="detail-editor-save" disabled={savingDetail}>
-                {savingDetail ? 'Đang lưu...' : 'Lưu'}
+              <button type="submit" className="detail-editor-save" disabled={savingDetail || uploadingWallpaper}>
+                {savingDetail ? 'Đang lưu...' : uploadingWallpaper ? 'Đang tải ảnh...' : 'Lưu'}
               </button>
             </div>
           </form>

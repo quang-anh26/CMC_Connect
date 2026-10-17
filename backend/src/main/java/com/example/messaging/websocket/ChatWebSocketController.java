@@ -6,6 +6,7 @@ import com.example.messaging.dto.chat.MessageResponse;
 import com.example.messaging.dto.chat.SeenRequest;
 import com.example.messaging.dto.chat.TypingEvent;
 import com.example.messaging.entity.User;
+import com.example.messaging.exception.ApiException;
 import com.example.messaging.service.MessageService;
 import com.example.messaging.service.UserService;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +15,7 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 
 import java.security.Principal;
+import java.util.Map;
 
 /**
  * Realtime chat 1-1 flow (plan section 6 & 7):
@@ -33,11 +35,18 @@ public class ChatWebSocketController {
     @MessageMapping("/chat.send")
     public void sendMessage(MessageRequest request, Principal principal) {
         User sender = userService.getByUsernameOrThrow(principal.getName());
-        MessageResponse saved = messageService.sendMessage(sender.getUserId(), request);
+        try {
+            MessageResponse saved = messageService.sendMessage(sender.getUserId(), request);
 
-        messagingTemplate.convertAndSend(
-                "/topic/conversation/" + request.getConversationId(),
-                saved);
+            messagingTemplate.convertAndSend(
+                    "/topic/conversation/" + request.getConversationId(),
+                    saved);
+        } catch (ApiException exception) {
+            messagingTemplate.convertAndSendToUser(
+                    principal.getName(),
+                    "/queue/errors",
+                    Map.of("message", exception.getMessage()));
+        }
     }
 
     @MessageMapping("/chat.react")

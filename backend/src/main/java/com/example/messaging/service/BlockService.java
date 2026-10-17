@@ -37,4 +37,17 @@ public class BlockService {
     public boolean isBlocked(Long blockerId, Long blockedId) {
         return blockRepository.existsByBlockerUserIdAndBlockedUserId(blockerId, blockedId);
     }
+
+    public boolean canSendMessage(Long senderId, Long recipientId) {
+        return !isBlocked(recipientId, senderId) && !isBlocked(senderId, recipientId);
+    }
+
+    public void assertCanSendMessage(Long senderId, Long recipientId) {
+        if (!canSendMessage(senderId, recipientId)) {
+            String message = isBlocked(recipientId, senderId)
+                    ? "Bạn không thể nhắn tin vì người này đã chặn bạn"
+                    : "Bạn cần bỏ chặn người này trước khi nhắn tin";
+            throw ApiException.forbidden(message);
+        }
+    }
 }

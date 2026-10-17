@@ -1,0 +1,2 @@
+IF COL_LENGTH(N'dbo.CONVERSATION', N'background_image') IS NULL
+    ALTER TABLE dbo.CONVERSATION ADD background_image VARCHAR(500) NULL;
