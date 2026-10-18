@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useNavigate } from 'react-router-dom'
 import Avatar from './Avatar'
+import EmptyState from './EmptyState'
 import { blockApi } from '../api/blockApi'
 import { conversationApi } from '../api/conversationApi'
 import { messageApi } from '../api/messageApi'
@@ -242,7 +243,7 @@ export default function ContactInfoPanel({ conversationInfo, otherUserId, images
             />
 
             {searchQuery.trim() && matchingMessages.length === 0 && (
-              <div className="conversation-search-empty">Không tìm thấy tin nhắn nào phù hợp.</div>
+              <EmptyState compact description="Không tìm thấy tin nhắn nào phù hợp." />
             )}
 
             {matchingMessages.length > 0 && (
@@ -308,9 +309,7 @@ export default function ContactInfoPanel({ conversationInfo, otherUserId, images
             })}
           </div>
         ) : (
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', padding: '6px 0' }}>
-            Chưa có ảnh hoặc tệp nào được gửi
-          </div>
+          <EmptyState compact description="Chưa có ảnh hoặc tệp nào được gửi" />
         )}
       </div>
 

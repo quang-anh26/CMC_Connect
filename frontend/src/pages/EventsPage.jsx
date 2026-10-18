@@ -1,6 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import Avatar from '../components/Avatar'
+import EmptyState from '../components/EmptyState'
+import LoadingState from '../components/LoadingState'
+import ErrorState from '../components/ErrorState'
 import { CalendarIcon, LocationPinIcon, MessengerLogo } from '../components/Icons'
 import { eventApi } from '../api/eventApi'
 import { useAuth } from '../context/AuthContext'
@@ -80,6 +83,8 @@ export default function EventsPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [loadError, setLoadError] = useState('')
+  const [retryKey, setRetryKey] = useState(0)
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState(false)
   const [form, setForm] = useState(blankForm)
@@ -100,21 +105,22 @@ export default function EventsPage() {
     let active = true
     setLoading(true)
     setError('')
+    setLoadError('')
     if (eventId) {
       setSelectedEvent(null)
       eventApi.get(eventId)
         .then(({ data }) => { if (active) setSelectedEvent(data) })
-        .catch((requestError) => { if (active) setError(getErrorMessage(requestError)) })
+        .catch((requestError) => { if (active) setLoadError(getErrorMessage(requestError)) })
         .finally(() => { if (active) setLoading(false) })
     } else {
       setSelectedEvent(null)
       eventApi.list(filter)
         .then(({ data }) => { if (active) setEvents(data) })
-        .catch((requestError) => { if (active) setError(getErrorMessage(requestError)) })
+        .catch((requestError) => { if (active) { setEvents([]); setLoadError(getErrorMessage(requestError)) } })
         .finally(() => { if (active) setLoading(false) })
     }
     return () => { active = false }
-  }, [eventId, filter])
+  }, [eventId, filter, retryKey])
 
   const isOrganizer = selectedEvent && String(selectedEvent.organizerId) === String(user?.userId)
   const listTitle = useMemo(() => filters.find((item) => item.value === filter)?.label || 'Sự kiện', [filter])
@@ -208,7 +214,8 @@ export default function EventsPage() {
 
         {eventId ? (
           <>
-            {loading && <div className="events-state-card">Đang tải sự kiện...</div>}
+            {loading && <LoadingState label="Đang tải sự kiện..." />}
+            {!loading && loadError && <ErrorState title="Không tải được sự kiện" message={loadError} onRetry={() => setRetryKey((current) => current + 1)} />}
             {error && <div className="events-error" role="alert">{error}</div>}
             {!loading && selectedEvent && (
               <article className="event-detail-card">
@@ -231,7 +238,7 @@ export default function EventsPage() {
                         <div className="event-section-heading"><h2>Người tham gia</h2></div>
                         {selectedEvent.attendees?.length ? <div className="event-attendee-list">
                           {selectedEvent.attendees.map((attendee) => <div className="event-attendee" key={attendee.userId}><Avatar src={attendee.avatar} name={attendee.name} size={38} /><div><strong>{attendee.name}</strong><small>{attendee.status === 'GOING' ? 'Sẽ tham gia' : 'Đang quan tâm'}</small></div></div>)}
-                        </div> : <p className="event-muted">Chưa có ai phản hồi. Hãy là người đầu tiên!</p>}
+                        </div> : <EmptyState compact description="Chưa có ai phản hồi. Hãy là người đầu tiên!" />}
                       </section>
                     </section>
                     <aside className="event-detail-sidebar">
@@ -256,7 +263,7 @@ export default function EventsPage() {
             </nav>
             <div className="events-list-heading"><div><h2>{listTitle}</h2><span>{events.length} sự kiện</span></div></div>
             {error && <div className="events-error" role="alert">{error}</div>}
-            {loading ? <div className="events-state-card">Đang tải sự kiện...</div> : events.length ? (
+            {loading ? <LoadingState variant="skeleton" lines={3} skeletonHeight={120} label="Đang tải sự kiện..." /> : loadError ? <ErrorState title="Không tải được sự kiện" message={loadError} onRetry={() => setRetryKey((current) => current + 1)} /> : events.length ? (
               <div className="events-grid">
                 {events.map((item) => {
                   const date = formatEventDate(item.startsAt)
@@ -277,7 +284,7 @@ export default function EventsPage() {
                 })}
               </div>
             ) : (
-              <section className="events-empty-state"><span><CalendarIcon size={34} /></span><h3>Chưa có sự kiện nào</h3><p>{filter === 'JOINED' ? 'Các sự kiện bạn tham gia sẽ xuất hiện ở đây.' : 'Tạo một sự kiện để rủ bạn bè cùng tham gia nhé.'}</p><button type="button" onClick={openCreateForm}>＋ Tạo sự kiện</button></section>
+              <EmptyState icon={<CalendarIcon size={26} />} title="Chưa có sự kiện nào" description={filter === 'JOINED' ? 'Các sự kiện bạn tham gia sẽ xuất hiện ở đây.' : 'Tạo một sự kiện để rủ bạn bè cùng tham gia nhé.'} action={<button type="button" className="ui-state__action" onClick={openCreateForm}>＋ Tạo sự kiện</button>} />
             )}
           </>
         )}

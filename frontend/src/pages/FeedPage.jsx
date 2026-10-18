@@ -10,6 +10,9 @@ import { messageApi } from '../api/messageApi'
 import { eventApi } from '../api/eventApi'
 import { savedApi } from '../api/savedApi'
 import Avatar from '../components/Avatar'
+import EmptyState from '../components/EmptyState'
+import LoadingState from '../components/LoadingState'
+import ErrorState from '../components/ErrorState'
 import { MessengerLogo, FriendsIcon, FeedVideoIcon, BellIcon, ChatIcon, CommentIcon, ShareIcon } from '../components/Icons'
 import { useAuth } from '../context/AuthContext'
 import { useSocket } from '../context/SocketContext'
@@ -743,7 +746,7 @@ export default function FeedPage() {
       </form>
 
       {error && <div className="feed-error">{error}</div>}
-      {feedLoadError && <div className="feed-error">{feedLoadError}</div>}
+      {feedLoadError && !loading && <ErrorState title="Không tải được bảng tin" message={feedLoadError} onRetry={loadPosts} />}
       {notice && <button className="feed-notice" type="button" onClick={() => setNotice('')}>{notice} ×</button>}
       {shareTarget && (
         <div className="share-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) closeShareDialog() }}>
@@ -772,8 +775,8 @@ export default function FeedPage() {
           </form>
         </div>
       )}
-      {loading && <div className="feed-empty">Đang tải bảng tin...</div>}
-      {!loading && !feedLoadError && posts.length === 0 && <div className="feed-empty">Chưa có bài viết nào.</div>}
+      {loading && <LoadingState variant="skeleton" lines={3} skeletonHeight={150} label="Đang tải bảng tin..." />}
+      {!loading && !feedLoadError && posts.length === 0 && <EmptyState icon="✎" title="Chưa có bài viết nào" description="Hãy là người đầu tiên chia sẻ điều gì đó với mọi người." />}
 
       <div className="feed-list">
         {posts.map((post) => (
@@ -852,8 +855,8 @@ export default function FeedPage() {
         </section>
         <section className="aside-card online-preview-card">
           <div className="aside-heading"><strong>Bạn bè của bạn ({acceptedFriends.length})</strong></div>
-          {acceptedFriendsLoading && <small>Đang tải danh sách bạn bè...</small>}
-          {!acceptedFriendsLoading && acceptedFriends.length === 0 && <small>Bạn chưa có bạn bè đã kết bạn.</small>}
+          {acceptedFriendsLoading && <LoadingState compact label="Đang tải danh sách bạn bè..." />}
+          {!acceptedFriendsLoading && acceptedFriends.length === 0 && <EmptyState compact description="Bạn chưa có bạn bè đã kết bạn." />}
           {acceptedFriends.slice(0, 8).map((friend, index) => {
             const isSender = String(friend.senderId) === String(user?.userId)
             const friendId = isSender ? friend.receiverId : friend.senderId
@@ -873,8 +876,8 @@ export default function FeedPage() {
         
         <section className="aside-card">
           <div className="aside-heading"><strong>Gợi ý kết bạn</strong></div>
-          {suggestionsLoading && <small>Đang tải...</small>}
-          {!suggestionsLoading && suggestedUsers.length === 0 && <small>Chưa có gợi ý mới.</small>}
+          {suggestionsLoading && <LoadingState compact label="Đang tải gợi ý..." />}
+          {!suggestionsLoading && suggestedUsers.length === 0 && <EmptyState compact description="Chưa có gợi ý mới." />}
           {suggestedUsers.map((candidate) => (
             <div className="suggested-person" key={candidate.userId}>
               <button type="button" className="suggested-profile-link" onClick={() => navigate(`/feed/profile/${candidate.userId}`)} aria-label={`Xem trang cá nhân ${candidate.displayName || candidate.username}`}><Avatar className="suggested-avatar" src={candidate.avatar} name={candidate.displayName || candidate.username} size={38} /><span><strong>{candidate.displayName || candidate.username}</strong><small>{candidate.online ? 'Đang hoạt động' : 'Người dùng KapaTalk'}</small></span></button>
@@ -887,7 +890,7 @@ export default function FeedPage() {
         <section className="aside-card promo-card"><div className="promo-image" style={{ backgroundImage: `url(${storyImage})` }}><strong>Những điều tốt đẹp<br />sẽ luôn đến</strong><span>♥</span></div></section>
         <section className="aside-card preview-events-card">
           <div className="aside-heading"><strong>Sự kiện sắp tới</strong><span className="preview-label">Xem trước</span></div>
-          {upcomingEvents.length ? upcomingEvents.map((item) => <div className="preview-event" key={item.eventId}><span className="preview-event-icon">▦</span><div><strong>{item.title}</strong><small>{new Intl.DateTimeFormat('vi-VN', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(item.startsAt))}<br />{item.location}</small></div><button type="button" onClick={() => navigate(`/events/${item.eventId}`)}>Chi tiết</button></div>) : <div className="preview-events-empty">Chưa có sự kiện sắp tới.<button type="button" onClick={() => navigate('/events')}>Xem sự kiện</button></div>}
+          {upcomingEvents.length ? upcomingEvents.map((item) => <div className="preview-event" key={item.eventId}><span className="preview-event-icon">▦</span><div><strong>{item.title}</strong><small>{new Intl.DateTimeFormat('vi-VN', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(item.startsAt))}<br />{item.location}</small></div><button type="button" onClick={() => navigate(`/events/${item.eventId}`)}>Chi tiết</button></div>) : <EmptyState compact description="Chưa có sự kiện sắp tới." action={<button type="button" className="ui-state__action" onClick={() => navigate('/events')}>Xem sự kiện</button>} />}
         </section>
         <section className="aside-card preview-video-card">
           <div className="aside-heading"><strong>Video gợi ý</strong><span className="preview-label">Xem trước</span></div>
@@ -902,7 +905,7 @@ export default function FeedPage() {
       <aside className="feed-right-rail">
         <section className="aside-card preview-events-card">
           <div className="aside-heading"><strong>Sự kiện sắp tới</strong><span className="preview-label">Xem trước</span></div>
-          {upcomingEvents.length ? upcomingEvents.map((item) => <div className="preview-event" key={item.eventId}><span className="preview-event-icon">▦</span><div><strong>{item.title}</strong><small>{new Intl.DateTimeFormat('vi-VN', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(item.startsAt))}<br />{item.location}</small></div><button type="button" onClick={() => navigate(`/events/${item.eventId}`)}>Chi tiết</button></div>) : <div className="preview-events-empty">Chưa có sự kiện sắp tới.<button type="button" onClick={() => navigate('/events')}>Xem sự kiện</button></div>}
+          {upcomingEvents.length ? upcomingEvents.map((item) => <div className="preview-event" key={item.eventId}><span className="preview-event-icon">▦</span><div><strong>{item.title}</strong><small>{new Intl.DateTimeFormat('vi-VN', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(item.startsAt))}<br />{item.location}</small></div><button type="button" onClick={() => navigate(`/events/${item.eventId}`)}>Chi tiết</button></div>) : <EmptyState compact description="Chưa có sự kiện sắp tới." action={<button type="button" className="ui-state__action" onClick={() => navigate('/events')}>Xem sự kiện</button>} />}
         </section>
         <section className="aside-card preview-video-card">
           <div className="aside-heading"><strong>Video gợi ý</strong><span className="preview-label">Xem trước</span></div>

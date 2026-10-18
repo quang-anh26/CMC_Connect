@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import Avatar from '../components/Avatar'
+import EmptyState from '../components/EmptyState'
+import LoadingState from '../components/LoadingState'
 import { conversationApi } from '../api/conversationApi'
 import { feedApi } from '../api/feedApi'
 import { friendApi } from '../api/friendApi'
@@ -355,8 +357,8 @@ export default function ProfilePage() {
                     <div className="profile-composer-actions"><label>▧ Ảnh/Video<input ref={mediaInputRef} type="file" accept="image/*,video/*" onChange={(event) => setComposerFile(event.target.files?.[0] || null)} /></label><button type="submit" disabled={posting || (!composerText.trim() && !composerFile)}>{posting ? 'Đang đăng...' : 'Đăng bài'}</button></div>
                   </form>
                 )}
-                {loading && <div className="profile-panel profile-muted">Đang tải bài viết...</div>}
-                {!loading && tabPosts.length === 0 && <div className="profile-panel profile-empty"><strong>{activeTab === 'Ảnh' ? 'Chưa có ảnh' : activeTab === 'Video' ? 'Chưa có video' : 'Chưa có bài viết'}</strong><p>{isOwnProfile ? 'Bài viết của bạn sẽ hiển thị tại đây.' : 'Bài viết của người dùng sẽ hiển thị tại đây.'}</p></div>}
+                {loading && <LoadingState variant="skeleton" lines={2} skeletonHeight={110} label="Đang tải bài viết..." />}
+                {!loading && tabPosts.length === 0 && <EmptyState title={activeTab === 'Ảnh' ? 'Chưa có ảnh' : activeTab === 'Video' ? 'Chưa có video' : 'Chưa có bài viết'} description={isOwnProfile ? 'Bài viết của bạn sẽ hiển thị tại đây.' : 'Bài viết của người dùng sẽ hiển thị tại đây.'} />}
                 {tabPosts.map((post) => (
                   <article className="profile-post-card" key={post.postId}>
                     <header><Avatar src={post.authorAvatar || avatar} name={post.authorName || profileName} size={42} /><div><strong>{post.authorName || profileName}</strong><small>{formatProfileTime(post.createdAt)}</small></div><button type="button" aria-label="Tùy chọn bài viết">···</button></header>
@@ -374,7 +376,7 @@ export default function ProfilePage() {
             {activeTab === 'Giới thiệu' && <section className="profile-panel profile-tab-panel"><h2>Giới thiệu</h2><p>{bio || 'Chưa có phần giới thiệu.'}</p><p>{education || 'Chưa cập nhật trường học'}</p><p>{location || 'Chưa cập nhật nơi ở'}</p><p>Tình trạng mối quan hệ: {relationshipStatus || 'Chưa cập nhật'}</p><p>Ngày sinh: {formatBirthDate(birthDate) || 'Chưa cập nhật'}</p><p>Tên người dùng: @{profileUsername}</p></section>}
             {isOwnProfile && activeTab === 'Bạn bè' && <section className="profile-panel profile-tab-panel"><h2>Bạn bè ({friends.length})</h2><div className="profile-friend-grid">{friends.map((friend) => { const item = getFriendInfo(friend, user?.userId); return <button type="button" className="profile-friend-card profile-user-link" key={friend.id} onClick={() => navigate(`/feed/profile/${item.id}`)}><Avatar src={item.avatar} name={item.name} size={54} /><strong>{item.name}</strong></button> })}</div></section>}
             {isOwnProfile && activeTab === 'Nhóm' && <section className="profile-panel profile-tab-panel"><h2>Nhóm ({groups.length})</h2>{groups.length ? groups.map((group) => <div className="profile-group-row" key={group.conversationId}><span className="profile-group-icon">♧</span><div><strong>{group.name || 'Nhóm chat'}</strong><small>Nhóm trò chuyện</small></div></div>) : <p className="profile-muted">Bạn chưa tham gia nhóm nào.</p>}</section>}
-            {activeTab === 'Sự kiện' && <section className="profile-panel profile-empty"><strong>Chưa có hoạt động sự kiện</strong><p>Các sự kiện bạn tham gia sẽ xuất hiện tại đây.</p></section>}
+            {activeTab === 'Sự kiện' && <EmptyState title="Chưa có hoạt động sự kiện" description="Các sự kiện bạn tham gia sẽ xuất hiện tại đây." />}
           </main>
 
           {isOwnProfile && <aside className="profile-right-column">
