@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import Avatar from './Avatar'
+import EmptyState from './EmptyState'
 import { useAuth } from '../context/AuthContext'
 import { userApi } from '../api/userApi'
 import { blockApi } from '../api/blockApi'
@@ -459,15 +460,11 @@ export default function SettingsModal({ isOpen, onClose }) {
               <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 18 }}>
                 Xem lịch sử giao dịch và phương thức thanh toán của bạn trên KapaTalk.
               </p>
-              <div style={{ background: 'var(--bg-input)', padding: 18, borderRadius: 10, border: '1px solid var(--border)', textAlign: 'center' }}>
-                <div style={{ fontSize: 28, marginBottom: 8 }}>💳</div>
-                <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>
-                  Chưa có phương thức thanh toán
-                </div>
-                <div style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>
-                  Các khoản thanh toán an toàn và bảo mật thông qua hệ thống KapaTalk.
-                </div>
-              </div>
+              <EmptyState
+                icon="💳"
+                title="Chưa có phương thức thanh toán"
+                description="Các khoản thanh toán an toàn và bảo mật thông qua hệ thống KapaTalk."
+              />
             </div>
           )}
 

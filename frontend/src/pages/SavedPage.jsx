@@ -1,8 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import Avatar from '../components/Avatar'
+import EmptyState from '../components/EmptyState'
+import LoadingState from '../components/LoadingState'
+import ErrorState from '../components/ErrorState'
 import { savedApi } from '../api/savedApi'
 import { videoApi } from '../api/videoApi'
+import '../styles/saved.css'
 
 const types = [
   ['ALL', 'Tất cả'],
@@ -25,6 +29,7 @@ export default function SavedPage() {
   const [page, setPage] = useState(0)
   const [hasMore, setHasMore] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [retryKey, setRetryKey] = useState(0)
   const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
@@ -61,7 +66,7 @@ export default function SavedPage() {
       .catch((err) => { if (active) { setItems([]); setError(err.response?.data?.message || 'Không thể tải nội dung đã lưu.') } })
       .finally(() => { if (active) setLoading(false) })
     return () => { active = false }
-  }, [selectedType, query, collectionId, sort])
+  }, [selectedType, query, collectionId, sort, retryKey])
 
   const loadMore = async () => {
     if (loadingMore || !hasMore) return
@@ -176,9 +181,9 @@ export default function SavedPage() {
               <label>Sắp xếp<select value={sort} onChange={(event) => setSort(event.target.value)}><option value="NEWEST">Mới lưu nhất</option><option value="OLDEST">Cũ nhất</option></select></label>
             </header>
             <div className="saved-type-tabs">{types.map(([type, label]) => <button type="button" key={type} className={selectedType === type ? 'active' : ''} onClick={() => setSelectedType(type)}>{label}</button>)}</div>
-            {error && <div className="saved-state saved-error"><strong>Có lỗi xảy ra</strong><span>{error}</span><button type="button" onClick={() => window.location.reload()}>Tải lại</button></div>}
-            {loading && <div className="saved-list">{Array.from({ length: 4 }, (_, index) => <div className="saved-skeleton" key={index} />)}</div>}
-            {!loading && !error && items.length === 0 && <div className="saved-state"><span className="saved-empty-icon">▣</span><strong>{query ? 'Không tìm thấy nội dung' : collectionId ? 'Bộ sưu tập này đang trống' : 'Chưa có nội dung đã lưu'}</strong><span>{query ? 'Thử tìm bằng từ khóa khác.' : 'Khi lưu bài viết, video hoặc link, nội dung sẽ xuất hiện ở đây.'}</span></div>}
+            {error && <ErrorState title="Có lỗi xảy ra" message={error} onRetry={() => { setError(''); loadCollections(); setRetryKey((current) => current + 1) }} />}
+            {loading && <LoadingState variant="skeleton" lines={4} skeletonHeight={96} label="Đang tải nội dung đã lưu..." />}
+            {!loading && !error && items.length === 0 && <EmptyState icon="▣" title={query ? 'Không tìm thấy nội dung' : collectionId ? 'Bộ sưu tập này đang trống' : 'Chưa có nội dung đã lưu'} description={query ? 'Thử tìm bằng từ khóa khác.' : 'Khi lưu bài viết, video hoặc link, nội dung sẽ xuất hiện ở đây.'} />}
             {!loading && !error && items.length > 0 && <div className="saved-list">{items.map((item) => <article className="saved-card" key={item.savedItemId}>
               <div className="saved-card-head"><Avatar src={item.authorAvatar} name={item.authorName} size={40} /><div className="saved-author"><strong>{item.authorName || 'Nội dung đã lưu'}</strong><span>Đã lưu {savedDate(item.savedAt)} · {typeLabel(item.contentType)}</span></div><button type="button" className="saved-unsave" onClick={() => unsave(item)}>Bỏ lưu</button></div>
               <div className="saved-card-body">

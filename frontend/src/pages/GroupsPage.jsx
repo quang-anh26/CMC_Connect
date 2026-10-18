@@ -1,6 +1,10 @@
 import React, { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { groupApi } from '../api/groupApi'
+import { SafeImage } from '../components/Avatar'
+import EmptyState from '../components/EmptyState'
+import LoadingState from '../components/LoadingState'
+import ErrorState from '../components/ErrorState'
 
 const initialForm = { name: '', description: '', category: '', visibility: 'PUBLIC' }
 
@@ -100,12 +104,12 @@ export default function GroupsPage() {
 
       <section className="groups-results" aria-live="polite">
         <div className="group-section-heading"><div><span className="groups-kicker">{tab === 'mine' ? 'ĐANG THAM GIA' : 'CỘNG ĐỒNG MỞ'}</span><h2>{tab === 'mine' ? 'Nhóm của bạn' : 'Có thể bạn quan tâm'}</h2></div><span className="group-result-count">{groups.length} nhóm</span></div>
-        {loading ? <div className="groups-loading"><span className="group-spinner" />Đang tải nhóm...</div>
-          : error ? <div className="groups-state groups-error"><strong>Không tải được nhóm</strong><span>{error}</span><button type="button" onClick={loadGroups}>Thử lại</button></div>
-            : groups.length === 0 ? <div className="groups-state"><span className="group-empty-mark" aria-hidden="true">◌</span><strong>{tab === 'mine' ? 'Bạn chưa tham gia nhóm nào' : 'Chưa tìm thấy nhóm phù hợp'}</strong><span>{tab === 'mine' ? 'Tham gia cộng đồng hoặc tạo nhóm đầu tiên.' : 'Thử từ khóa khác hoặc tạo một cộng đồng mới.'}</span></div>
+        {loading ? <LoadingState label="Đang tải nhóm..." />
+          : error ? <ErrorState title="Không tải được nhóm" message={error} onRetry={loadGroups} />
+            : groups.length === 0 ? <EmptyState icon="◌" title={tab === 'mine' ? 'Bạn chưa tham gia nhóm nào' : 'Chưa tìm thấy nhóm phù hợp'} description={tab === 'mine' ? 'Tham gia cộng đồng hoặc tạo nhóm đầu tiên.' : 'Thử từ khóa khác hoặc tạo một cộng đồng mới.'} />
               : <div className="group-list">{groups.map((group) => <article className="group-list-item" key={group.groupId}>
                 <Link className="group-list-cover" to={`/groups/${group.groupId}`} style={group.coverImage ? { backgroundImage: `linear-gradient(0deg, rgba(9, 17, 23, .18), rgba(9, 17, 23, .04)), url("${group.coverImage}")` } : undefined} aria-label={`Mở nhóm ${group.name}`}>
-                  {group.avatar ? <img src={group.avatar} alt="" /> : <span>{group.name.slice(0, 1).toUpperCase()}</span>}
+                  <SafeImage src={group.avatar} fallback={<span>{group.name.slice(0, 1).toUpperCase()}</span>} />
                 </Link>
                 <div className="group-list-copy"><div className="group-list-title"><Link to={`/groups/${group.groupId}`}>{group.name}</Link><span className={`group-privacy ${group.visibility === 'PRIVATE' ? 'private' : ''}`}>{group.visibility === 'PRIVATE' ? 'Riêng tư' : 'Công khai'}</span></div>
                   <span className="group-list-meta">{group.category || 'Cộng đồng'} · {group.memberCount} thành viên</span>

@@ -5,6 +5,9 @@ import { feedApi } from '../api/feedApi'
 import { videoApi } from '../api/videoApi'
 import { useAuth } from '../context/AuthContext'
 import { CommentIcon, ShareIcon } from '../components/Icons'
+import EmptyState from '../components/EmptyState'
+import LoadingState from '../components/LoadingState'
+import ErrorState from '../components/ErrorState'
 
 const PAGE_SIZE = 5
 const reactions = [
@@ -220,9 +223,9 @@ export default function VideosPage() {
 
         <section className="video-feed" aria-label="Bảng tin video">
           <div className="video-feed-heading"><div><span className="video-eyebrow">{filter === 'FOLLOWING' ? 'NHÀ SÁNG TẠO BẠN THEO DÕI' : 'GỢI Ý DÀNH RIÊNG CHO BẠN'}</span><h2>{filter === 'FOLLOWING' ? 'Đang theo dõi' : 'Dành cho bạn'}</h2></div></div>
-          {loading && <div className="video-state"><span className="video-spinner" />Đang tải video...</div>}
-          {!loading && error && videos.length === 0 && <div className="video-state video-state-error"><strong>Không tải được video</strong><span>{error}</span><button type="button" onClick={() => { setError(''); setRetryKey((current) => current + 1) }}>Thử lại</button></div>}
-          {!loading && !error && videos.length === 0 && <div className="video-state"><span className="video-empty-mark">▶</span><strong>Chưa có video phù hợp</strong><span>{filter === 'FOLLOWING' ? 'Video từ những nhà sáng tạo bạn theo dõi sẽ xuất hiện ở đây.' : 'Thử tìm kiếm với từ khóa khác nhé.'}</span></div>}
+          {loading && <LoadingState label="Đang tải video..." />}
+          {!loading && error && videos.length === 0 && <ErrorState title="Không tải được video" message={error} onRetry={() => { setError(''); setRetryKey((current) => current + 1) }} />}
+          {!loading && !error && videos.length === 0 && <EmptyState icon="▶" title="Chưa có video phù hợp" description={filter === 'FOLLOWING' ? 'Video từ những nhà sáng tạo bạn theo dõi sẽ xuất hiện ở đây.' : 'Thử tìm kiếm với từ khóa khác nhé.'} />}
 
           <div className="video-list">{videos.map((card) => {
             const post = card.video
@@ -271,8 +274,8 @@ export default function VideosPage() {
             </article>
           })}</div>
           <div className="video-load-sentinel" ref={sentinelRef} />
-          {loadingMore && <div className="video-state video-loading-more"><span className="video-spinner" />Đang tải video tiếp theo...</div>}
-          {moreError && <div className="video-state video-state-error"><span>{moreError}</span><button type="button" onClick={() => setMoreError('')}>Tải lại</button></div>}
+          {loadingMore && <LoadingState compact label="Đang tải video tiếp theo..." />}
+          {moreError && <ErrorState compact message={moreError} retryLabel="Tải lại" onRetry={() => setMoreError('')} />}
           {!loading && !hasMore && videos.length > 0 && <p className="video-end-note">Bạn đã xem hết video phù hợp.</p>}
         </section>
       </div>

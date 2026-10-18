@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import Avatar from './Avatar'
+import EmptyState from './EmptyState'
 import { conversationApi } from '../api/conversationApi'
 import { userApi } from '../api/userApi'
 import { friendApi } from '../api/friendApi'
@@ -448,9 +449,7 @@ export default function Sidebar({ activeConversationId }) {
             <section className="friends-sidebar-section">
               <div className="friends-sidebar-heading">Bạn bè ({acceptedFriends.length})</div>
               {acceptedFriends.length === 0 ? (
-                <div className="sidebar-empty-state" style={{ padding: '12px 10px', textAlign: 'center' }}>
-                  <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Chưa có bạn bè</p>
-                </div>
+                <EmptyState compact description="Chưa có bạn bè" />
               ) : acceptedFriends.map((friend) => {
                 const isSender = String(friend.senderId) === String(user?.userId)
                 const friendId = isSender ? friend.receiverId : friend.senderId
@@ -475,9 +474,7 @@ export default function Sidebar({ activeConversationId }) {
             <section className="friends-sidebar-section friends-sidebar-suggestions">
               <div className="friends-sidebar-heading">Gợi ý liên hệ ({friendSuggestions.length})</div>
               {friendSuggestions.length === 0 ? (
-                <div className="sidebar-empty-state" style={{ padding: '12px 10px', textAlign: 'center' }}>
-                  <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Chưa có gợi ý liên hệ</p>
-                </div>
+                <EmptyState compact description="Chưa có gợi ý liên hệ" />
               ) : friendSuggestions.map((candidate) => (
                 <div key={candidate.userId} className="conversation-item friend-suggestion-item">
                   <Avatar src={candidate.avatar} name={candidate.displayName} size={40} />
@@ -498,16 +495,10 @@ export default function Sidebar({ activeConversationId }) {
           </>
         ) : showArchivedOnly ? (
           archivedConversations.length === 0 ? (
-            <div className="sidebar-empty-state" style={{ padding: '20px 14px', textAlign: 'center' }}>
-              <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Chưa có đoạn chat lưu trữ</p>
-            </div>
+            <EmptyState compact description="Chưa có đoạn chat lưu trữ" />
           ) : null
         ) : conversations.length === 0 ? (
-          <div className="sidebar-empty-state" style={{ padding: '20px 14px', textAlign: 'center' }}>
-            <p style={{ fontSize: 13, marginBottom: 8, color: 'var(--text-secondary)' }}>
-              Chưa có cuộc trò chuyện nào
-            </p>
-          </div>
+          <EmptyState compact description="Chưa có cuộc trò chuyện nào" />
         ) : (
           <>
             {conversations.map((c) => {

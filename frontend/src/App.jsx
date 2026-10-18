@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import { SocketProvider } from './context/SocketContext'
 import ProtectedRoute from './components/ProtectedRoute'
+import LoadingState from './components/LoadingState'
 
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
@@ -49,8 +50,8 @@ export default function App() {
             >
               <Route index element={<EmptyChatPage />} />
               <Route path="feed" element={<FeedPage />} />
-              <Route path="video" element={<React.Suspense fallback={<main className="video-page"><div className="video-state">Đang mở video...</div></main>}><VideosPage /></React.Suspense>} />
-              <Route path="saved" element={<React.Suspense fallback={<main className="saved-page"><div className="saved-state">Đang tải nội dung đã lưu...</div></main>}><SavedPage /></React.Suspense>} />
+              <Route path="video" element={<React.Suspense fallback={<main className="video-page"><LoadingState label="Đang mở video..." /></main>}><VideosPage /></React.Suspense>} />
+              <Route path="saved" element={<React.Suspense fallback={<main className="saved-page"><LoadingState label="Đang tải nội dung đã lưu..." /></main>}><SavedPage /></React.Suspense>} />
               <Route path="events" element={<EventsPage />} />
               <Route path="events/:eventId" element={<EventsPage />} />
               <Route path="groups" element={<GroupsPage />} />

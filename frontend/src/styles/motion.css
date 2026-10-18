@@ -1,0 +1,72 @@
+/* ==========================================================================
+   Hiệu ứng chuyển động dùng chung (nhẹ, tất cả <= 200ms).
+   - Dùng :where() nên độ ưu tiên bằng 0: hiệu ứng riêng của từng trang vẫn thắng.
+   - Tự tắt khi hệ điều hành bật "giảm chuyển động" (prefers-reduced-motion).
+   ========================================================================== */
+:root {
+  --motion-fast: 120ms;
+  --motion-base: 160ms;
+  --motion-ease: ease-out;
+}
+
+/* Hover: đổi màu / viền / bóng mượt thay vì nhảy ngay */
+:where(button, a, summary, select, [role="button"], input[type="checkbox"], input[type="radio"]) {
+  transition:
+    background-color var(--motion-base) var(--motion-ease),
+    color var(--motion-base) var(--motion-ease),
+    border-color var(--motion-base) var(--motion-ease),
+    box-shadow var(--motion-base) var(--motion-ease),
+    opacity var(--motion-base) var(--motion-ease),
+    transform var(--motion-fast) var(--motion-ease),
+    scale var(--motion-fast) var(--motion-ease);
+}
+
+/* Nhấn nút: thu nhỏ nhẹ. Dùng thuộc tính `scale` nên không đè lên `transform` có sẵn. */
+:where(button, [role="button"]):active:not(:disabled):not([aria-disabled="true"]) {
+  scale: 0.97;
+}
+
+:where(button, [role="button"]):disabled {
+  cursor: not-allowed;
+}
+
+/* Viền focus rõ ràng khi điều hướng bằng bàn phím (không hiện khi click chuột) */
+:where(button, a, select, textarea, input, [role="button"], [tabindex]):focus-visible {
+  outline: 2px solid var(--accent, #0084ff);
+  outline-offset: 2px;
+}
+
+/* Chuyển trang: nội dung trang mới hiện dần. Chỉ chạy lúc trang được mount lại. */
+@keyframes ui-page-enter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.app-shell > :not(.nav-rail):not(.sidebar):not(.call-overlay) {
+  animation: ui-page-enter 160ms var(--motion-ease) both;
+}
+
+/* Các khối trạng thái (rỗng / đang tải / lỗi) hiện dần khi xuất hiện */
+@keyframes ui-fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+
+.ui-state,
+.ui-skeleton-list {
+  animation: ui-fade-in 160ms var(--motion-ease) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(button, a, summary, select, [role="button"], input[type="checkbox"], input[type="radio"]) {
+    transition-duration: 0.01ms;
+  }
+  :where(button, [role="button"]):active:not(:disabled) {
+    scale: none;
+  }
+  .app-shell > :not(.nav-rail):not(.sidebar):not(.call-overlay),
+  .ui-state,
+  .ui-skeleton-list {
+    animation: none;
+  }
+}

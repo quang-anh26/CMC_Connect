@@ -1,0 +1,144 @@
+/* ==========================================================================
+   Shared state views: EmptyState / LoadingState / ErrorState
+   Only uses the theme variables from index.css, so it follows Light/Dark automatically.
+   ========================================================================== */
+.ui-state {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 10px;
+  padding: 36px 16px;
+  border: 1px dashed var(--border-light, #34434a);
+  border-radius: 12px;
+  color: var(--text-secondary, #8da2b5);
+  text-align: center;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.ui-state--compact {
+  padding: 16px;
+  gap: 8px;
+  border-style: solid;
+  border-color: transparent;
+}
+
+.ui-state__title {
+  color: var(--text-primary, #fff);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.ui-state__text {
+  max-width: 420px;
+  overflow-wrap: anywhere;
+}
+
+.ui-state__icon {
+  display: grid;
+  width: 46px;
+  height: 46px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--bg-item-active, #152234);
+  color: var(--accent, #0084ff);
+  font-size: 20px;
+}
+
+.ui-state--error {
+  border-color: var(--danger, #ef4444);
+}
+
+.ui-state--error .ui-state__icon {
+  background: transparent;
+  color: var(--danger, #ef4444);
+  border: 2px solid var(--danger, #ef4444);
+  font-weight: 800;
+}
+
+.ui-state__action {
+  margin-top: 4px;
+  padding: 8px 16px;
+  border: 1px solid var(--accent, #0084ff);
+  border-radius: 8px;
+  color: var(--accent, #0084ff);
+  font-size: 13px;
+  font-weight: 600;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.ui-state__action:hover {
+  background: var(--accent, #0084ff);
+  color: #fff;
+}
+
+.ui-state__action:focus-visible {
+  outline: 2px solid var(--accent, #0084ff);
+  outline-offset: 2px;
+}
+
+/* Loading: spinner */
+.ui-spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid var(--border-light, #34434a);
+  border-top-color: var(--accent, #0084ff);
+  border-radius: 50%;
+  animation: ui-spin 0.8s linear infinite;
+}
+
+@keyframes ui-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Loading: skeleton blocks */
+.ui-skeleton-list {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+}
+
+.ui-skeleton {
+  height: 72px;
+  border-radius: 10px;
+  background: linear-gradient(
+    90deg,
+    var(--bg-input, #151f2e) 25%,
+    var(--bg-item-hover, #1c2b3d) 50%,
+    var(--bg-input, #151f2e) 75%
+  );
+  background-size: 200% 100%;
+  animation: ui-shimmer 1.3s ease-in-out infinite;
+}
+
+@keyframes ui-shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+.ui-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-spinner,
+  .ui-skeleton {
+    animation-duration: 3s;
+  }
+  .ui-state__action {
+    transition: none;
+  }
+}
+
+/* Trang Bảng tin xếp các khối bằng flex + order (feed-error/feed-empty có order: 3),
+   nên các khối trạng thái cũng cần order tương ứng để nằm dưới ô soạn bài viết. */
+.feed-main > .ui-state,
+.feed-main > .ui-skeleton-list {
+  order: 3;
+  margin-bottom: 12px;
+}

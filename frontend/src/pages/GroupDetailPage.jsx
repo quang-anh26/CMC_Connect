@@ -4,7 +4,10 @@ import { useAuth } from '../context/AuthContext'
 import { friendApi } from '../api/friendApi'
 import { groupApi } from '../api/groupApi'
 import { savedApi } from '../api/savedApi'
-import Avatar from '../components/Avatar'
+import Avatar, { SafeImage } from '../components/Avatar'
+import EmptyState from '../components/EmptyState'
+import LoadingState from '../components/LoadingState'
+import ErrorState from '../components/ErrorState'
 
 const tabs = ['Bài viết', 'Thành viên', 'Media', 'Giới thiệu']
 const reactions = [
@@ -59,6 +62,7 @@ export default function GroupDetailPage() {
   const [loading, setLoading] = useState(true)
   const [posting, setPosting] = useState(false)
   const [error, setError] = useState('')
+  const [loadFailed, setLoadFailed] = useState(false)
   const [notice, setNotice] = useState('')
   const [pendingRequests, setPendingRequests] = useState([])
   const [pendingPosts, setPendingPosts] = useState([])
@@ -79,6 +83,7 @@ export default function GroupDetailPage() {
       setGroup(data)
       setSettings({ name: data.name, description: data.description || '', category: data.category || '', visibility: data.visibility, avatar: data.avatar || '', coverImage: data.coverImage || '', postApprovalRequired: data.postApprovalRequired, spamKeywords: data.spamKeywords || '' })
       setError('')
+      setLoadFailed(false)
       const canViewPublic = data.visibility === 'PUBLIC'
       const [postResponse, memberResponse, eventResponse] = await Promise.all([
         data.joined || canViewPublic ? groupApi.posts(groupId, { search, sort, mediaOnly: tab === 'Media' }) : Promise.resolve({ data: [] }),
@@ -90,6 +95,7 @@ export default function GroupDetailPage() {
       setEvents(eventResponse.data || [])
     } catch (err) {
       setError(err.response?.status === 403 ? 'Đây là nhóm riêng tư. Bạn cần gửi yêu cầu tham gia để xem nội dung.' : err.response?.data?.message || 'Không thể tải nhóm.')
+      setLoadFailed(err.response?.status !== 403)
       setGroup(null)
     } finally { setLoading(false) }
   }
@@ -334,15 +340,15 @@ export default function GroupDetailPage() {
     catch (err) { announce(err.response?.data?.message || 'Không thể mời bạn bè.') }
   }
 
-  if (loading) return <main className="groups-page group-detail-page"><div className="groups-loading"><span className="group-spinner" />Đang tải nhóm...</div></main>
-  if (!group) return <main className="groups-page group-detail-page"><Link className="group-back-link" to="/groups">← Tất cả nhóm</Link><div className="groups-state group-private-state"><span className="group-empty-mark">◌</span><strong>Không thể mở nhóm</strong><span>{error}</span><button type="button" className="group-primary-button" onClick={joinOrLeave}>Gửi yêu cầu tham gia</button></div></main>
+  if (loading) return <main className="groups-page group-detail-page"><LoadingState label="Đang tải nhóm..." /></main>
+  if (!group) return <main className="groups-page group-detail-page"><Link className="group-back-link" to="/groups">← Tất cả nhóm</Link>{loadFailed ? <ErrorState title="Không thể mở nhóm" message={error} onRetry={loadGroup} /> : <EmptyState icon="◌" title="Không thể mở nhóm" description={error} action={<button type="button" className="group-primary-button" onClick={joinOrLeave}>Gửi yêu cầu tham gia</button>} />}</main>
 
   return (
     <main className="groups-page group-detail-page">
       <Link className="group-back-link" to="/groups">← Tất cả nhóm</Link>
       <header className="group-cover" style={group.coverImage ? { backgroundImage: `linear-gradient(0deg, rgba(8, 15, 22, .76), rgba(8, 15, 22, .05)), url("${group.coverImage}")` } : undefined}>
         {!group.coverImage && <div className="group-cover-pattern" aria-hidden="true" />}
-        <div className="group-cover-title"><div className="group-avatar-large">{group.avatar ? <img src={group.avatar} alt="" /> : group.name.slice(0, 1).toUpperCase()}</div><div><span className="groups-kicker">{group.visibility === 'PRIVATE' ? 'NHÓM RIÊNG TƯ' : 'NHÓM CÔNG KHAI'}</span><h1>{group.name}</h1><p>{group.memberCount} thành viên <span>·</span> {group.category || 'Cộng đồng'}</p></div></div>
+        <div className="group-cover-title"><div className="group-avatar-large"><SafeImage src={group.avatar} fallback={group.name.slice(0, 1).toUpperCase()} /></div><div><span className="groups-kicker">{group.visibility === 'PRIVATE' ? 'NHÓM RIÊNG TƯ' : 'NHÓM CÔNG KHAI'}</span><h1>{group.name}</h1><p>{group.memberCount} thành viên <span>·</span> {group.category || 'Cộng đồng'}</p></div></div>
       </header>
       <section className="group-info-bar"><p>{group.description || 'Chưa có mô tả cho nhóm này.'}</p><div className="group-actions">
         {isMember ? <button className="group-secondary-button" type="button" onClick={joinOrLeave}>Rời nhóm</button> : <button className="group-primary-button" type="button" onClick={joinOrLeave}>{group.visibility === 'PRIVATE' ? 'Yêu cầu tham gia' : 'Tham gia nhóm'}</button>}
@@ -353,9 +359,9 @@ export default function GroupDetailPage() {
 
       {showAdmin && canModerate && <section className="group-admin-panel"><div className="group-admin-heading"><div><span className="groups-kicker">KHÔNG GIAN QUẢN TRỊ</span><h2>Kiểm duyệt nhóm</h2></div><button type="button" className="group-secondary-button" onClick={() => setSettingsOpen(true)}>Cài đặt nhóm</button></div>
         <div className="group-admin-grid">
-          <section><h3>Yêu cầu tham gia <span>{pendingRequests.length}</span></h3>{pendingRequests.length === 0 ? <p className="group-muted">Không có yêu cầu đang chờ.</p> : pendingRequests.map((request) => <div className="group-moderation-row" key={request.id}><Avatar src={request.avatar} name={request.name} size={34} /><strong>{request.name}</strong><button type="button" className="group-primary-button compact" onClick={() => decideJoin(request.id, true)}>Duyệt</button><button type="button" className="group-quiet-button" onClick={() => decideJoin(request.id, false)}>Từ chối</button></div>)}</section>
-          <section><h3>Bài viết chờ duyệt <span>{pendingPosts.length}</span></h3>{pendingPosts.length === 0 ? <p className="group-muted">Không có bài viết chờ duyệt.</p> : pendingPosts.map((post) => <div className="group-review-row" key={post.postId}><strong>{post.authorName}</strong><p>{post.content || 'Tệp đính kèm'}</p><div><button type="button" className="group-primary-button compact" onClick={() => decidePost(post.postId, true)}>Duyệt</button><button type="button" className="group-quiet-button" onClick={() => decidePost(post.postId, false)}>Từ chối</button></div></div>)}</section>
-          <section><h3>Báo cáo <span>{reports.length}</span></h3>{reports.length === 0 ? <p className="group-muted">Không có báo cáo mới.</p> : reports.map((report) => <div className="group-review-row" key={report.id}><strong>{report.targetType} · {report.reason}</strong><p>Báo cáo bởi {report.reporter}</p><div><button type="button" className="group-danger-button" onClick={() => decideReport(report, true)}>Gỡ nội dung</button><button type="button" className="group-quiet-button" onClick={() => decideReport(report, false)}>Bỏ qua</button></div></div>)}</section>
+          <section><h3>Yêu cầu tham gia <span>{pendingRequests.length}</span></h3>{pendingRequests.length === 0 ? <EmptyState compact description="Không có yêu cầu đang chờ." /> : pendingRequests.map((request) => <div className="group-moderation-row" key={request.id}><Avatar src={request.avatar} name={request.name} size={34} /><strong>{request.name}</strong><button type="button" className="group-primary-button compact" onClick={() => decideJoin(request.id, true)}>Duyệt</button><button type="button" className="group-quiet-button" onClick={() => decideJoin(request.id, false)}>Từ chối</button></div>)}</section>
+          <section><h3>Bài viết chờ duyệt <span>{pendingPosts.length}</span></h3>{pendingPosts.length === 0 ? <EmptyState compact description="Không có bài viết chờ duyệt." /> : pendingPosts.map((post) => <div className="group-review-row" key={post.postId}><strong>{post.authorName}</strong><p>{post.content || 'Tệp đính kèm'}</p><div><button type="button" className="group-primary-button compact" onClick={() => decidePost(post.postId, true)}>Duyệt</button><button type="button" className="group-quiet-button" onClick={() => decidePost(post.postId, false)}>Từ chối</button></div></div>)}</section>
+          <section><h3>Báo cáo <span>{reports.length}</span></h3>{reports.length === 0 ? <EmptyState compact description="Không có báo cáo mới." /> : reports.map((report) => <div className="group-review-row" key={report.id}><strong>{report.targetType} · {report.reason}</strong><p>Báo cáo bởi {report.reporter}</p><div><button type="button" className="group-danger-button" onClick={() => decideReport(report, true)}>Gỡ nội dung</button><button type="button" className="group-quiet-button" onClick={() => decideReport(report, false)}>Bỏ qua</button></div></div>)}</section>
           <section><h3>Thành viên bị cấm <span>{bans.length}</span></h3>{bans.length === 0 ? <p className="group-muted">Danh sách trống.</p> : bans.map((member) => <div className="group-review-row" key={member.userId}><strong>{member.name}</strong><p>{member.reason || 'Không ghi lý do'}</p><button type="button" className="group-secondary-button compact" onClick={() => unbanMember(member)}>Bỏ cấm</button></div>)}</section>
         </div>
       </section>}
@@ -365,7 +371,7 @@ export default function GroupDetailPage() {
           {isMember && <section className="group-side-panel"><span className="groups-kicker">MỜI BẠN BÈ</span><label className="group-invite-select"><span>Chọn bạn bè</span><select defaultValue="" onChange={inviteFriend}><option value="">Mời vào nhóm...</option>{friends.map((friend) => <option key={friend.userId} value={friend.userId}>{friend.displayName || friend.username}</option>)}</select></label></section>}
           <section className="group-side-panel group-events-panel"><div className="group-event-heading"><div><span className="groups-kicker">LỊCH NHÓM</span><strong>Sự kiện</strong></div>{isMember && <button type="button" className="group-quiet-button" onClick={() => setEventFormOpen((open) => !open)}>{eventFormOpen ? 'Đóng' : '＋ Tạo'}</button>}</div>
             {eventFormOpen && <form className="group-event-form" onSubmit={createEvent}><label>Tên sự kiện<input required maxLength={120} value={eventDraft.title} onChange={(event) => setEventDraft({ ...eventDraft, title: event.target.value })} /></label><label>Địa điểm<input maxLength={200} value={eventDraft.location} onChange={(event) => setEventDraft({ ...eventDraft, location: event.target.value })} /></label><label>Bắt đầu<input type="datetime-local" required value={eventDraft.startsAt} onChange={(event) => setEventDraft({ ...eventDraft, startsAt: event.target.value })} /></label><label>Kết thúc<input type="datetime-local" value={eventDraft.endsAt} onChange={(event) => setEventDraft({ ...eventDraft, endsAt: event.target.value })} /></label><label>Mô tả<textarea rows="2" maxLength={2000} value={eventDraft.description} onChange={(event) => setEventDraft({ ...eventDraft, description: event.target.value })} /></label><button className="group-primary-button compact">Tạo sự kiện</button></form>}
-            {events.length === 0 ? <p className="group-muted">Chưa có sự kiện nào.</p> : events.map((event) => <div className="group-event-item" key={event.eventId}><span className="group-event-date">{new Date(event.startsAt).toLocaleDateString('vi-VN', { day: '2-digit', month: 'short' })}</span><div><strong>{event.title}</strong><span>{formatDate(event.startsAt)}{event.location ? ` · ${event.location}` : ''}</span><small>{event.participantCount} người tham gia</small></div>{isMember && <button type="button" className={event.participating ? 'group-event-joined' : ''} onClick={() => participateEvent(event.eventId)}>{event.participating ? 'Đã tham gia' : 'Tham gia'}</button>}</div>)}
+            {events.length === 0 ? <EmptyState compact description="Chưa có sự kiện nào." /> : events.map((event) => <div className="group-event-item" key={event.eventId}><span className="group-event-date">{new Date(event.startsAt).toLocaleDateString('vi-VN', { day: '2-digit', month: 'short' })}</span><div><strong>{event.title}</strong><span>{formatDate(event.startsAt)}{event.location ? ` · ${event.location}` : ''}</span><small>{event.participantCount} người tham gia</small></div>{isMember && <button type="button" className={event.participating ? 'group-event-joined' : ''} onClick={() => participateEvent(event.eventId)}>{event.participating ? 'Đã tham gia' : 'Tham gia'}</button>}</div>)}
           </section></aside>
 
         <section className="group-main-column">
@@ -390,7 +396,7 @@ export default function GroupDetailPage() {
                 </form>}
                 <div className="group-post-toolbar"><div><span className="groups-kicker">{tab === 'Media' ? 'THƯ VIỆN NHÓM' : 'THẢO LUẬN'}</span><h2>{tab === 'Media' ? 'Ảnh và tệp' : 'Bài viết'}</h2></div>{tab === 'Bài viết' && <select value={sort} onChange={(event) => setSort(event.target.value)} aria-label="Sắp xếp bài viết"><option value="NEWEST">Mới nhất</option><option value="OLDEST">Cũ nhất</option></select>}</div>
                 {tab === 'Bài viết' && <label className="group-post-search"><span aria-hidden="true">⌕</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm trong bài viết" /></label>}
-                {posts.length === 0 ? <div className="groups-state group-post-empty"><span className="group-empty-mark">◌</span><strong>{tab === 'Media' ? 'Chưa có tệp được chia sẻ' : 'Chưa có bài viết'}</strong><span>{isMember ? 'Hãy bắt đầu cuộc trò chuyện đầu tiên trong nhóm.' : 'Tham gia nhóm để xem và đăng bài.'}</span></div> : <div className="group-post-list">{posts.map((post) => <article className="group-post" key={post.postId}>
+                {posts.length === 0 ? <EmptyState icon="◌" title={tab === 'Media' ? 'Chưa có tệp được chia sẻ' : 'Chưa có bài viết'} description={isMember ? 'Hãy bắt đầu cuộc trò chuyện đầu tiên trong nhóm.' : 'Tham gia nhóm để xem và đăng bài.'} /> : <div className="group-post-list">{posts.map((post) => <article className="group-post" key={post.postId}>
                   {post.pinned && <div className="group-pinned-label">⌖ BÀI VIẾT ĐÃ GHIM</div>}
                   <header className="group-post-head"><Avatar className="group-post-author-avatar" src={post.authorAvatar} name={post.authorName} size={42} /><div className="group-post-author"><strong>{post.authorName}</strong><span>{formatDate(post.createdAt)}{post.status === 'PENDING' ? ' · Chờ duyệt' : ''}</span></div><details className="group-post-menu"><summary aria-label="Tùy chọn bài viết">•••</summary><div>{post.authorId === user?.userId && <button type="button" onClick={async () => { const text = window.prompt('Chỉnh sửa bài viết', post.content); if (text == null) return; try { await groupApi.updatePost(groupId, post.postId, { content: text, mediaUrl: post.mediaUrl, mediaType: post.mediaType }); await loadGroup() } catch (err) { announce(err.response?.data?.message || 'Không thể sửa bài viết.') } }}>Chỉnh sửa</button>}{(post.authorId === user?.userId || canModerate) && <button type="button" onClick={async () => { if (!window.confirm('Xóa bài viết này?')) return; try { await groupApi.removePost(groupId, post.postId); await loadGroup() } catch (err) { announce(err.response?.data?.message || 'Không thể xóa bài viết.') } }}>Xóa bài viết</button>}{canModerate && <button type="button" onClick={async () => { try { await groupApi.pin(groupId, post.postId); await loadGroup() } catch (err) { announce(err.response?.data?.message || 'Không thể ghim bài viết.') } }}>{post.pinned ? 'Bỏ ghim' : 'Ghim bài viết'}</button>}<button type="button" onClick={() => reportPost(post)}>Báo cáo</button></div></details></header>
                   {post.content && <p className="group-post-content">{post.content}</p>}

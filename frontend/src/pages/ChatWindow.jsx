@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { useParams } from 'react-router-dom'
 import Avatar from '../components/Avatar'
+import EmptyState from '../components/EmptyState'
+import LoadingState from '../components/LoadingState'
 import ContactInfoPanel from '../components/ContactInfoPanel'
 import { messageApi } from '../api/messageApi'
 import { conversationApi } from '../api/conversationApi'
@@ -517,16 +519,11 @@ export default function ChatWindow() {
           )}
 
           {loadingHistory && (
-            <div className="empty-state" style={{ height: 80 }}>
-              Đang tải tin nhắn...
-            </div>
+            <LoadingState compact label="Đang tải tin nhắn..." />
           )}
 
           {!loadingHistory && messages.length === 0 && (
-            <div className="empty-state" style={{ height: 180, flexDirection: 'column', gap: 8 }}>
-              <div style={{ fontSize: 32 }}>👋</div>
-              <div style={{ color: 'var(--text-secondary)' }}>Chưa có tin nhắn nào. Hãy gửi lời chào đầu tiên!</div>
-            </div>
+            <EmptyState compact icon="👋" description="Chưa có tin nhắn nào. Hãy gửi lời chào đầu tiên!" />
           )}
 
           {/* Date Separator */}

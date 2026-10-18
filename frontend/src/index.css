@@ -3756,7 +3756,7 @@ table.admin-table th {
   background: transparent;
   border-right: 0;
   box-shadow: none;
-  transition: width .22s ease, max-width .22s ease, background-color .22s ease, box-shadow .22s ease;
+  transition: width .2s ease, max-width .2s ease, background-color .2s ease, box-shadow .2s ease;
 }
 .feed-shell .nav-rail:hover,
 .feed-shell .nav-rail:hover {
@@ -3822,7 +3822,7 @@ table.admin-table th {
   background: transparent;
   border-right: 0;
   box-shadow: none;
-  transition: width .22s ease, max-width .22s ease, background-color .22s ease, box-shadow .22s ease;
+  transition: width .2s ease, max-width .2s ease, background-color .2s ease, box-shadow .2s ease;
 }
 .nav-overlay-shell .nav-rail:hover,
 .nav-overlay-shell .nav-rail:hover {
@@ -4999,7 +4999,7 @@ ol.ap-bottom { grid-template-columns: repeat(3, 1fr); }
 }
 
 .ap-progress { display: flex; gap: 8px; margin-bottom: 24px; }
-.ap-progress span { flex: 1; height: 5px; border-radius: 99px; background: rgba(255, 255, 255, 0.14); transition: background 0.25s; }
+.ap-progress span { flex: 1; height: 5px; border-radius: 99px; background: rgba(255, 255, 255, 0.14); transition: background 0.2s; }
 .ap-progress span.on { background: linear-gradient(90deg, #2f8cff, #6cc3ff); }
 
 .ap-card-head { display: flex; align-items: center; gap: 18px; margin-bottom: 28px; }
