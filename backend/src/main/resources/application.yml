@@ -5,6 +5,12 @@ spring:
   application:
     name: messaging-system
 
+  # File cau hinh rieng cua tung may (KHONG commit len git) - chua mat khau SMTP, DB...
+  # Copy application-local.example.yml -> application-local.yml roi dien thong tin.
+  # Tim file theo thu muc dang chay backend (backend/ hoac thu muc goc project).
+  config:
+    import: optional:file:./application-local.yml,optional:file:./backend/application-local.yml
+
   # ==== Microsoft SQL Server ====
   datasource:
     url: jdbc:sqlserver://${DB_HOST:localhost}:${DB_PORT:1433};databaseName=${DB_NAME:messaging_db};encrypt=true;trustServerCertificate=true
@@ -15,7 +21,7 @@ spring:
   sql:
     init:
       mode: always
-      schema-locations: classpath:db/migration/ensure-user-cover-image.sql,classpath:db/migration/ensure-video-schema.sql,classpath:db/migration/ensure-message-request-schema.sql,classpath:db/migration/ensure-message-edit-schema.sql,classpath:db/migration/ensure-conversation-requests.sql,classpath:db/migration/ensure-conversation-background.sql
+      schema-locations: classpath:db/migration/ensure-user-cover-image.sql,classpath:db/migration/ensure-user-email.sql,classpath:db/migration/ensure-video-schema.sql,classpath:db/migration/ensure-message-request-schema.sql,classpath:db/migration/ensure-message-edit-schema.sql,classpath:db/migration/ensure-conversation-requests.sql,classpath:db/migration/ensure-conversation-background.sql
 
   jpa:
     hibernate:
@@ -25,6 +31,24 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.SQLServerDialect
         format_sql: true
+
+  # ==== Gui email (ma xac thuc dang ky) ====
+  # Chi can khai bao MAIL_USERNAME + MAIL_PASSWORD (Gmail: dung App Password) la tu dong gui email that.
+  # Neu de trong, ma xac thuc chi duoc in ra console cua backend de test.
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+          connectiontimeout: 10000
+          timeout: 10000
+          writetimeout: 10000
 
   servlet:
     multipart:
@@ -38,6 +62,16 @@ app:
     refresh-token-expiration-ms: 2592000000   # 30 days
   cors:
     allowed-origins: ${CORS_ORIGINS:http://localhost:5173,http://127.0.0.1:5173,http://192.168.*:5173,http://10.*:5173,http://172.16.*:5173,http://172.17.*:5173,http://172.18.*:5173,http://172.19.*:5173,http://172.20.*:5173,http://172.21.*:5173,http://172.22.*:5173,http://172.23.*:5173,http://172.24.*:5173,http://172.25.*:5173,http://172.26.*:5173,http://172.27.*:5173,http://172.28.*:5173,http://172.29.*:5173,http://172.30.*:5173,http://172.31.*:5173}
+  mail:
+    enabled: ${MAIL_ENABLED:false}
+    from: ${MAIL_FROM:}
+  auth:
+    email-verification:
+      code-ttl-minutes: 10
+      resend-cooldown-seconds: 60
+      max-attempts: 5
+      max-sends-per-hour: 5
+      verified-token-ttl-minutes: 15
   upload:
     dir: ${UPLOAD_DIR:./uploads}
     max-file-size-mb: 10

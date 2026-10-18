@@ -27,6 +27,9 @@ public class User {
     @Column(nullable = false, unique = true, length = 50)
     private String username;
 
+    @Column(length = 255)
+    private String email; // chữ thường; null với tài khoản tạo trước khi có xác thực email
+
     @Column(nullable = false)
     private String password; // BCrypt hash
 

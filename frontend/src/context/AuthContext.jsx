@@ -30,8 +30,9 @@ export function AuthProvider({ children }) {
     persistSession(data)
   }
 
-  const register = async (username, password, displayName) => {
-    const { data } = await authApi.register({ username, password, displayName })
+  // payload: { email, verificationToken, username, displayName, password }
+  const register = async (payload) => {
+    const { data } = await authApi.register(payload)
     persistSession(data)
   }
 

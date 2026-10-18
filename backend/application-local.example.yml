@@ -1,0 +1,18 @@
+# Cach dung:
+#   1. Copy file nay thanh  backend/application-local.yml   (file that se khong bi commit len git)
+#   2. Dien email + App Password cua ban
+#   3. Khoi dong lai backend (mvn spring-boot:run trong thu muc backend)
+#
+# Lay Gmail App Password (16 ky tu):
+#   - Bat Xac minh 2 buoc:  https://myaccount.google.com/security
+#   - Tao App Password:     https://myaccount.google.com/apppasswords  (dat ten tuy y, vd "KapaTalk")
+#   - Dan 16 ky tu vao password ben duoi (khong dung mat khau dang nhap Gmail, bo khoang trang)
+
+spring:
+  mail:
+    username: your.email@gmail.com
+    password: xxxxxxxxxxxxxxxx
+
+app:
+  mail:
+    from: your.email@gmail.com

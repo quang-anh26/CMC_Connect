@@ -25,6 +25,7 @@ GO
 CREATE TABLE dbo.USERS (
     user_id        BIGINT IDENTITY(1,1) PRIMARY KEY,
     username       VARCHAR(50)   NOT NULL,
+    email          VARCHAR(255)  NULL,              -- dung de xac thuc dang ky / dang nhap bang email
     password       VARCHAR(255)  NOT NULL,          -- BCrypt hash
     display_name   NVARCHAR(100) NULL,
     avatar         VARCHAR(500)  NULL,
@@ -43,6 +44,30 @@ CREATE TABLE dbo.USERS (
 );
 GO
 CREATE INDEX IX_users_display_name ON dbo.USERS(display_name);
+GO
+-- Cho phep 1 email tao nhieu tai khoan -> chi muc thuong (khong UNIQUE) de tra cuu nhanh
+CREATE INDEX IX_users_email ON dbo.USERS(email) WHERE email IS NOT NULL;
+GO
+
+/* ---------------------------------------------------------------------
+   1b. EMAIL_VERIFICATION (ma xac thuc email khi dang ky)
+   --------------------------------------------------------------------- */
+IF OBJECT_ID('dbo.EMAIL_VERIFICATION', 'U') IS NOT NULL DROP TABLE dbo.EMAIL_VERIFICATION;
+GO
+CREATE TABLE dbo.EMAIL_VERIFICATION (
+    id                   BIGINT IDENTITY(1,1) PRIMARY KEY,
+    email                VARCHAR(255) NOT NULL,
+    code_hash            VARCHAR(64)  NULL,      -- SHA-256 cua ma 6 so (khong luu ma goc)
+    expires_at           DATETIME2    NOT NULL,
+    attempts             INT          NOT NULL DEFAULT 0,
+    send_count           INT          NOT NULL DEFAULT 0,
+    send_window_start    DATETIME2    NULL,
+    last_sent_at         DATETIME2    NULL,
+    verified_token_hash  VARCHAR(64)  NULL,      -- token dung 1 lan sau khi nhap dung ma
+    verified_expires_at  DATETIME2    NULL,
+    created_at           DATETIME2    NOT NULL DEFAULT SYSUTCDATETIME(),
+    CONSTRAINT UQ_email_verification_email UNIQUE (email)
+);
 GO
 
 /* ---------------------------------------------------------------------

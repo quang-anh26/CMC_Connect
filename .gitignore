@@ -1,5 +1,7 @@
 target/
 .vscode/
 node_modules/
+application-local.yml
+.env
 dist/
 *.log
