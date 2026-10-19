@@ -207,7 +207,7 @@ export default function RegisterPage() {
       subtitle={meta.sub}
       hero={{
         lead: 'Tham gia',
-        accent: 'KapaTalk',
+        accent: 'CMC Talk',
         text: 'Tạo tài khoản chỉ với 3 bước. Xác thực email giúp bảo vệ tài khoản và giúp bạn bè dễ tìm thấy bạn hơn.',
       }}
       activeStep={step}

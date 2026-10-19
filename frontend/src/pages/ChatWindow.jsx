@@ -129,8 +129,8 @@ export default function ChatWindow() {
         })
       }
     }
-    window.addEventListener('kapatalk-block-status-changed', refresh)
-    return () => window.removeEventListener('kapatalk-block-status-changed', refresh)
+    window.addEventListener('cmctalk-block-status-changed', refresh)
+    return () => window.removeEventListener('cmctalk-block-status-changed', refresh)
   }, [refreshConversationInfo, otherUserId, user?.userId])
 
   const cannotMessage = conversationInfo?.type === 'PRIVATE'
@@ -196,7 +196,7 @@ export default function ChatWindow() {
     if (!connected || !conversationId) return
 
     const unsubMessages = subscribe(`/topic/conversation/${conversationId}`, (incoming) => {
-      window.dispatchEvent(new Event('kapatalk-conversations-updated'))
+      window.dispatchEvent(new Event('cmctalk-conversations-updated'))
       setConversationInfo((current) => current ? { ...current, newFriend: false } : current)
       setMessages((prev) => {
         const idx = prev.findIndex((m) => m.messageId === incoming.messageId)

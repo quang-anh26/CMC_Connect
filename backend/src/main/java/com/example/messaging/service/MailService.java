@@ -88,10 +88,10 @@ public class MailService {
             MimeMessageHelper helper = new MimeMessageHelper(message, false, "UTF-8");
             String fromAddress = (from != null && !from.isBlank()) ? from : smtpUsername;
             if (fromAddress != null && !fromAddress.isBlank()) {
-                helper.setFrom(fromAddress, "KapaTalk");
+                helper.setFrom(fromAddress, "CMC Talk");
             }
             helper.setTo(to);
-            helper.setSubject("KapaTalk - Mã xác thực của bạn là " + code);
+            helper.setSubject("CMC Talk - Mã xác thực của bạn là " + code);
             helper.setText(buildHtml(code, ttlMinutes), true);
             sender.send(message);
             log.info("Đã gửi email xác thực tới {}", to);
@@ -117,7 +117,7 @@ public class MailService {
     private String buildHtml(String code, long ttlMinutes) {
         return "<div style=\"font-family:Arial,Helvetica,sans-serif;max-width:480px;margin:0 auto;padding:24px;"
                 + "border:1px solid #e4e6eb;border-radius:12px\">"
-                + "<h2 style=\"margin:0 0 8px;color:#0b5fd6\">KapaTalk</h2>"
+                + "<h2 style=\"margin:0 0 8px;color:#0b5fd6\">CMC Talk</h2>"
                 + "<p style=\"color:#333;font-size:15px\">Mã xác thực email đăng ký tài khoản của bạn:</p>"
                 + "<p style=\"font-size:34px;font-weight:700;letter-spacing:8px;margin:18px 0;color:#111\">" + code + "</p>"
                 + "<p style=\"color:#555;font-size:14px\">Mã có hiệu lực trong " + ttlMinutes + " phút. "

@@ -14,8 +14,8 @@ export default function MainLayout() {
 
   useEffect(() => {
     const showServerError = (event) => window.alert(event.detail)
-    window.addEventListener('kapatalk-server-error', showServerError)
-    return () => window.removeEventListener('kapatalk-server-error', showServerError)
+    window.addEventListener('cmctalk-server-error', showServerError)
+    return () => window.removeEventListener('cmctalk-server-error', showServerError)
   }, [])
 
   return (

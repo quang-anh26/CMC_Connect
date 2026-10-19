@@ -31,7 +31,7 @@ export default function NavRail() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [isCollapsed, setIsCollapsed] = useState(() => {
-    return localStorage.getItem('kapatalk-nav-collapsed') === 'true'
+    return localStorage.getItem('cmctalk-nav-collapsed') === 'true'
   })
 
   useEffect(() => {
@@ -88,7 +88,7 @@ export default function NavRail() {
     event.stopPropagation()
     setIsCollapsed((current) => {
       const next = !current
-      localStorage.setItem('kapatalk-nav-collapsed', String(next))
+      localStorage.setItem('cmctalk-nav-collapsed', String(next))
       return next
     })
   }
@@ -99,7 +99,7 @@ export default function NavRail() {
         {/* Brand Header */}
         <div className="nav-rail-brand">
           <MessengerLogo size={32} />
-          <div className="nav-brand-copy"><span className="brand-title">KapaTalk</span><small>Kết nối · Chia sẻ · Cùng phát triển</small></div>
+          <div className="nav-brand-copy"><span className="brand-title">CMC Talk</span><small>Kết nối · Chia sẻ · Cùng phát triển</small></div>
         </div>
 
         {/* Navigation Links */}

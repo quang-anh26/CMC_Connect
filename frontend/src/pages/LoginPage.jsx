@@ -13,7 +13,7 @@ import {
 import { getApiErrorMessage } from '../utils/apiError'
 
 // Chỉ ghi nhớ tên đăng nhập (KHÔNG bao giờ lưu mật khẩu)
-const REMEMBER_KEY = 'kapatalk-remembered-login'
+const REMEMBER_KEY = 'cmctalk-remembered-login'
 
 function readRemembered() {
   try {
@@ -76,7 +76,7 @@ export default function LoginPage() {
       hero={{
         lead: 'Kết nối mọi',
         accent: 'khoảnh khắc!',
-        text: 'Nhắn tin, gọi video và chia sẻ những điều thú vị cùng bạn bè trên KapaTalk.',
+        text: 'Nhắn tin, gọi video và chia sẻ những điều thú vị cùng bạn bè trên CMC Talk.',
       }}
     >
       <form onSubmit={handleSubmit} noValidate>

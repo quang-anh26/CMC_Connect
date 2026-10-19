@@ -200,8 +200,8 @@ export default function EventsPage() {
   return (
     <div className="events-page">
       <header className="events-topbar">
-        <button className="events-brand" type="button" onClick={() => navigate('/feed')} aria-label="KapaTalk - Trang chủ">
-          <MessengerLogo size={34} /><span>KapaTalk</span>
+        <button className="events-brand" type="button" onClick={() => navigate('/feed')} aria-label="CMC Talk - Trang chủ">
+          <MessengerLogo size={34} /><span>CMC Talk</span>
         </button>
         <div className="events-topbar-label">Sự kiện</div>
         <button className="events-feed-link" type="button" onClick={() => navigate('/feed')}>Về bảng tin</button>
@@ -255,7 +255,7 @@ export default function EventsPage() {
         ) : (
           <>
             <section className="events-hero">
-              <div><span className="events-eyebrow">KAPATALK · KẾT NỐI NGOÀI ĐỜI</span><h1>Sự kiện nổi bật</h1><p>Tìm hoạt động thú vị, gặp gỡ bạn bè và cùng tạo nên những kỷ niệm mới.</p></div>
+              <div><span className="events-eyebrow">CMC TALK · KẾT NỐI NGOÀI ĐỜI</span><h1>Sự kiện nổi bật</h1><p>Tìm hoạt động thú vị, gặp gỡ bạn bè và cùng tạo nên những kỷ niệm mới.</p></div>
               <button type="button" className="event-create-button" onClick={openCreateForm}><span>＋</span> Tạo sự kiện</button>
             </section>
             <nav className="event-filter-tabs" aria-label="Lọc sự kiện">
@@ -292,9 +292,9 @@ export default function EventsPage() {
 
       {formOpen && <div className="event-form-backdrop" onMouseDown={(click) => { if (click.target === click.currentTarget) setFormOpen(false) }}>
         <form className="event-form-dialog" onSubmit={saveEvent}>
-          <header><div><span className="events-eyebrow">KAPATALK EVENTS</span><h2>{editing ? 'Chỉnh sửa sự kiện' : 'Tạo sự kiện mới'}</h2></div><button type="button" className="event-form-close" onClick={() => setFormOpen(false)} aria-label="Đóng">×</button></header>
+          <header><div><span className="events-eyebrow">CMC TALK EVENTS</span><h2>{editing ? 'Chỉnh sửa sự kiện' : 'Tạo sự kiện mới'}</h2></div><button type="button" className="event-form-close" onClick={() => setFormOpen(false)} aria-label="Đóng">×</button></header>
           <label className="event-image-picker">{imagePreview || form.imageUrl ? <img src={imagePreview || form.imageUrl} alt="Ảnh bìa sự kiện" /> : <span className="event-image-placeholder"><CalendarIcon size={28} /><strong>Thêm ảnh sự kiện</strong><small>Chọn ảnh JPG, PNG hoặc WebP</small></span>}<input type="file" accept="image/*" onChange={(change) => setImageFile(change.target.files?.[0] || null)} /></label>
-          <label>Tên sự kiện<input required maxLength={120} value={form.title} onChange={(change) => setForm({ ...form, title: change.target.value })} placeholder="Ví dụ: Gặp mặt cộng đồng KapaTalk" /></label>
+          <label>Tên sự kiện<input required maxLength={120} value={form.title} onChange={(change) => setForm({ ...form, title: change.target.value })} placeholder="Ví dụ: Gặp mặt cộng đồng CMC Talk" /></label>
           <div className="event-form-row"><label>Ngày và giờ<input required type="datetime-local" min={localDateTimeValue()} value={form.startsAt} onChange={(change) => setForm({ ...form, startsAt: change.target.value })} /></label><label>Địa điểm<input required maxLength={180} value={form.location} onChange={(change) => setForm({ ...form, location: change.target.value })} placeholder="Thành phố, địa điểm cụ thể" /></label></div>
           <label>Mô tả<textarea maxLength={5000} rows={4} value={form.description} onChange={(change) => setForm({ ...form, description: change.target.value })} placeholder="Chia sẻ thêm thông tin về sự kiện..." /></label>
           <label>Quyền riêng tư<select value={form.privacy} onChange={(change) => setForm({ ...form, privacy: change.target.value })}><option value="PUBLIC">Công khai — mọi người có thể xem</option><option value="FRIENDS">Bạn bè — chỉ bạn bè của bạn</option><option value="PRIVATE">Riêng tư — chỉ bạn và người tham gia</option></select></label>

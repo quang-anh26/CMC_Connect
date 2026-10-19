@@ -212,7 +212,7 @@ export default function VideosPage() {
     <main className="video-page" ref={scrollerRef}>
       <div className="video-layout">
         <aside className="video-sidebar">
-          <span className="video-eyebrow">KAPATALK VIDEO</span>
+          <span className="video-eyebrow">CMC TALK VIDEO</span>
           <h1>Video</h1>
           <label className="video-search"><span aria-hidden="true">⌕</span><input value={queryInput} onChange={(event) => setQueryInput(event.target.value)} placeholder="Tìm video, hashtag..." aria-label="Tìm video" />{queryInput && <button type="button" onClick={() => setQueryInput('')} aria-label="Xóa tìm kiếm">×</button>}</label>
           <nav className="video-nav" aria-label="Bảng tin video">

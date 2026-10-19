@@ -294,5 +294,5 @@ CREATE TABLE dbo.SOCIAL_POST_COMMENT (
 );
 GO
 
-PRINT 'Schema created successfully: 12 tables including the Kapatalk social feed.';
+PRINT 'Schema created successfully: 12 tables including the CMC Talk social feed.';
 GO

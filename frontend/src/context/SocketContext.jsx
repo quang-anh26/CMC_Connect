@@ -31,12 +31,12 @@ export function SocketProvider({ children }) {
         client.subscribe('/user/queue/call', (message) => setCallSignal(JSON.parse(message.body)))
         client.subscribe('/user/queue/errors', (message) => {
           const error = JSON.parse(message.body)
-          window.dispatchEvent(new CustomEvent('kapatalk-server-error', {
+          window.dispatchEvent(new CustomEvent('cmctalk-server-error', {
             detail: error.message || 'Không thể thực hiện thao tác.',
           }))
         })
         client.subscribe('/user/queue/block-status', (message) => {
-          window.dispatchEvent(new CustomEvent('kapatalk-block-status-changed', {
+          window.dispatchEvent(new CustomEvent('cmctalk-block-status-changed', {
             detail: JSON.parse(message.body),
           }))
         })
