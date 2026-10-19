@@ -36,7 +36,7 @@ export default function FriendsPage() {
     await friendApi.accept(id)
     load()
     const { data } = await conversationApi.getOrCreatePrivate(senderId)
-    window.dispatchEvent(new Event('kapatalk-conversations-updated'))
+    window.dispatchEvent(new Event('cmctalk-conversations-updated'))
     navigate(`/chat/${data.conversationId}`)
   }
 

@@ -84,7 +84,7 @@ export default function Sidebar({ activeConversationId }) {
   }
 
   const markConversationUnread = (conversationId) => {
-    localStorage.setItem(`kapatalk-unread-${conversationId}`, 'true')
+    localStorage.setItem(`cmctalk-unread-${conversationId}`, 'true')
     setConversations((current) => current.map((conversation) => (
       conversation.conversationId === conversationId
         ? { ...conversation, unreadCount: Math.max(conversation.unreadCount || 0, 1) }
@@ -94,7 +94,7 @@ export default function Sidebar({ activeConversationId }) {
   }
 
   const clearConversationUnread = (conversationId) => {
-    localStorage.removeItem(`kapatalk-unread-${conversationId}`)
+    localStorage.removeItem(`cmctalk-unread-${conversationId}`)
     setConversations((current) => current.map((conversation) => (
       String(conversation.conversationId) === String(conversationId)
         ? { ...conversation, unreadCount: 0 }
@@ -108,7 +108,7 @@ export default function Sidebar({ activeConversationId }) {
   }
 
   const toggleConversationMute = (conversationId) => {
-    const key = `kapatalk-muted-${conversationId}`
+    const key = `cmctalk-muted-${conversationId}`
     if (localStorage.getItem(key) === 'true') localStorage.removeItem(key)
     else localStorage.setItem(key, 'true')
     setOpenConversationMenu(null)
@@ -183,18 +183,18 @@ export default function Sidebar({ activeConversationId }) {
 
   useEffect(() => {
     const refreshConversations = () => loadConversations()
-    window.addEventListener('kapatalk-conversations-updated', refreshConversations)
-    return () => window.removeEventListener('kapatalk-conversations-updated', refreshConversations)
+    window.addEventListener('cmctalk-conversations-updated', refreshConversations)
+    return () => window.removeEventListener('cmctalk-conversations-updated', refreshConversations)
   }, [])
 
   useEffect(() => {
     const showArchived = () => setShowArchivedOnly(true)
     const showActive = () => setShowArchivedOnly(false)
-    window.addEventListener('kapatalk-show-archived', showArchived)
-    window.addEventListener('kapatalk-show-active', showActive)
+    window.addEventListener('cmctalk-show-archived', showArchived)
+    window.addEventListener('cmctalk-show-active', showActive)
     return () => {
-      window.removeEventListener('kapatalk-show-archived', showArchived)
-      window.removeEventListener('kapatalk-show-active', showActive)
+      window.removeEventListener('cmctalk-show-archived', showArchived)
+      window.removeEventListener('cmctalk-show-active', showActive)
     }
   }, [])
 
@@ -526,7 +526,7 @@ export default function Sidebar({ activeConversationId }) {
                   </div>
                   <div className="conv-bottom-row">
                     <span className="conv-last">{c.lastMessage}</span>
-                    {(c.unreadCount > 0 || localStorage.getItem(`kapatalk-unread-${c.conversationId}`) === 'true') && (
+                    {(c.unreadCount > 0 || localStorage.getItem(`cmctalk-unread-${c.conversationId}`) === 'true') && (
                       <span className="unread-dot" title="Tin nhắn chưa đọc" />
                     )}
                   </div>

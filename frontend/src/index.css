@@ -591,7 +591,7 @@ input, textarea {
   .post-actions .reaction-picker button { padding: 0; font-size: 22px; }
 }
 
-/* KapaTalk feed layout */
+/* CMC Talk feed layout */
 .feed-page {
   background: radial-gradient(circle at 55% -20%, #1b3153 0, #111c31 38%, #0c1424 100%);
   color: #f6f8ff;
@@ -3274,7 +3274,7 @@ table.admin-table th {
 [data-theme="light"] .mobile-feed-nav button { color: #65676b; }
 [data-theme="light"] .mobile-feed-nav button.active { color: #1877f2; }
 
-/* Polished KapaTalk feed layout. */
+/* Polished CMC Talk feed layout. */
 [data-theme="light"] .feed-page {
   position: relative;
   isolation: isolate;
@@ -4060,7 +4060,7 @@ table.admin-table th {
   .feed-shell .feed-scroll-area { padding: 0 12px 76px; }
 }
 
-/* KapaTalk events */
+/* CMC Talk events */
 .events-page { position: relative; display: flex; flex: 1; min-width: 0; min-height: 0; flex-direction: column; overflow-y: auto; overflow-x: hidden; background: linear-gradient(135deg, #edf3ff, #f7f9fd 48%, #eaf1ff); color: #24334c; }
 .events-topbar { position: sticky; top: 0; z-index: 110; display: flex; flex: 0 0 70px; align-items: center; gap: 26px; padding: 0 28px; border-bottom: 1px solid #dce5f3; background: rgba(250, 252, 255, .96); box-shadow: 0 4px 16px rgba(43, 72, 116, .06); backdrop-filter: blur(14px); }
 .events-brand { display: flex; align-items: center; gap: 8px; color: #243b63; font-size: 15px; font-weight: 750; white-space: nowrap; }
@@ -4745,7 +4745,7 @@ table.admin-table th {
 
 /* ==========================================================================
    Auth pages (Đăng nhập / Đăng ký) - nền xanh navy, thẻ kính mờ, bố cục hai cột.
-   Tham khảo phong cách mẫu, giữ thương hiệu KapaTalk. Luôn dùng tông tối
+   Tham khảo phong cách mẫu, giữ thương hiệu CMC Talk. Luôn dùng tông tối
    bất kể theme Sáng/Tối của ứng dụng.
    ========================================================================== */
 .ap-page {

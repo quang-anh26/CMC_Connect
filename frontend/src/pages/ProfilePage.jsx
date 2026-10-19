@@ -390,7 +390,7 @@ export default function ProfilePage() {
               {groups.slice(0, 3).map((group) => <div className="profile-group-row" key={group.conversationId}><span className="profile-group-icon">♧</span><div><strong>{group.name || 'Nhóm chat'}</strong><small>Nhóm trò chuyện</small></div></div>)}
               {groups.length === 0 && <p className="profile-muted">Nhóm bạn tham gia sẽ hiển thị tại đây.</p>}
             </section>
-            <section className="profile-panel profile-account-panel"><h2>Thông tin liên hệ</h2><div className="profile-info-row"><span>@</span><span>{profileUsername || '—'}</span></div><div className="profile-info-row"><span>◉</span><span>{profileOnline ? 'Đang hoạt động' : 'KapaTalk'}</span></div></section>
+            <section className="profile-panel profile-account-panel"><h2>Thông tin liên hệ</h2><div className="profile-info-row"><span>@</span><span>{profileUsername || '—'}</span></div><div className="profile-info-row"><span>◉</span><span>{profileOnline ? 'Đang hoạt động' : 'CMC Talk'}</span></div></section>
           </aside>}
         </div>
       </div>

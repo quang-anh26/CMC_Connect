@@ -60,10 +60,10 @@ export default function AuthLayout({ badge, title, subtitle, hero, activeStep = 
   return (
     <div className="ap-page">
       <header className="ap-topbar">
-        <Link to="/login" className="ap-brand" aria-label="KapaTalk">
+        <Link to="/login" className="ap-brand" aria-label="CMC Talk">
           <MessengerLogo size={48} />
           <span className="ap-brand-text">
-            <strong>KapaTalk</strong>
+            <strong>CMC Talk</strong>
             <small>Kết nối - Trò chuyện - Chia sẻ</small>
           </span>
         </Link>

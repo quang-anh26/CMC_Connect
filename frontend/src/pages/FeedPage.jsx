@@ -532,7 +532,7 @@ export default function FeedPage() {
   return (
     <div className="feed-page">
       <header className="feed-topbar">
-        <button className="feed-header-brand" type="button" aria-label="KapaTalk - Trang chủ" onClick={() => navigate('/feed')}><MessengerLogo size={36} /><span>KapaTalk</span></button>
+        <button className="feed-header-brand" type="button" aria-label="CMC Talk - Trang chủ" onClick={() => navigate('/feed')}><MessengerLogo size={36} /><span>CMC Talk</span></button>
         <div className="feed-search"><span>⌕</span><input placeholder="Tìm kiếm bạn bè, bài viết, nhóm..." /></div>
         <div className="feed-top-actions">
           <button type="button" className="feed-top-active" aria-label="Trang chủ" onClick={() => navigate('/feed')}><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 10 9-7 9 7"/><path d="M5 9v11h14V9M9 20v-6h6v6"/></svg></button>
@@ -550,7 +550,7 @@ export default function FeedPage() {
       <main className="feed-main">
       <div className="feed-header">
         <div>
-          <span className="feed-kicker">KAPATALK / HÔM NAY</span>
+          <span className="feed-kicker">CMC TALK / HÔM NAY</span>
           <h1>Bảng tin</h1>
         </div>
         <span className="feed-count">{ownPostCount} bài viết</span>
@@ -847,7 +847,7 @@ export default function FeedPage() {
             <Avatar className="feed-profile-avatar" src={user?.avatar} name={user?.displayName || user?.username} size={72} />
           </button>
           <button className="feed-profile-name-button" type="button" onClick={() => navigate('/feed/profile')}>
-            {user?.displayName || user?.username || 'KapaTalk'}
+            {user?.displayName || user?.username || 'CMC Talk'}
           </button>
           <span className="feed-profile-status"><i /> Đang hoạt động</span>
           {user?.bio && <p>{user.bio}</p>}
@@ -880,7 +880,7 @@ export default function FeedPage() {
           {!suggestionsLoading && suggestedUsers.length === 0 && <EmptyState compact description="Chưa có gợi ý mới." />}
           {suggestedUsers.map((candidate) => (
             <div className="suggested-person" key={candidate.userId}>
-              <button type="button" className="suggested-profile-link" onClick={() => navigate(`/feed/profile/${candidate.userId}`)} aria-label={`Xem trang cá nhân ${candidate.displayName || candidate.username}`}><Avatar className="suggested-avatar" src={candidate.avatar} name={candidate.displayName || candidate.username} size={38} /><span><strong>{candidate.displayName || candidate.username}</strong><small>{candidate.online ? 'Đang hoạt động' : 'Người dùng KapaTalk'}</small></span></button>
+              <button type="button" className="suggested-profile-link" onClick={() => navigate(`/feed/profile/${candidate.userId}`)} aria-label={`Xem trang cá nhân ${candidate.displayName || candidate.username}`}><Avatar className="suggested-avatar" src={candidate.avatar} name={candidate.displayName || candidate.username} size={38} /><span><strong>{candidate.displayName || candidate.username}</strong><small>{candidate.online ? 'Đang hoạt động' : 'Người dùng CMC Talk'}</small></span></button>
               <button disabled={addingFriendIds.includes(candidate.userId)} onClick={() => sendFriendRequest(candidate.userId)}>
                 {addingFriendIds.includes(candidate.userId) ? 'Đang gửi...' : 'Thêm bạn'}
               </button>

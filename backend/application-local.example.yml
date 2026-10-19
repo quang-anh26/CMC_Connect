@@ -5,7 +5,7 @@
 #
 # Lay Gmail App Password (16 ky tu):
 #   - Bat Xac minh 2 buoc:  https://myaccount.google.com/security
-#   - Tao App Password:     https://myaccount.google.com/apppasswords  (dat ten tuy y, vd "KapaTalk")
+#   - Tao App Password:     https://myaccount.google.com/apppasswords  (dat ten tuy y, vd "CMC Talk")
 #   - Dan 16 ky tu vao password ben duoi (khong dung mat khau dang nhap Gmail, bo khoang trang)
 
 spring:
