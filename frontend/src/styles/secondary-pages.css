@@ -1,0 +1,234 @@
+/* ==========================================================================
+   Secondary Pages (Friends, Profile, Auth)
+   ========================================================================== */
+.empty-state {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.friend-panel {
+  padding: var(--space-6);
+  flex: 1;
+  overflow-y: auto;
+}
+
+.friend-panel h3 {
+  font-size: 15px;
+  color: var(--text-primary);
+  margin-bottom: 14px;
+}
+
+.friend-request-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.friend-profile-link { display: grid; flex: 0 0 auto; place-items: center; border-radius: 50%; }
+.friend-profile-name { color: var(--text-primary); font-weight: 600; text-align: left; }
+
+.friend-request-row .actions button {
+  margin-left: 6px;
+  padding: 6px var(--space-3);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+}
+
+.message-request-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.message-request-name {
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.message-request-preview {
+  overflow: hidden;
+  margin-top: 3px;
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.message-requests-empty {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.btn-accept {
+  background: var(--online);
+  color: #052e16;
+}
+
+.btn-reject {
+  background: var(--bg-item-hover);
+  color: var(--text-secondary);
+}
+
+/* Auth pages */
+.auth-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  background: var(--bg-app);
+}
+
+.auth-card {
+  background: var(--bg-sidebar);
+  padding: 34px;
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border);
+  width: 360px;
+}
+
+.auth-card h1 {
+  font-size: 22px;
+  margin-bottom: 6px;
+}
+
+.auth-card p.sub {
+  color: var(--text-secondary);
+  font-size: 13px;
+  margin-bottom: 22px;
+}
+
+.field {
+  margin-bottom: 14px;
+}
+
+.field label {
+  display: block;
+  font-size: 13px;
+  margin-bottom: 5px;
+  color: var(--text-secondary);
+}
+
+.field input {
+  width: 100%;
+  padding: 10px 13px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  background: var(--bg-input);
+}
+
+.field input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.auth-card button.primary {
+  width: 100%;
+  padding: 11px;
+  background: var(--accent);
+  color: var(--color-white);
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: 14.5px;
+  margin-top: 6px;
+  transition: background-color 0.15s;
+}
+
+.auth-card button.primary:hover {
+  background: var(--accent-hover);
+}
+
+.switch-link {
+  text-align: center;
+  margin-top: var(--space-4);
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.switch-link a {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* Admin shell */
+.admin-shell {
+  padding: 28px;
+  max-width: 1000px;
+  margin: 0 auto;
+  background: var(--bg-app);
+  min-height: 100vh;
+}
+
+.admin-shell h2 {
+  margin-top: 0;
+}
+
+.admin-stats {
+  display: flex;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+.stat-card {
+  flex: 1;
+  background: var(--bg-sidebar);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 18px;
+}
+
+.stat-card .num {
+  font-size: 26px;
+  font-weight: 700;
+}
+
+.stat-card .label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-top: var(--space-1);
+}
+
+table.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--bg-sidebar);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+table.admin-table th,
+table.admin-table td {
+  padding: 11px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+
+table.admin-table th {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.badge-locked {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--danger);
+  padding: 2px 9px;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+}
+
+.badge-active {
+  background: rgba(34, 197, 94, 0.15);
+  color: var(--online);
+  padding: 2px 9px;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+}
+

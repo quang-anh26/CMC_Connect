@@ -5,6 +5,7 @@ import { SafeImage } from '../components/Avatar'
 import EmptyState from '../components/EmptyState'
 import LoadingState from '../components/LoadingState'
 import ErrorState from '../components/ErrorState'
+import './GroupsPage.styles.css'
 
 const initialForm = { name: '', description: '', category: '', visibility: 'PUBLIC' }
 
@@ -73,27 +74,27 @@ export default function GroupsPage() {
 
   return (
     <main className="groups-page">
-      <header className="groups-page-head">
-        <div><span className="groups-kicker">CỘNG ĐỒNG</span><h1>Nhóm</h1><p>Tìm nơi để chia sẻ những điều bạn quan tâm.</p></div>
-        <button className="group-primary-button" type="button" onClick={() => setModalOpen(true)}><span aria-hidden="true">+</span> Tạo nhóm</button>
+      <header className="groups-page-head groups-hero">
+        <div className="groups-hero-copy"><span className="groups-kicker">CMC TALK · CỘNG ĐỒNG</span><h1>Khám phá nhóm</h1><p>Tìm cộng đồng cùng sở thích, chia sẻ kiến thức và kết nối với mọi người.</p><div className="groups-hero-points"><span>✦ Cùng sở thích</span><span>◉ Kết nối cộng đồng</span><span>↗ Chia sẻ mỗi ngày</span></div></div>
+        <div className="groups-hero-action"><div className="groups-hero-icon" aria-hidden="true">♧</div><button className="ui-button ui-button--primary group-primary-button" type="button" onClick={() => setModalOpen(true)}><span aria-hidden="true">+</span> Tạo nhóm mới</button></div>
       </header>
 
       <div className="groups-toolbar">
-        <label className="groups-search"><span aria-hidden="true">⌕</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm nhóm theo tên" aria-label="Tìm nhóm" /></label>
-        <div className="groups-tabs" role="tablist" aria-label="Danh sách nhóm">
-          <button type="button" role="tab" aria-selected={tab === 'discover'} className={tab === 'discover' ? 'selected' : ''} onClick={() => setTab('discover')}>Gợi ý</button>
-          <button type="button" role="tab" aria-selected={tab === 'mine'} className={tab === 'mine' ? 'selected' : ''} onClick={() => setTab('mine')}>Nhóm của bạn</button>
+        <label className="groups-search"><span aria-hidden="true">⌕</span><input className="ui-input" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm nhóm theo tên" aria-label="Tìm nhóm" /></label>
+        <div className="groups-tabs ui-tabs" role="tablist" aria-label="Danh sách nhóm">
+          <button type="button" role="tab" aria-selected={tab === 'discover'} className={`ui-tab${tab === 'discover' ? ' selected' : ''}`} onClick={() => setTab('discover')}>Gợi ý</button>
+          <button type="button" role="tab" aria-selected={tab === 'mine'} className={`ui-tab${tab === 'mine' ? ' selected' : ''}`} onClick={() => setTab('mine')}>Nhóm của bạn</button>
         </div>
       </div>
 
-      {notice && <div className="group-notice" role="status"><span>{notice}</span><button type="button" onClick={() => setNotice('')} aria-label="Đóng">×</button></div>}
+      {notice && <div className="group-notice ui-toast" role="status"><span>{notice}</span><button type="button" onClick={() => setNotice('')} aria-label="Đóng">×</button></div>}
 
       {notifications.some((item) => item.type === 'INVITE') && <section className="group-invites" aria-label="Lời mời nhóm">
         <div className="group-section-heading"><div><span className="groups-kicker">DÀNH CHO BẠN</span><h2>Lời mời</h2></div></div>
         {notifications.filter((item) => item.type === 'INVITE').map((item) => <div className="group-invite-row" key={item.id}>
           <div><strong>{item.groupName}</strong><span>{item.message}</span></div>
-          <button type="button" className="group-primary-button compact" onClick={() => respondInvite(item, true)}>Chấp nhận</button>
-          <button type="button" className="group-quiet-button" onClick={() => respondInvite(item, false)}>Từ chối</button>
+          <button type="button" className="ui-button ui-button--primary group-primary-button compact" onClick={() => respondInvite(item, true)}>Chấp nhận</button>
+          <button type="button" className="ui-button ui-button--quiet group-quiet-button" onClick={() => respondInvite(item, false)}>Từ chối</button>
         </div>)}
       </section>}
 
@@ -107,28 +108,28 @@ export default function GroupsPage() {
         {loading ? <LoadingState label="Đang tải nhóm..." />
           : error ? <ErrorState title="Không tải được nhóm" message={error} onRetry={loadGroups} />
             : groups.length === 0 ? <EmptyState icon="◌" title={tab === 'mine' ? 'Bạn chưa tham gia nhóm nào' : 'Chưa tìm thấy nhóm phù hợp'} description={tab === 'mine' ? 'Tham gia cộng đồng hoặc tạo nhóm đầu tiên.' : 'Thử từ khóa khác hoặc tạo một cộng đồng mới.'} />
-              : <div className="group-list">{groups.map((group) => <article className="group-list-item" key={group.groupId}>
+              : <div className="group-list">{groups.map((group) => <article className="group-list-item ui-card" key={group.groupId}>
                 <Link className="group-list-cover" to={`/groups/${group.groupId}`} style={group.coverImage ? { backgroundImage: `linear-gradient(0deg, rgba(9, 17, 23, .18), rgba(9, 17, 23, .04)), url("${group.coverImage}")` } : undefined} aria-label={`Mở nhóm ${group.name}`}>
                   <SafeImage src={group.avatar} fallback={<span>{group.name.slice(0, 1).toUpperCase()}</span>} />
                 </Link>
-                <div className="group-list-copy"><div className="group-list-title"><Link to={`/groups/${group.groupId}`}>{group.name}</Link><span className={`group-privacy ${group.visibility === 'PRIVATE' ? 'private' : ''}`}>{group.visibility === 'PRIVATE' ? 'Riêng tư' : 'Công khai'}</span></div>
+                <div className="group-list-copy"><div className="group-list-title"><Link to={`/groups/${group.groupId}`}>{group.name}</Link><span className={`ui-badge group-privacy ${group.visibility === 'PRIVATE' ? 'private' : ''}`}>{group.visibility === 'PRIVATE' ? 'Riêng tư' : 'Công khai'}</span></div>
                   <span className="group-list-meta">{group.category || 'Cộng đồng'} · {group.memberCount} thành viên</span>
                   <p>{group.description || 'Chưa có mô tả cho nhóm này.'}</p>
                 </div>
-                {group.joined ? <Link className="group-secondary-button" to={`/groups/${group.groupId}`}>Xem nhóm</Link>
-                  : <button className="group-primary-button compact" type="button" onClick={(event) => joinGroup(event, group)}>Tham gia</button>}
+                {group.joined ? <Link className="ui-button ui-button--secondary group-secondary-button" to={`/groups/${group.groupId}`}>Xem nhóm</Link>
+                  : <button className="ui-button ui-button--primary group-primary-button compact" type="button" onClick={(event) => joinGroup(event, group)}>Tham gia</button>}
               </article>)}</div>}
       </section>
 
-      {modalOpen && <div className="group-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setModalOpen(false) }}>
-        <form className="group-create-modal" onSubmit={createGroup} aria-labelledby="create-group-title">
+      {modalOpen && <div className="group-modal-backdrop ui-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setModalOpen(false) }}>
+        <form className="group-create-modal ui-modal" onSubmit={createGroup} aria-labelledby="create-group-title">
           <div className="group-modal-heading"><div><span className="groups-kicker">BẮT ĐẦU CỘNG ĐỒNG</span><h2 id="create-group-title">Tạo nhóm</h2></div><button type="button" className="group-close-button" onClick={() => setModalOpen(false)} aria-label="Đóng">×</button></div>
-          <label>Tên nhóm<input autoFocus required maxLength={100} value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="Ví dụ: Những người yêu cây" /></label>
-          <label>Mô tả<textarea rows="3" maxLength={2000} value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder="Nhóm này dành cho ai?" /></label>
-          <label>Danh mục<input maxLength={80} value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })} placeholder="Sở thích, học tập, địa phương..." /></label>
+          <label>Tên nhóm<input className="ui-input" autoFocus required maxLength={100} value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="Ví dụ: Những người yêu cây" /></label>
+          <label>Mô tả<textarea className="ui-input" rows="3" maxLength={2000} value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder="Nhóm này dành cho ai?" /></label>
+          <label>Danh mục<input className="ui-input" maxLength={80} value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })} placeholder="Sở thích, học tập, địa phương..." /></label>
           <fieldset className="group-visibility-picker"><legend>Quyền riêng tư</legend><label><input type="radio" name="visibility" value="PUBLIC" checked={form.visibility === 'PUBLIC'} onChange={() => setForm({ ...form, visibility: 'PUBLIC' })} /><span><strong>Công khai</strong><small>Mọi người có thể tìm và xem bài viết.</small></span></label><label><input type="radio" name="visibility" value="PRIVATE" checked={form.visibility === 'PRIVATE'} onChange={() => setForm({ ...form, visibility: 'PRIVATE' })} /><span><strong>Riêng tư</strong><small>Chỉ thành viên mới xem được nội dung.</small></span></label></fieldset>
           {notice && <p className="group-form-error" role="alert">{notice}</p>}
-          <div className="group-modal-actions"><button type="button" className="group-quiet-button" onClick={() => setModalOpen(false)}>Hủy</button><button className="group-primary-button" disabled={saving}>{saving ? 'Đang tạo...' : 'Tạo nhóm'}</button></div>
+          <div className="group-modal-actions"><button type="button" className="ui-button ui-button--quiet group-quiet-button" onClick={() => setModalOpen(false)}>Hủy</button><button className="ui-button ui-button--primary group-primary-button" disabled={saving}>{saving ? 'Đang tạo...' : 'Tạo nhóm'}</button></div>
         </form>
       </div>}
     </main>

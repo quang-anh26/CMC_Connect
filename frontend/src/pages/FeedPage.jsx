@@ -548,14 +548,6 @@ export default function FeedPage() {
       <div className="feed-scroll-area">
       <div className="feed-layout">
       <main className="feed-main">
-      <div className="feed-header">
-        <div>
-          <span className="feed-kicker">CMC TALK / HÔM NAY</span>
-          <h1>Bảng tin</h1>
-        </div>
-        <span className="feed-count">{ownPostCount} bài viết</span>
-      </div>
-
       <section className="story-panel">
         <div className="story-panel-heading"><strong>Tin của bạn bè</strong>{storiesLoading && <span>Đang tải...</span>}</div>
         <div className="story-list">

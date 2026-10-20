@@ -21,14 +21,15 @@ export default function EmptyChatPage() {
   return (
     <div className="chat-layout-wrapper">
       <div className="chat-area" style={{ alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ textAlign: 'center', maxWidth: 380, padding: 24 }}>
-          <div style={{ display: 'inline-flex', marginBottom: 16 }}>
+        <div className="chat-empty-welcome">
+          <div className="chat-empty-orb">
             <MessengerLogo size={64} />
           </div>
-          <h2 style={{ fontSize: 20, marginBottom: 8, color: 'var(--text-primary)' }}>
+          <p className="chat-empty-eyebrow">CMC TALK · KẾT NỐI MỖI NGÀY</p>
+          <h2>
             Chào mừng bạn đến với CMC Talk
           </h2>
-          <p style={{ fontSize: 13.5, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+          <p>
             Chọn một cuộc trò chuyện từ danh sách bên trái hoặc sử dụng ô tìm kiếm để kết bạn và bắt đầu trò chuyện.
           </p>
         </div>

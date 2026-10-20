@@ -11,13 +11,13 @@ import MainLayout from './pages/MainLayout'
 import EmptyChatPage from './pages/EmptyChatPage'
 import ChatWindow from './pages/ChatWindow'
 import FriendsPage from './pages/FriendsPage'
-import MessageRequestsPage from './pages/MessageRequestsPage'
 import ProfilePage from './pages/ProfilePage'
 import FeedPage from './pages/FeedPage'
 import EventsPage from './pages/EventsPage'
 import AdminDashboardPage from './pages/admin/AdminDashboardPage'
 import GroupsPage from './pages/GroupsPage'
 import GroupDetailPage from './pages/GroupDetailPage'
+import NotificationsPage from './pages/NotificationsPage'
 
 const VideosPage = React.lazy(() => import('./pages/VideosPage'))
 const SavedPage = React.lazy(() => import('./pages/SavedPage'))
@@ -56,11 +56,12 @@ export default function App() {
               <Route path="events/:eventId" element={<EventsPage />} />
               <Route path="groups" element={<GroupsPage />} />
               <Route path="groups/:groupId" element={<GroupDetailPage />} />
+              <Route path="notifications" element={<NotificationsPage />} />
               <Route path="feed/profile" element={<ProfilePage />} />
               <Route path="feed/profile/:profileUserId" element={<ProfilePage />} />
               <Route path="chat/:conversationId" element={<ChatWindow />} />
               <Route path="friends" element={<FriendsPage />} />
-              <Route path="message-requests" element={<MessageRequestsPage />} />
+              <Route path="message-requests" element={<Navigate to="/" replace />} />
               <Route path="profile" element={<Navigate to="/feed/profile" replace />} />
             </Route>
 
