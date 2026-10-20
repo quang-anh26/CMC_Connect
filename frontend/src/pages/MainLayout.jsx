@@ -9,7 +9,7 @@ export default function MainLayout() {
   const { conversationId } = useParams()
   const location = useLocation()
   const { callRequest, clearCallRequest } = useSocket()
-  const isSocialPage = location.pathname.startsWith('/feed') || location.pathname.startsWith('/events') || location.pathname.startsWith('/groups') || location.pathname.startsWith('/video') || location.pathname.startsWith('/saved')
+  const isSocialPage = location.pathname.startsWith('/feed') || location.pathname.startsWith('/events') || location.pathname.startsWith('/groups') || location.pathname.startsWith('/notifications') || location.pathname.startsWith('/video') || location.pathname.startsWith('/saved')
   const shellClass = isSocialPage ? 'feed-shell' : 'nav-overlay-shell'
 
   useEffect(() => {

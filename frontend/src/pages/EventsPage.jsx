@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import './EventsPage.styles.css'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import Avatar from '../components/Avatar'
 import EmptyState from '../components/EmptyState'
@@ -63,10 +64,10 @@ function AttendanceButtons({ event, onChange, compact = false }) {
 
   return (
     <div className={`event-attendance-actions ${compact ? 'compact' : ''}`}>
-      <button type="button" className={`event-going-button ${event.viewerStatus === 'GOING' ? 'selected' : ''}`} disabled={busy || hasStarted} onClick={() => submit('GOING')}>
+      <button type="button" className={`ui-button ui-button--primary event-going-button ${event.viewerStatus === 'GOING' ? 'selected' : ''}`} disabled={busy || hasStarted} onClick={() => submit('GOING')}>
         {hasStarted ? 'Đã diễn ra' : event.viewerStatus === 'GOING' ? 'Đã tham gia' : 'Tham gia'}
       </button>
-      <button type="button" className={`event-interested-button ${event.viewerStatus === 'INTERESTED' ? 'selected' : ''}`} disabled={busy || hasStarted} onClick={() => submit('INTERESTED')}>
+      <button type="button" className={`ui-button ui-button--secondary event-interested-button ${event.viewerStatus === 'INTERESTED' ? 'selected' : ''}`} disabled={busy || hasStarted} onClick={() => submit('INTERESTED')}>
         {hasStarted ? 'Đã kết thúc' : event.viewerStatus === 'INTERESTED' ? 'Đang quan tâm' : 'Quan tâm'}
       </button>
     </div>
@@ -204,7 +205,7 @@ export default function EventsPage() {
           <MessengerLogo size={34} /><span>CMC Talk</span>
         </button>
         <div className="events-topbar-label">Sự kiện</div>
-        <button className="events-feed-link" type="button" onClick={() => navigate('/feed')}>Về bảng tin</button>
+        <button className="ui-button ui-button--secondary events-feed-link" type="button" onClick={() => navigate('/feed')}>Về bảng tin</button>
       </header>
 
       <main className="events-content">
@@ -218,14 +219,14 @@ export default function EventsPage() {
             {!loading && loadError && <ErrorState title="Không tải được sự kiện" message={loadError} onRetry={() => setRetryKey((current) => current + 1)} />}
             {error && <div className="events-error" role="alert">{error}</div>}
             {!loading && selectedEvent && (
-              <article className="event-detail-card">
+              <article className="event-detail-card ui-card">
                 {eventCover(selectedEvent, 'event-detail-cover')}
                 <div className="event-detail-body">
                   <div className="event-detail-heading">
                     <div>
                       <h1>{selectedEvent.title}</h1>
                     </div>
-                    {isOrganizer && <div className="event-owner-actions"><button type="button" onClick={openEditForm}>Chỉnh sửa</button><button type="button" className="danger" onClick={cancelEvent}>Hủy sự kiện</button></div>}
+                    {isOrganizer && <div className="event-owner-actions"><button type="button" className="ui-button ui-button--secondary" onClick={openEditForm}>Chỉnh sửa</button><button type="button" className="ui-button ui-button--danger danger" onClick={cancelEvent}>Hủy sự kiện</button></div>}
                   </div>
                   <div className="event-detail-grid">
                     <section className="event-detail-main">
@@ -256,10 +257,10 @@ export default function EventsPage() {
           <>
             <section className="events-hero">
               <div><span className="events-eyebrow">CMC TALK · KẾT NỐI NGOÀI ĐỜI</span><h1>Sự kiện nổi bật</h1><p>Tìm hoạt động thú vị, gặp gỡ bạn bè và cùng tạo nên những kỷ niệm mới.</p></div>
-              <button type="button" className="event-create-button" onClick={openCreateForm}><span>＋</span> Tạo sự kiện</button>
+              <button type="button" className="ui-button ui-button--primary event-create-button" onClick={openCreateForm}><span>＋</span> Tạo sự kiện</button>
             </section>
-            <nav className="event-filter-tabs" aria-label="Lọc sự kiện">
-              {filters.map((item) => <button key={item.value} type="button" className={filter === item.value ? 'active' : ''} onClick={() => setFilter(item.value)}>{item.label}</button>)}
+            <nav className="event-filter-tabs ui-tabs" aria-label="Lọc sự kiện">
+              {filters.map((item) => <button key={item.value} type="button" className={`ui-tab${filter === item.value ? ' active' : ''}`} aria-selected={filter === item.value} onClick={() => setFilter(item.value)}>{item.label}</button>)}
             </nav>
             <div className="events-list-heading"><div><h2>{listTitle}</h2><span>{events.length} sự kiện</span></div></div>
             {error && <div className="events-error" role="alert">{error}</div>}
@@ -267,17 +268,17 @@ export default function EventsPage() {
               <div className="events-grid">
                 {events.map((item) => {
                   const date = formatEventDate(item.startsAt)
-                  return <article className="event-card" key={item.eventId}>
+                  return <article className="event-card ui-card" key={item.eventId}>
                     <Link className="event-card-cover-link" to={`/events/${item.eventId}`}>
                       {eventCover(item, 'event-card-cover')}
-                      <span className="event-date-badge"><strong>{date.day}</strong><small>{date.month}</small></span>
+                      <span className="event-date-badge ui-badge"><strong>{date.day}</strong><small>{date.month}</small></span>
                     </Link>
                     <div className="event-card-body">
                       <Link to={`/events/${item.eventId}`} className="event-card-title"><h3>{item.title}</h3></Link>
                       <p className="event-card-date"><CalendarIcon size={15} /> {date.full}</p>
                       <p className="event-card-location"><LocationPinIcon size={15} />{item.location}</p>
                       <div className="event-card-organizer"><Avatar src={item.organizerAvatar} name={item.organizerName} size={27} /><span>{item.organizerName}</span></div>
-                      <div className="event-card-footer"><span>{item.goingCount} tham gia · {item.interestedCount} quan tâm</span><span className="event-privacy-chip">{item.privacy === 'PUBLIC' ? 'Công khai' : item.privacy === 'FRIENDS' ? 'Bạn bè' : 'Riêng tư'}</span></div>
+                      <div className="event-card-footer"><span>{item.goingCount} tham gia · {item.interestedCount} quan tâm</span><span className="event-privacy-chip ui-badge">{item.privacy === 'PUBLIC' ? 'Công khai' : item.privacy === 'FRIENDS' ? 'Bạn bè' : 'Riêng tư'}</span></div>
                       <AttendanceButtons event={item} compact onChange={updateEventInList} />
                     </div>
                   </article>
@@ -290,16 +291,16 @@ export default function EventsPage() {
         )}
       </main>
 
-      {formOpen && <div className="event-form-backdrop" onMouseDown={(click) => { if (click.target === click.currentTarget) setFormOpen(false) }}>
-        <form className="event-form-dialog" onSubmit={saveEvent}>
+      {formOpen && <div className="event-form-backdrop ui-modal-backdrop" onMouseDown={(click) => { if (click.target === click.currentTarget) setFormOpen(false) }}>
+        <form className="event-form-dialog ui-modal" onSubmit={saveEvent}>
           <header><div><span className="events-eyebrow">CMC TALK EVENTS</span><h2>{editing ? 'Chỉnh sửa sự kiện' : 'Tạo sự kiện mới'}</h2></div><button type="button" className="event-form-close" onClick={() => setFormOpen(false)} aria-label="Đóng">×</button></header>
           <label className="event-image-picker">{imagePreview || form.imageUrl ? <img src={imagePreview || form.imageUrl} alt="Ảnh bìa sự kiện" /> : <span className="event-image-placeholder"><CalendarIcon size={28} /><strong>Thêm ảnh sự kiện</strong><small>Chọn ảnh JPG, PNG hoặc WebP</small></span>}<input type="file" accept="image/*" onChange={(change) => setImageFile(change.target.files?.[0] || null)} /></label>
-          <label>Tên sự kiện<input required maxLength={120} value={form.title} onChange={(change) => setForm({ ...form, title: change.target.value })} placeholder="Ví dụ: Gặp mặt cộng đồng CMC Talk" /></label>
-          <div className="event-form-row"><label>Ngày và giờ<input required type="datetime-local" min={localDateTimeValue()} value={form.startsAt} onChange={(change) => setForm({ ...form, startsAt: change.target.value })} /></label><label>Địa điểm<input required maxLength={180} value={form.location} onChange={(change) => setForm({ ...form, location: change.target.value })} placeholder="Thành phố, địa điểm cụ thể" /></label></div>
-          <label>Mô tả<textarea maxLength={5000} rows={4} value={form.description} onChange={(change) => setForm({ ...form, description: change.target.value })} placeholder="Chia sẻ thêm thông tin về sự kiện..." /></label>
-          <label>Quyền riêng tư<select value={form.privacy} onChange={(change) => setForm({ ...form, privacy: change.target.value })}><option value="PUBLIC">Công khai — mọi người có thể xem</option><option value="FRIENDS">Bạn bè — chỉ bạn bè của bạn</option><option value="PRIVATE">Riêng tư — chỉ bạn và người tham gia</option></select></label>
+          <label>Tên sự kiện<input className="ui-input" required maxLength={120} value={form.title} onChange={(change) => setForm({ ...form, title: change.target.value })} placeholder="Ví dụ: Gặp mặt cộng đồng CMC Talk" /></label>
+          <div className="event-form-row"><label>Ngày và giờ<input className="ui-input" required type="datetime-local" min={localDateTimeValue()} value={form.startsAt} onChange={(change) => setForm({ ...form, startsAt: change.target.value })} /></label><label>Địa điểm<input className="ui-input" required maxLength={180} value={form.location} onChange={(change) => setForm({ ...form, location: change.target.value })} placeholder="Thành phố, địa điểm cụ thể" /></label></div>
+          <label>Mô tả<textarea className="ui-input" maxLength={5000} rows={4} value={form.description} onChange={(change) => setForm({ ...form, description: change.target.value })} placeholder="Chia sẻ thêm thông tin về sự kiện..." /></label>
+          <label>Quyền riêng tư<select className="ui-input" value={form.privacy} onChange={(change) => setForm({ ...form, privacy: change.target.value })}><option value="PUBLIC">Công khai — mọi người có thể xem</option><option value="FRIENDS">Bạn bè — chỉ bạn bè của bạn</option><option value="PRIVATE">Riêng tư — chỉ bạn và người tham gia</option></select></label>
           {error && <div className="events-error" role="alert">{error}</div>}
-          <footer><button type="button" className="event-cancel-button" onClick={() => setFormOpen(false)}>Đóng</button><button type="submit" className="event-save-button" disabled={saving}>{saving ? 'Đang lưu...' : editing ? 'Lưu thay đổi' : 'Tạo sự kiện'}</button></footer>
+          <footer><button type="button" className="ui-button ui-button--quiet event-cancel-button" onClick={() => setFormOpen(false)}>Đóng</button><button type="submit" className="ui-button ui-button--primary event-save-button" disabled={saving}>{saving ? 'Đang lưu...' : editing ? 'Lưu thay đổi' : 'Tạo sự kiện'}</button></footer>
         </form>
       </div>}
     </div>

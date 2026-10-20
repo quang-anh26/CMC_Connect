@@ -37,6 +37,85 @@ export function formatConversationTime(dateStr) {
   return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })
 }
 
+function ConversationFilters({
+  conversationView,
+  setConversationView,
+  conversationCategory,
+  setConversationCategory,
+  showCategoryMenu,
+  setShowCategoryMenu,
+}) {
+  const categoryLabels = {
+    all: 'Phân loại',
+    friends: 'Bạn bè',
+    groups: 'Nhóm',
+    strangers: 'Tin nhắn từ người lạ',
+  }
+
+  return (
+    <div className="conversation-filters">
+      <div className="conversation-filter-tabs" role="tablist" aria-label="Lọc cuộc trò chuyện">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={conversationView === 'all'}
+          className={conversationView === 'all' ? 'active' : ''}
+          onClick={() => setConversationView('all')}
+        >
+          Tất cả
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={conversationView === 'unread'}
+          className={conversationView === 'unread' ? 'active' : ''}
+          onClick={() => setConversationView('unread')}
+        >
+          Chưa đọc
+        </button>
+      </div>
+      <div className="conversation-category">
+        <button
+          type="button"
+          className={`conversation-category-trigger ${conversationCategory !== 'all' ? 'selected' : ''}`}
+          aria-expanded={showCategoryMenu}
+          aria-haspopup="true"
+          onClick={() => setShowCategoryMenu((open) => !open)}
+        >
+          {categoryLabels[conversationCategory]}
+          <span aria-hidden="true">⌄</span>
+        </button>
+        {showCategoryMenu && (
+          <div className="conversation-category-menu" role="group" aria-label="Phân loại cuộc trò chuyện">
+            {[
+              ['all', 'Tất cả cuộc trò chuyện'],
+              ['friends', 'Bạn bè'],
+              ['groups', 'Nhóm'],
+              ['strangers', 'Tin nhắn từ người lạ'],
+            ].map(([value, label]) => (
+              <button
+                type="button"
+                key={value}
+                className={conversationCategory === value ? 'selected' : ''}
+                aria-pressed={conversationCategory === value}
+                onClick={() => {
+                  setConversationCategory(value)
+                  setShowCategoryMenu(false)
+                }}
+              >
+                <span className="conversation-category-check" aria-hidden="true">
+                  {conversationCategory === value ? '✓' : ''}
+                </span>
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function Sidebar({ activeConversationId }) {
   const { subscribe, connected, startCall } = useSocket()
   const { user } = useAuth()
@@ -48,6 +127,9 @@ export default function Sidebar({ activeConversationId }) {
   const [acceptedFriends, setAcceptedFriends] = useState([])
   const [friendSuggestions, setFriendSuggestions] = useState([])
   const [showArchivedOnly, setShowArchivedOnly] = useState(false)
+  const [conversationView, setConversationView] = useState('all')
+  const [conversationCategory, setConversationCategory] = useState('all')
+  const [showCategoryMenu, setShowCategoryMenu] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [searchResults, setSearchResults] = useState([])
   const [groupOpen, setGroupOpen] = useState(false)
@@ -107,6 +189,20 @@ export default function Sidebar({ activeConversationId }) {
     navigate(`/chat/${conversationId}`)
   }
 
+  const isUnreadConversation = (conversation) => (
+    conversation.unreadCount > 0
+    || localStorage.getItem(`cmctalk-unread-${conversation.conversationId}`) === 'true'
+  )
+
+  const visibleConversations = conversations.filter((conversation) => {
+    if (conversationView === 'unread' && !isUnreadConversation(conversation)) return false
+    if (conversationCategory === 'strangers') return conversation.messageRequestPending
+    if (conversationCategory === 'groups') return conversation.type === 'GROUP' && !conversation.messageRequestPending
+    if (conversationCategory === 'friends') return conversation.type === 'PRIVATE' && !conversation.messageRequestPending
+    return true
+  })
+  const strangerConversations = visibleConversations.filter((conversation) => conversation.messageRequestPending)
+  const regularConversations = visibleConversations.filter((conversation) => !conversation.messageRequestPending)
   const toggleConversationMute = (conversationId) => {
     const key = `cmctalk-muted-${conversationId}`
     if (localStorage.getItem(key) === 'true') localStorage.removeItem(key)
@@ -444,6 +540,16 @@ export default function Sidebar({ activeConversationId }) {
 
       {/* Real Conversation List */}
       <div className={`conversation-list ${location.pathname === '/friends' ? 'friends-sidebar-list' : ''}`}>
+        {location.pathname !== '/friends' && !showArchivedOnly && (
+          <ConversationFilters
+            conversationView={conversationView}
+            setConversationView={setConversationView}
+            conversationCategory={conversationCategory}
+            setConversationCategory={setConversationCategory}
+            showCategoryMenu={showCategoryMenu}
+            setShowCategoryMenu={setShowCategoryMenu}
+          />
+        )}
         {location.pathname === '/friends' ? (
           <>
             <section className="friends-sidebar-section">
@@ -501,68 +607,110 @@ export default function Sidebar({ activeConversationId }) {
           <EmptyState compact description="Chưa có cuộc trò chuyện nào" />
         ) : (
           <>
-            {conversations.map((c) => {
-            const isActive = String(c.conversationId) === String(activeConversationId)
+            {visibleConversations.length === 0 ? (
+              <EmptyState compact description={conversationView === 'unread' ? 'Không có tin nhắn chưa đọc' : 'Không có cuộc trò chuyện trong mục này'} />
+            ) : (
+              <>
+                {strangerConversations.length > 0 && (
+                  <section className="stranger-conversations">
+                    <div className="stranger-conversations-heading">
+                      <span>Tin nhắn từ người lạ</span>
+                      <span className="stranger-conversations-count">{strangerConversations.length}</span>
+                    </div>
+                    {strangerConversations.map((c) => {
+                      const isActive = String(c.conversationId) === String(activeConversationId)
+                      return (
+                        <div
+                          key={c.conversationId}
+                          className={`conversation-item stranger-conversation-item ${isActive ? 'active' : ''}`}
+                          onClick={() => openConversation(c.conversationId)}
+                        >
+                          <div className="avatar-wrapper">
+                            <Avatar src={c.avatar} name={c.name} size={46} />
+                            {c.otherUserOnline && <span className="online-indicator-dot" />}
+                          </div>
+                          <div className="conv-meta">
+                            <div className="conv-top-row">
+                              <span className="conv-name">{c.name || 'Người dùng'}</span>
+                              <span className={`conv-time ${isUnreadConversation(c) ? 'unread' : ''}`}>
+                                {formatConversationTime(c.lastMessageAt)}
+                              </span>
+                            </div>
+                            <div className="conv-bottom-row">
+                              <span className="conv-last">{c.lastMessage || 'Đã gửi một tin nhắn'}</span>
+                              {isUnreadConversation(c) && <span className="unread-dot" title="Tin nhắn chưa đọc" />}
+                            </div>
+                            <span className="stranger-conversation-label">Tin nhắn đang chờ</span>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </section>
+                )}
+                {regularConversations.map((c) => {
+                const isActive = String(c.conversationId) === String(activeConversationId)
 
-            return (
-              <div
-                key={c.conversationId}
-                className={`conversation-item ${isActive ? 'active' : ''}`}
-                onClick={() => openConversation(c.conversationId)}
-              >
-                <div className="avatar-wrapper">
-                  <Avatar src={c.avatar} name={c.name} size={46} />
-                  {c.type === 'PRIVATE' && c.otherUserOnline && (
-                    <span className="online-indicator-dot" />
-                  )}
-                </div>
+                return (
+                  <div
+                    key={c.conversationId}
+                    className={`conversation-item ${isActive ? 'active' : ''}`}
+                    onClick={() => openConversation(c.conversationId)}
+                  >
+                    <div className="avatar-wrapper">
+                      <Avatar src={c.avatar} name={c.name} size={46} />
+                      {c.type === 'PRIVATE' && c.otherUserOnline && (
+                        <span className="online-indicator-dot" />
+                      )}
+                    </div>
 
-                <div className="conv-meta">
-                  <div className="conv-top-row">
-                    <span className="conv-name">{c.name || 'Cuộc trò chuyện'}</span>
-                    <span className={`conv-time ${c.unreadCount > 0 ? 'unread' : ''}`}>
-                      {formatConversationTime(c.lastMessageAt)}
-                    </span>
-                  </div>
-                  <div className="conv-bottom-row">
-                    <span className="conv-last">{c.lastMessage}</span>
-                    {(c.unreadCount > 0 || localStorage.getItem(`cmctalk-unread-${c.conversationId}`) === 'true') && (
-                      <span className="unread-dot" title="Tin nhắn chưa đọc" />
+                    <div className="conv-meta">
+                      <div className="conv-top-row">
+                        <span className="conv-name">{c.name || 'Cuộc trò chuyện'}</span>
+                        <span className={`conv-time ${c.unreadCount > 0 ? 'unread' : ''}`}>
+                          {formatConversationTime(c.lastMessageAt)}
+                        </span>
+                      </div>
+                      <div className="conv-bottom-row">
+                        <span className="conv-last">{c.lastMessage}</span>
+                        {isUnreadConversation(c) && (
+                          <span className="unread-dot" title="Tin nhắn chưa đọc" />
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className="conversation-archive-btn"
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        setOpenConversationMenu((current) => current === c.conversationId ? null : c.conversationId)
+                      }}
+                      title="Tùy chọn đoạn chat"
+                    >
+                      <MoreVerticalIcon size={18} />
+                    </button>
+                    {openConversationMenu === c.conversationId && (
+                      <div className="conversation-options-menu" onClick={(event) => event.stopPropagation()}>
+                        <button type="button" onClick={() => markConversationUnread(c.conversationId)}>Đánh dấu là chưa đọc</button>
+                        <button type="button" onClick={() => toggleConversationMute(c.conversationId)}>Tắt thông báo</button>
+                        <button type="button" onClick={() => {
+                          if (c.otherUserId) navigate(`/feed/profile/${c.otherUserId}`)
+                          setOpenConversationMenu(null)
+                        }}>Xem trang cá nhân</button>
+                        <button type="button" onClick={() => startConversationCall(c, 'audio')}>Gọi thoại</button>
+                        <button type="button" onClick={() => startConversationCall(c, 'video')}>Chat video</button>
+                        <button type="button" onClick={() => blockConversationUser(c)}>Chặn</button>
+                        <button type="button" onClick={() => {
+                          setOpenConversationMenu(null)
+                          setConversationArchived(c.conversationId, true)
+                        }}>Lưu trữ đoạn chat</button>
+                        <button type="button" className="danger-option" onClick={() => deleteConversation(c)}>Xóa đoạn chat</button>
+                      </div>
                     )}
                   </div>
-                </div>
-                <button
-                  type="button"
-                  className="conversation-archive-btn"
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    setOpenConversationMenu((current) => current === c.conversationId ? null : c.conversationId)
-                  }}
-                  title="Tùy chọn đoạn chat"
-                >
-                  <MoreVerticalIcon size={18} />
-                </button>
-                {openConversationMenu === c.conversationId && (
-                  <div className="conversation-options-menu" onClick={(event) => event.stopPropagation()}>
-                    <button type="button" onClick={() => markConversationUnread(c.conversationId)}>Đánh dấu là chưa đọc</button>
-                    <button type="button" onClick={() => toggleConversationMute(c.conversationId)}>Tắt thông báo</button>
-                    <button type="button" onClick={() => {
-                      if (c.otherUserId) navigate(`/feed/profile/${c.otherUserId}`)
-                      setOpenConversationMenu(null)
-                    }}>Xem trang cá nhân</button>
-                    <button type="button" onClick={() => startConversationCall(c, 'audio')}>Gọi thoại</button>
-                    <button type="button" onClick={() => startConversationCall(c, 'video')}>Chat video</button>
-                    <button type="button" onClick={() => blockConversationUser(c)}>Chặn</button>
-                    <button type="button" onClick={() => {
-                      setOpenConversationMenu(null)
-                      setConversationArchived(c.conversationId, true)
-                    }}>Lưu trữ đoạn chat</button>
-                    <button type="button" className="danger-option" onClick={() => deleteConversation(c)}>Xóa đoạn chat</button>
-                  </div>
-                )}
-              </div>
-            )
-            })}
+                )
+                })}
+              </>
+            )}
           </>
         )}
 

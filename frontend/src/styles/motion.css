@@ -32,7 +32,7 @@
 
 /* Viền focus rõ ràng khi điều hướng bằng bàn phím (không hiện khi click chuột) */
 :where(button, a, select, textarea, input, [role="button"], [tabindex]):focus-visible {
-  outline: 2px solid var(--accent, #0084ff);
+  outline: 2px solid var(--accent, var(--color-brand));
   outline-offset: 2px;
 }
 

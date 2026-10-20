@@ -17,7 +17,6 @@ import {
   SettingsIcon,
   ChevronLeft,
   ChevronRight,
-  MessageActivityIcon,
 } from './Icons'
 
 export default function NavRail() {
@@ -82,6 +81,12 @@ export default function NavRail() {
     }
   }, [location.pathname])
 
+  useEffect(() => {
+    const openSettings = () => setSettingsOpen(true)
+    window.addEventListener('cmctalk-open-settings', openSettings)
+    return () => window.removeEventListener('cmctalk-open-settings', openSettings)
+  }, [])
+
   const displayName = user?.displayName || user?.username || 'Tài khoản'
   const isOnline = user?.isOnline !== false
   const toggleCollapsed = (event) => {
@@ -126,6 +131,7 @@ export default function NavRail() {
               <ChatIcon size={20} />
             </span>
             <span className="nav-label">Trò chuyện</span>
+            {messageRequestCount > 0 && <span className="nav-badge">{messageRequestCount}</span>}
           </NavLink>
 
           <NavLink
@@ -158,21 +164,9 @@ export default function NavRail() {
           <NavLink to="/saved" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} title="Đã lưu">
             <span className="nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 4.75A1.75 1.75 0 0 1 7.75 3h8.5A1.75 1.75 0 0 1 18 4.75V21l-6-4-6 4V4.75Z"/></svg></span><span className="nav-label">Đã lưu</span>
           </NavLink>
-          <NavLink to="/groups" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} title="Thông báo nhóm">
+          <NavLink to="/notifications" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} title="Thông báo">
             <span className="nav-icon"><BellIcon size={20} /></span><span className="nav-label">Thông báo</span>
-            {groupNotificationCount > 0 && <span className="nav-badge">{groupNotificationCount}</span>}
-          </NavLink>
-
-          <NavLink
-            to="/message-requests"
-            className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
-            title="Tin nhắn chờ"
-          >
-            <span className="nav-icon">
-              <MessageActivityIcon size={20} />
-            </span>
-            <span className="nav-label">Tin nhắn chờ</span>
-            {messageRequestCount > 0 && <span className="nav-badge">{messageRequestCount}</span>}
+            {groupNotificationCount + pendingCount > 0 && <span className="nav-badge">{groupNotificationCount + pendingCount}</span>}
           </NavLink>
 
         </div>
