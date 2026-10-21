@@ -12,7 +12,21 @@ function formatNotificationDate(value) {
   if (!value) return ''
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return ''
-  return date.toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' })
+  return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+}
+
+function getNotificationDateGroup(value) {
+  const date = value ? new Date(value) : null
+  if (!date || Number.isNaN(date.getTime())) return 'Trước đó'
+
+  const now = new Date()
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+  const startOfDate = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime()
+  const daysAgo = Math.round((startOfToday - startOfDate) / 86400000)
+
+  if (daysAgo === 0) return 'Hôm nay'
+  if (daysAgo === 1) return 'Hôm qua'
+  return 'Trước đó'
 }
 
 function NotificationMark({ type }) {
@@ -66,13 +80,22 @@ export default function NotificationsPage() {
     : items.filter((item) => item.type === category)
   const visibleItems = (tab === 'unread' ? categoryItems.filter((item) => item.unread) : categoryItems)
   const unreadCount = items.filter((item) => item.unread).length
-  const friendCount = items.filter((item) => item.type === 'friend').length
-  const groupCount = items.filter((item) => item.type === 'group').length
+  const friendCount = items.filter((item) => item.type === 'friend' && item.unread).length
+  const groupCount = items.filter((item) => item.type === 'group' && item.unread).length
   const categoryFilters = [
-    { id: 'all', label: 'Tất cả thông báo', icon: '♧', count: items.length },
+    { id: 'all', label: 'Tất cả thông báo', icon: '♧', count: unreadCount },
     { id: 'friend', label: 'Lời mời kết bạn', icon: '♙', count: friendCount },
     { id: 'group', label: 'Hoạt động nhóm', icon: '◎', count: groupCount },
   ]
+  const groupedItems = useMemo(() => {
+    const groups = new Map()
+    visibleItems.forEach((item) => {
+      const label = getNotificationDateGroup(item.createdAt)
+      if (!groups.has(label)) groups.set(label, [])
+      groups.get(label).push(item)
+    })
+    return [...groups.entries()]
+  }, [visibleItems])
 
   const respondToFriendRequest = async (request, accept) => {
     setBusyId(`friend-${request.id}`)
@@ -169,30 +192,23 @@ export default function NotificationsPage() {
           </aside>
 
           <section className="notifications-main">
-            <header className="notifications-hero">
-              <div className="notifications-hero-copy">
-                <span className="notifications-hero-icon" aria-hidden="true">🔔</span>
-                <div><span className="notifications-eyebrow">THÔNG BÁO</span><h2>Bạn có {unreadCount} thông báo mới</h2><p>Đừng bỏ lỡ những hoạt động thú vị từ bạn bè và cộng đồng!</p></div>
-              </div>
-              <div className="notifications-hero-art" aria-hidden="true"><span className="notifications-hero-orbit" /><span className="notifications-hero-bell">🔔</span><span className="notifications-hero-badge">{unreadCount > 99 ? '99+' : unreadCount}</span><span className="notifications-hero-send">➤</span><span className="notifications-hero-spark">⌁</span></div>
-              <div className="notifications-menu-wrap">
-                <button type="button" className="notifications-menu-trigger" aria-label="Tùy chọn thông báo" aria-expanded={menuOpen} onClick={() => setMenuOpen((open) => !open)}>···</button>
-                {menuOpen && <div className="notifications-menu">
-                  <button type="button" disabled={busyId === 'mark-all' || !groupNotifications.some((item) => !item.read)} onClick={markAllRead}>Đánh dấu thông báo nhóm đã đọc</button>
-                  <button type="button" onClick={() => { setMenuOpen(false); window.dispatchEvent(new Event('cmctalk-open-settings')) }}>Cài đặt thông báo</button>
-                </div>}
-              </div>
-            </header>
-
             <div className="notifications-panel">
-              <div className="notifications-toolbar">
-                <div className="notifications-tabs" role="tablist" aria-label="Lọc thông báo">
-                  <button type="button" role="tab" aria-selected={tab === 'all'} className={tab === 'all' ? 'active' : ''} onClick={() => setTab('all')}>Tất cả</button>
-                  <button type="button" role="tab" aria-selected={tab === 'unread'} className={tab === 'unread' ? 'active' : ''} onClick={() => setTab('unread')}>Chưa đọc{unreadCount > 0 && <span>{unreadCount}</span>}</button>
+              <header className="notifications-list-header">
+                <h2>{tab === 'unread' ? 'Chưa đọc' : category === 'friend' ? 'Lời mời kết bạn' : category === 'group' ? 'Hoạt động nhóm' : 'Tất cả thông báo'}</h2>
+                <div className="notifications-list-header-actions">
+                  <span className="notifications-count">{visibleItems.length}</span>
+                  <button type="button" className="notifications-mark-all" disabled={busyId === 'mark-all' || !groupNotifications.some((item) => !item.read)} onClick={markAllRead}>
+                    <span aria-hidden="true">✓</span><span>Đánh dấu thông báo nhóm đã đọc</span>
+                  </button>
+                  <div className="notifications-menu-wrap">
+                    <button type="button" className="notifications-menu-trigger" aria-label="Tùy chọn thông báo" aria-expanded={menuOpen} onClick={() => setMenuOpen((open) => !open)}>···</button>
+                    {menuOpen && <div className="notifications-menu">
+                      <button type="button" disabled={busyId === 'mark-all' || !groupNotifications.some((item) => !item.read)} onClick={markAllRead}>Đánh dấu thông báo nhóm đã đọc</button>
+                      <button type="button" onClick={() => { setMenuOpen(false); window.dispatchEvent(new Event('cmctalk-open-settings')) }}>Cài đặt thông báo</button>
+                    </div>}
+                  </div>
                 </div>
-                <span className="notifications-count">{visibleItems.length} thông báo</span>
-                <button type="button" className="notifications-mark-all" disabled={busyId === 'mark-all' || !groupNotifications.some((item) => !item.read)} onClick={markAllRead}><span aria-hidden="true">☑</span>Đánh dấu hoạt động nhóm đã đọc</button>
-              </div>
+              </header>
 
               {actionError && <div className="notifications-action-error" role="alert">{actionError}</div>}
               {loading && <div className="notifications-state"><LoadingState label="Đang tải thông báo..." /></div>}
@@ -207,14 +223,19 @@ export default function NotificationsPage() {
 
               {!loading && !error && visibleItems.length > 0 && (
                 <section className="notifications-list" aria-label="Danh sách thông báo">
-            {visibleItems.map((item) => {
+            {groupedItems.map(([dateLabel, group]) => (
+              <div className="notifications-date-group" key={dateLabel}>
+                <h3>{dateLabel}</h3>
+                {group.map((item) => {
               if (item.type === 'friend') {
                 const request = item.request
                 const busy = busyId === item.id
                 return (
                   <article className={`notification-card ${item.unread ? 'is-unread' : ''}`} key={item.id}>
-                    <Avatar src={request.senderAvatar} name={request.senderDisplayName} size={52} />
-                    <NotificationMark type="friend" />
+                    <div className="notification-identity">
+                      <Avatar src={request.senderAvatar} name={request.senderDisplayName} size={42} />
+                      <NotificationMark type="friend" />
+                    </div>
                     <div className="notification-copy">
                       <p><strong>{request.senderDisplayName}</strong> đã gửi cho bạn lời mời kết bạn.</p>
                       <time>{formatNotificationDate(request.createdAt)}</time>
@@ -248,7 +269,9 @@ export default function NotificationsPage() {
                   {item.unread && <span className="notification-unread-dot" aria-label="Chưa đọc" />}
                 </article>
               )
-            })}
+                })}
+              </div>
+            ))}
                 </section>
               )}
             </div>
