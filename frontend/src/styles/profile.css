@@ -113,26 +113,93 @@
 .profile-empty strong { font-size: var(--font-size-xs); }
 .profile-empty p { margin-top: 6px; color: var(--text-secondary); font-size: 10px; }
 
+.profile-page > .chat-header { display: none; }
+.chat-area.profile-page { border-radius: 0; }
+.profile-page-content { width: 100%; max-width: 1660px; margin: 0 auto; padding: 14px clamp(12px, 1.5vw, 22px) 32px; }
+.profile-layout { display: grid; grid-template-columns: minmax(0, 1.8fr) minmax(270px, .82fr); align-items: start; gap: 14px; }
+.profile-layout.profile-viewing-other { grid-template-columns: minmax(0, 1fr); }
+.profile-main-column { display: grid; min-width: 0; align-content: start; gap: 12px; }
+.profile-columns,
+.profile-columns.profile-viewing-other { grid-template-columns: minmax(205px, .78fr) minmax(0, 1.35fr); gap: 12px; margin-top: 0; }
+.profile-right-column { position: static; gap: 12px; }
+.profile-hero,
+.profile-panel,
+.profile-composer,
+.profile-post-card { border-radius: 4px; }
+.profile-hero-cover { height: clamp(150px, 16vw, 220px); }
+.profile-hero-details { min-height: 156px; gap: 14px; padding: 0 18px 10px; }
+.profile-hero-avatar { flex-basis: 132px; width: 132px; height: 132px; margin-top: -62px; }
+.profile-hero-copy { padding: 14px 0 0; }
+.profile-hero-copy h1 { font-size: clamp(18px, 1.5vw, 22px); }
+.profile-hero-copy > p { margin-top: 3px; color: #8194ae; }
+.profile-hero-status { display: flex; align-items: center; gap: 6px; margin-top: 5px; color: var(--text-secondary); font-size: 10px; }
+.profile-hero-status i { width: 7px; height: 7px; border-radius: 50%; background: #9ba9bb; }
+.profile-hero-status.is-online i { background: #2dbb78; }
+.profile-hero-copy .profile-hero-bio { display: block; overflow: hidden; max-width: 440px; margin-top: 5px; color: var(--text-secondary); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.profile-hero-stats { display: flex; max-width: 360px; gap: 0; margin-top: 9px; padding-top: 8px; border-top: 1px solid var(--border-light); }
+.profile-hero-stats span { display: grid; flex: 1; gap: 2px; color: var(--text-secondary); font-size: 9px; }
+.profile-hero-stats b { color: var(--text-primary); font-size: 13px; }
+.profile-hero-actions { align-self: center; }
+.profile-hero-actions .profile-edit-button { min-height: 36px; white-space: nowrap; }
+.profile-tabs { padding: 0 10px; }
+.profile-tabs button { padding: 12px 12px; }
+.profile-panel,
+.profile-composer,
+.profile-post-card { box-shadow: 0 3px 12px rgba(24, 45, 78, .045); }
+.profile-panel { padding: 14px; }
+.profile-panel h2 { font-size: 13px; }
+.profile-right-friends .profile-friend-strip { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.profile-right-column .profile-panel-heading { margin-bottom: 11px; }
+.profile-photo-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.profile-photo-grid button { aspect-ratio: 1.12; border-radius: 2px; }
+.profile-notice { margin-top: 0; }
+
 @media (max-width: 900px) {
-  .profile-columns { grid-template-columns: minmax(190px, 250px) minmax(0, 1fr); gap: var(--space-3); }
-  .profile-right-column { display: none; }
+  .profile-layout { grid-template-columns: minmax(0, 1fr); }
+  .profile-right-column { position: static; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .profile-columns,
+  .profile-columns.profile-viewing-other { grid-template-columns: minmax(190px, .7fr) minmax(0, 1.3fr); }
 }
 @media (max-width: 760px) {
-  .profile-page-content { padding: var(--space-3); }
-  .profile-columns { grid-template-columns: minmax(0, 1fr); }
+  .profile-page-content { padding: 10px 9px 24px; }
+  .profile-layout { gap: 10px; }
+  .profile-main-column { gap: 10px; }
+  .profile-hero-cover { height: 155px; }
+  .profile-hero-details { flex-wrap: wrap; gap: 8px 11px; padding: 0 12px 12px; }
+  .profile-hero-avatar { flex-basis: 96px; width: 96px; height: 96px; margin-top: -44px; }
+  .profile-hero-copy { flex: 1; padding-top: 8px; }
+  .profile-hero-copy h1 { font-size: 17px; }
+  .profile-hero-copy .profile-hero-bio { max-width: 100%; }
+  .profile-hero-stats { gap: 10px; margin-top: 7px; padding-top: 7px; }
+  .profile-hero-stats b { font-size: 12px; }
+  .profile-hero-actions { width: 100%; justify-content: flex-start; }
+  .profile-hero-actions .profile-edit-button { margin: 0; }
+  .profile-viewing-other-actions { flex-wrap: wrap; }
+  .profile-columns,
+  .profile-columns.profile-viewing-other { grid-template-columns: minmax(0, 1fr); gap: 10px; }
   .profile-left-column { order: 2; }
   .profile-center-column { order: 1; }
-  .profile-right-column { display: grid; order: 3; }
-  .profile-hero-details { flex-wrap: wrap; gap: var(--space-2) var(--space-3); padding: 0 13px var(--space-3); }
-  .profile-hero-avatar { flex-basis: 104px; width: 104px; height: 104px; margin-top: -50px; }
-  .profile-hero-actions { width: 100%; justify-content: flex-end; }
-  .profile-viewing-other-actions { justify-content: flex-start; flex-wrap: wrap; }
+  .profile-right-column { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .profile-right-column .profile-right-friends { order: 0; }
+  .profile-panel,
+  .profile-composer,
+  .profile-post-card { padding: 12px; }
+  .profile-tabs { padding: 0 5px; }
+  .profile-tabs button { padding: 11px 9px; }
+}
+@media (max-width: 460px) {
+  .profile-hero-cover { height: 130px; }
+  .profile-hero-details { gap: 6px 9px; }
+  .profile-hero-avatar { flex-basis: 82px; width: 82px; height: 82px; margin-top: -37px; }
+  .profile-hero-copy h1 { font-size: 15px; }
+  .profile-hero-status,
+  .profile-hero-copy > p { font-size: 9px; }
+  .profile-hero-actions { flex-wrap: wrap; }
   .profile-hero-actions .profile-message-button,
-  .profile-hero-actions .profile-friend-action { min-height: 36px; padding: 0 11px; font-size: 11px; }
-  .profile-hero-actions .profile-edit-button { margin-left: auto; }
-  .profile-hero-copy h1 { font-size: var(--font-size-md); }
-  .profile-tabs { padding: 0 6px; }
-  .profile-tabs button { padding: var(--space-3) 10px; font-size: 10px; }
+  .profile-hero-actions .profile-friend-action { min-height: 34px; padding: 0 9px; font-size: 10px; }
+  .profile-hero-actions .profile-edit-button { min-height: 34px; padding: 0 10px; font-size: 10px; }
+  .profile-tabs button { padding: 10px 8px; font-size: 9px; }
+  .profile-friend-strip { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 
 .feed-profile-avatar-button { display: grid; place-items: center; border-radius: 50%; background: transparent; }

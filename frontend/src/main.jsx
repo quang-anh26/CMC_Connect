@@ -9,6 +9,7 @@ import './styles/motion.css'
 import './styles/app-topbar.css'
 import './styles/video-page.css'
 import './styles/conversation-layout.css'
+import './styles/shape-overrides.css'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
