@@ -1,11 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
 import { feedApi } from '../api/feedApi'
 import { conversationApi } from '../api/conversationApi'
-import { friendApi } from '../api/friendApi'
 import { storyApi } from '../api/storyApi'
 import { videoApi } from '../api/videoApi'
-import { userApi } from '../api/userApi'
 import { messageApi } from '../api/messageApi'
 import { eventApi } from '../api/eventApi'
 import { savedApi } from '../api/savedApi'
@@ -13,9 +11,8 @@ import Avatar from '../components/Avatar'
 import EmptyState from '../components/EmptyState'
 import LoadingState from '../components/LoadingState'
 import ErrorState from '../components/ErrorState'
-import { MessengerLogo, FriendsIcon, FeedVideoIcon, BellIcon, ChatIcon, CommentIcon, ShareIcon } from '../components/Icons'
+import { BellIcon, CalendarIcon, ChatIcon, CommentIcon, FeedIcon, FeedVideoIcon, FriendsIcon, GroupIcon, ShareIcon } from '../components/Icons'
 import { useAuth } from '../context/AuthContext'
-import { useSocket } from '../context/SocketContext'
 
 const storyImage = 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=500&q=80'
 const postReactions = [
@@ -26,6 +23,10 @@ const postReactions = [
   { type: 'ANGRY', label: 'Phẫn nộ', emoji: '😡' },
 ]
 const storyReactions = ['👍', '❤️', '😂', '😮', '😢', '😡']
+
+function SavedMenuIcon() {
+  return <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 4.75A1.75 1.75 0 0 1 7.75 3h8.5A1.75 1.75 0 0 1 18 4.75V21l-6-4-6 4V4.75Z" /></svg>
+}
 
 function PostReactionControl({ post, onSelect }) {
   const selectedReaction = postReactions.find((reaction) => reaction.type === post.viewerReaction)
@@ -71,26 +72,16 @@ function LikeOutlineIcon() {
 export default function FeedPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
-  const { subscribe, connected } = useSocket()
-  const [pendingRequestCount, setPendingRequestCount] = useState(0)
-  const [unreadMessageCount, setUnreadMessageCount] = useState(0)
-  const [joinedGroupCount, setJoinedGroupCount] = useState(0)
   const [posts, setPosts] = useState([])
   const [upcomingEvents, setUpcomingEvents] = useState([])
   const [stories, setStories] = useState([])
-  const [suggestedUsers, setSuggestedUsers] = useState([])
-  const [acceptedFriends, setAcceptedFriends] = useState([])
-  const [acceptedFriendsLoading, setAcceptedFriendsLoading] = useState(true)
-  const [friendPresence, setFriendPresence] = useState({})
   const [content, setContent] = useState('')
   const [postFile, setPostFile] = useState(null)
   const [postPreview, setPostPreview] = useState('')
   const [loading, setLoading] = useState(true)
   const [feedLoadError, setFeedLoadError] = useState('')
   const [storiesLoading, setStoriesLoading] = useState(true)
-  const [suggestionsLoading, setSuggestionsLoading] = useState(true)
   const [posting, setPosting] = useState(false)
-  const [addingFriendIds, setAddingFriendIds] = useState([])
   const [storyModalOpen, setStoryModalOpen] = useState(false)
   const [storyContent, setStoryContent] = useState('')
   const [storyFile, setStoryFile] = useState(null)
@@ -115,39 +106,6 @@ export default function FeedPage() {
   const [notice, setNotice] = useState('')
   const postMediaInputRef = useRef(null)
   const storyTouchStartX = useRef(null)
-  const ownPostCount = posts.filter((post) => String(post.authorId) === String(user?.userId)).length
-
-  useEffect(() => {
-    let isActive = true
-    const refreshNavigationCounts = () => {
-      friendApi.received()
-        .then((response) => {
-          if (isActive) setPendingRequestCount((response.data || []).length)
-        })
-        .catch(() => {})
-
-      conversationApi.list()
-        .then((response) => {
-          if (!isActive) return
-          const unreadTotal = (response.data || []).reduce(
-            (total, conversation) => total + (Number(conversation.unreadCount) || 0),
-            0,
-          )
-          setUnreadMessageCount(unreadTotal)
-          setJoinedGroupCount((response.data || []).filter((conversation) => conversation.type === 'GROUP').length)
-        })
-        .catch(() => {})
-    }
-
-    refreshNavigationCounts()
-    const intervalId = window.setInterval(refreshNavigationCounts, 15000)
-    window.addEventListener('focus', refreshNavigationCounts)
-    return () => {
-      isActive = false
-      window.clearInterval(intervalId)
-      window.removeEventListener('focus', refreshNavigationCounts)
-    }
-  }, [])
 
   const loadPosts = () => {
     setLoading(true)
@@ -178,63 +136,6 @@ export default function FeedPage() {
       .then((response) => setStories(response.data || []))
       .catch(() => setStoriesError('Không thể tải tin. Vui lòng thử tải lại trang.'))
       .finally(() => setStoriesLoading(false))
-  }, [])
-
-  useEffect(() => {
-    let isActive = true
-    const loadUsers = () => {
-      userApi.search('')
-        .then((response) => {
-          if (!isActive) return
-          const users = response.data || []
-          setFriendPresence(Object.fromEntries(users.map((candidate) => [String(candidate.userId), candidate.online === true])))
-          setSuggestedUsers(users
-            .filter((candidate) => !candidate.friendshipStatus)
-            .slice(0, 4))
-        })
-        .catch(() => {
-          if (isActive) setSuggestedUsers([])
-        })
-        .finally(() => {
-          if (isActive) setSuggestionsLoading(false)
-        })
-    }
-
-    loadUsers()
-    const intervalId = window.setInterval(loadUsers, 10000)
-    return () => {
-      isActive = false
-      window.clearInterval(intervalId)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!connected) return undefined
-    return subscribe('/topic/presence', ({ userId, online }) => {
-      if (userId == null) return
-      setFriendPresence((current) => ({ ...current, [String(userId)]: online === true }))
-    })
-  }, [connected, subscribe])
-
-  useEffect(() => {
-    let isActive = true
-    const loadAcceptedFriends = () => {
-      friendApi.accepted()
-        .then((response) => {
-          if (isActive) setAcceptedFriends(response.data || [])
-        })
-        .catch(() => {})
-        .finally(() => {
-          if (isActive) setAcceptedFriendsLoading(false)
-        })
-    }
-
-    loadAcceptedFriends()
-    const intervalId = window.setInterval(loadAcceptedFriends, 30000)
-    return () => {
-      isActive = false
-      window.clearInterval(intervalId)
-    }
   }, [])
 
   useEffect(() => {
@@ -436,19 +337,6 @@ export default function FeedPage() {
     }
   }
 
-  const sendFriendRequest = async (receiverId) => {
-    setAddingFriendIds((current) => [...current, receiverId])
-    try {
-      await friendApi.send(receiverId)
-      setSuggestedUsers((current) => current.filter((candidate) => candidate.userId !== receiverId))
-      setNotice('Đã gửi lời mời kết bạn')
-    } catch (err) {
-      setError(err.response?.data?.message || 'Không thể gửi lời mời kết bạn.')
-    } finally {
-      setAddingFriendIds((current) => current.filter((id) => id !== receiverId))
-    }
-  }
-
   const selectReaction = async (postId, reactionType) => {
     try {
       const response = await feedApi.react(postId, reactionType)
@@ -531,20 +419,6 @@ export default function FeedPage() {
 
   return (
     <div className="feed-page">
-      <header className="feed-topbar">
-        <button className="feed-header-brand" type="button" aria-label="CMC Talk - Trang chủ" onClick={() => navigate('/feed')}><MessengerLogo size={36} /><span>CMC Talk</span></button>
-        <div className="feed-search"><span>⌕</span><input placeholder="Tìm kiếm bạn bè, bài viết, nhóm..." /></div>
-        <div className="feed-top-actions">
-          <button type="button" className="feed-top-active" aria-label="Trang chủ" onClick={() => navigate('/feed')}><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 10 9-7 9 7"/><path d="M5 9v11h14V9M9 20v-6h6v6"/></svg></button>
-          <button type="button" aria-label="Bạn bè" onClick={() => navigate('/friends')}><FriendsIcon size={19} /></button>
-          <button type="button" className="feed-top-video" aria-label="Video" onClick={() => setNotice('Video đang ở bản xem trước')}><FeedVideoIcon size={19} /></button>
-          <button type="button" className={pendingRequestCount > 0 ? 'has-alert' : ''} aria-label={`Lời mời kết bạn: ${pendingRequestCount}`} onClick={() => navigate('/friends')}><BellIcon size={19} />{pendingRequestCount > 0 && <b>{pendingRequestCount > 99 ? '99+' : pendingRequestCount}</b>}</button>
-          <button type="button" className={unreadMessageCount > 0 ? 'has-alert' : ''} aria-label={`Tin nhắn chưa đọc: ${unreadMessageCount}`} onClick={() => navigate('/')}><ChatIcon size={19} />{unreadMessageCount > 0 && <b>{unreadMessageCount > 99 ? '99+' : unreadMessageCount}</b>}</button>
-          <button className="feed-top-profile-button" type="button" aria-label="Mở trang cá nhân" onClick={() => navigate('/feed/profile')}>
-            <Avatar src={user?.avatar} name={user?.displayName || 'Bạn'} size={30} />
-          </button>
-        </div>
-      </header>
       <div className="feed-scroll-area">
       <div className="feed-layout">
       <main className="feed-main">
@@ -833,66 +707,23 @@ export default function FeedPage() {
       </div>
       </main>
       <aside className="feed-aside">
-        <section className="aside-card feed-profile-card">
-          <div className="feed-profile-cover" style={user?.coverImage ? { backgroundImage: `linear-gradient(130deg, rgba(23, 44, 83, .2), rgba(165, 101, 98, .25)), url(${user.coverImage})` } : undefined} />
-          <button className="feed-profile-avatar-button" type="button" aria-label="Mở trang cá nhân" onClick={() => navigate('/feed/profile')}>
-            <Avatar className="feed-profile-avatar" src={user?.avatar} name={user?.displayName || user?.username} size={72} />
-          </button>
-          <button className="feed-profile-name-button" type="button" onClick={() => navigate('/feed/profile')}>
-            {user?.displayName || user?.username || 'CMC Talk'}
-          </button>
-          <span className="feed-profile-status"><i /> Đang hoạt động</span>
-          {user?.bio && <p>{user.bio}</p>}
-          <div className="feed-profile-stats"><span><b>{ownPostCount}</b>{"B\u00e0i vi\u1ebft"}</span><span><b>{acceptedFriends.length}</b>{"B\u1ea1n b\u00e8"}</span><span><b>{joinedGroupCount}</b>{"Nh\u00f3m"}</span></div>
-        </section>
-        <section className="aside-card online-preview-card">
-          <div className="aside-heading"><strong>Bạn bè của bạn ({acceptedFriends.length})</strong></div>
-          {acceptedFriendsLoading && <LoadingState compact label="Đang tải danh sách bạn bè..." />}
-          {!acceptedFriendsLoading && acceptedFriends.length === 0 && <EmptyState compact description="Bạn chưa có bạn bè đã kết bạn." />}
-          {acceptedFriends.slice(0, 8).map((friend, index) => {
-            const isSender = String(friend.senderId) === String(user?.userId)
-            const friendId = isSender ? friend.receiverId : friend.senderId
-            const friendName = (isSender ? friend.receiverDisplayName : friend.senderDisplayName)
-              || (isSender ? friend.receiverUsername : friend.senderUsername)
-            const friendAvatar = isSender ? friend.receiverAvatar : friend.senderAvatar
-            const isOnline = friendPresence[String(friendId)] === true
-            return (
-              <div className="online-preview-person" key={friend.id}>
-                <button type="button" className="feed-friend-profile-link" onClick={() => navigate(`/feed/profile/${friendId}`)} aria-label={`Xem trang cá nhân ${friendName}`}><Avatar className={`online-preview-avatar online-preview-avatar-${index % 4} ${isOnline ? '' : 'offline'}`} src={friendAvatar} name={friendName} size={34} /><span><strong>{friendName}</strong><small><i /> {isOnline ? 'Đang online' : 'Đang offline'}</small></span></button>
-              </div>
-            )
-          })}
-          {acceptedFriends.length > 0 && <button type="button" className="preview-more-friends" onClick={() => navigate('/friends')}>› <span>Xem tất cả bạn bè</span></button>}
-        </section>
-
-        
-        <section className="aside-card">
-          <div className="aside-heading"><strong>Gợi ý kết bạn</strong></div>
-          {suggestionsLoading && <LoadingState compact label="Đang tải gợi ý..." />}
-          {!suggestionsLoading && suggestedUsers.length === 0 && <EmptyState compact description="Chưa có gợi ý mới." />}
-          {suggestedUsers.map((candidate) => (
-            <div className="suggested-person" key={candidate.userId}>
-              <button type="button" className="suggested-profile-link" onClick={() => navigate(`/feed/profile/${candidate.userId}`)} aria-label={`Xem trang cá nhân ${candidate.displayName || candidate.username}`}><Avatar className="suggested-avatar" src={candidate.avatar} name={candidate.displayName || candidate.username} size={38} /><span><strong>{candidate.displayName || candidate.username}</strong><small>{candidate.online ? 'Đang hoạt động' : 'Người dùng CMC Talk'}</small></span></button>
-              <button disabled={addingFriendIds.includes(candidate.userId)} onClick={() => sendFriendRequest(candidate.userId)}>
-                {addingFriendIds.includes(candidate.userId) ? 'Đang gửi...' : 'Thêm bạn'}
-              </button>
-            </div>
-          ))}
-        </section>
-        <section className="aside-card promo-card"><div className="promo-image" style={{ backgroundImage: `url(${storyImage})` }}><strong>Những điều tốt đẹp<br />sẽ luôn đến</strong><span>♥</span></div></section>
-        <section className="aside-card preview-events-card">
-          <div className="aside-heading"><strong>Sự kiện sắp tới</strong><span className="preview-label">Xem trước</span></div>
-          {upcomingEvents.length ? upcomingEvents.map((item) => <div className="preview-event" key={item.eventId}><span className="preview-event-icon">▦</span><div><strong>{item.title}</strong><small>{new Intl.DateTimeFormat('vi-VN', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(item.startsAt))}<br />{item.location}</small></div><button type="button" onClick={() => navigate(`/events/${item.eventId}`)}>Chi tiết</button></div>) : <EmptyState compact description="Chưa có sự kiện sắp tới." action={<button type="button" className="ui-state__action" onClick={() => navigate('/events')}>Xem sự kiện</button>} />}
-        </section>
-        <section className="aside-card preview-video-card">
-          <div className="aside-heading"><strong>Video gợi ý</strong><span className="preview-label">Xem trước</span></div>
-          <div className="preview-video-thumb" style={{ backgroundImage: `linear-gradient(0deg, rgba(8, 18, 38, .5), transparent), url(${storyImage})` }}><span>▶</span><small>3:45</small></div>
-          <strong className="preview-video-title">Hà Nội · Những khoảnh khắc bình yên</strong><small className="preview-video-meta">Du lịch Việt Nam · 12K lượt xem</small>
-        </section>
-        <section className="aside-card preview-topics-card">
-          <div className="aside-heading"><strong>Chủ đề đang hot</strong><span className="preview-label">Xem trước</span></div>
-          <div className="preview-topic-list">{['#CNTT', '#LậpTrình', '#DuLịch', '#ÂmNhạc', '#Anime', '#CuộcSống'].map((topic) => <span key={topic}>{topic}</span>)}</div>
-        </section>
+        <nav className="feed-side-menu" aria-label="Lối tắt">
+          <NavLink to="/feed/profile" className="feed-side-profile">
+            <Avatar src={user?.avatar} name={user?.displayName || user?.username} size={40} />
+            <span>{user?.displayName || user?.username || 'Trang cá nhân'}</span>
+          </NavLink>
+          <div className="feed-side-menu-items">
+            <NavLink to="/friends" className="feed-side-link"><FriendsIcon size={23} /><span>Bạn bè</span></NavLink>
+            <NavLink to="/events" className="feed-side-link"><CalendarIcon size={23} /><span>Sự kiện</span></NavLink>
+            <NavLink to="/saved" className="feed-side-link"><SavedMenuIcon /><span>Đã lưu</span></NavLink>
+            <NavLink to="/groups" className="feed-side-link"><GroupIcon size={23} /><span>Nhóm</span></NavLink>
+            <NavLink to="/video" className="feed-side-link"><FeedVideoIcon size={23} /><span>Video</span></NavLink>
+            <NavLink to="/feed" end className="feed-side-link"><FeedIcon size={23} /><span>Bảng tin</span></NavLink>
+            <NavLink to="/messages" className="feed-side-link"><ChatIcon size={23} /><span>Trò chuyện</span></NavLink>
+            <NavLink to="/notifications" className="feed-side-link"><BellIcon size={23} /><span>Thông báo</span></NavLink>
+          </div>
+          <footer className="feed-side-footer">CMC Talk · Kết nối và chia sẻ</footer>
+        </nav>
       </aside>
       <aside className="feed-right-rail">
         <section className="aside-card preview-events-card">
@@ -912,7 +743,6 @@ export default function FeedPage() {
       </aside>
       </div>
       </div>
-      <nav className="mobile-feed-nav"><button className="active">⌂<span>Trang chủ</span></button><button>♧<span>Bạn bè</span></button><button className="plus-button" onClick={() => document.querySelector('.create-post-main textarea')?.focus()}>+</button><button>▢<span>Chat</span></button><button>♧<span>Thông báo</span></button></nav>
     </div>
   )
 }

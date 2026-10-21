@@ -48,7 +48,8 @@ export default function App() {
                 </ProtectedRoute>
               }
             >
-              <Route index element={<EmptyChatPage />} />
+              <Route index element={<Navigate to="/feed" replace />} />
+              <Route path="messages" element={<EmptyChatPage />} />
               <Route path="feed" element={<FeedPage />} />
               <Route path="video" element={<React.Suspense fallback={<main className="video-page"><LoadingState label="Đang mở video..." /></main>}><VideosPage /></React.Suspense>} />
               <Route path="saved" element={<React.Suspense fallback={<main className="saved-page"><LoadingState label="Đang tải nội dung đã lưu..." /></main>}><SavedPage /></React.Suspense>} />
@@ -61,7 +62,7 @@ export default function App() {
               <Route path="feed/profile/:profileUserId" element={<ProfilePage />} />
               <Route path="chat/:conversationId" element={<ChatWindow />} />
               <Route path="friends" element={<FriendsPage />} />
-              <Route path="message-requests" element={<Navigate to="/" replace />} />
+              <Route path="message-requests" element={<Navigate to="/messages" replace />} />
               <Route path="profile" element={<Navigate to="/feed/profile" replace />} />
             </Route>
 

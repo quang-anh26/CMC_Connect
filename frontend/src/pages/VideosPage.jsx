@@ -27,6 +27,7 @@ export default function VideosPage() {
   const { user } = useAuth()
   const scrollerRef = useRef(null)
   const sentinelRef = useRef(null)
+  const videoListRef = useRef(null)
   const viewedRef = useRef(new Set())
   const [videos, setVideos] = useState([])
   const [queryInput, setQueryInput] = useState('')
@@ -212,17 +213,47 @@ export default function VideosPage() {
     <main className="video-page" ref={scrollerRef}>
       <div className="video-layout">
         <aside className="video-sidebar">
-          <span className="video-eyebrow">CMC TALK VIDEO</span>
-          <h1>Video</h1>
+          <header className="video-sidebar-heading">
+            <span className="video-sidebar-mark" aria-hidden="true"><span>▶</span></span>
+            <div><span className="video-eyebrow">CMC TALK · VIDEO</span><h1>Video</h1></div>
+          </header>
+          <p className="video-sidebar-note">Khám phá, chia sẻ những khoảnh khắc đáng nhớ cùng cộng đồng CMC Talk!</p>
           <label className="video-search"><span aria-hidden="true">⌕</span><input value={queryInput} onChange={(event) => setQueryInput(event.target.value)} placeholder="Tìm video, hashtag..." aria-label="Tìm video" />{queryInput && <button type="button" onClick={() => setQueryInput('')} aria-label="Xóa tìm kiếm">×</button>}</label>
           <nav className="video-nav" aria-label="Bảng tin video">
             <button type="button" className={filter === 'ALL' ? 'active' : ''} onClick={() => setFilter('ALL')}><span>✦</span>Dành cho bạn</button>
-            <button type="button" className={filter === 'FOLLOWING' ? 'active' : ''} onClick={() => setFilter('FOLLOWING')}><span>◎</span>Đang theo dõi</button>
+            <button type="button" className={filter === 'FOLLOWING' ? 'active' : ''} onClick={() => setFilter('FOLLOWING')}><span>◉</span>Đang theo dõi</button>
+            <div className="video-nav-category"><span>▣</span>Danh mục</div>
           </nav>
+          <section className="video-trending-tags" aria-label="Hashtag phổ biến">
+            <h2>Hashtag phổ biến</h2>
+            <div>
+              {['#CMC', '#CôngNghệ', '#CuộcSống', '#HọcTập', '#GiảiTrí', '#TeamIT'].map((tag) => (
+                <button key={tag} type="button" onClick={() => setQueryInput(tag.slice(1))}>{tag}</button>
+              ))}
+            </div>
+          </section>
         </aside>
 
         <section className="video-feed" aria-label="Bảng tin video">
-          <div className="video-feed-heading"><div><span className="video-eyebrow">{filter === 'FOLLOWING' ? 'NHÀ SÁNG TẠO BẠN THEO DÕI' : 'GỢI Ý DÀNH RIÊNG CHO BẠN'}</span><h2>{filter === 'FOLLOWING' ? 'Đang theo dõi' : 'Dành cho bạn'}</h2></div></div>
+          <section className="video-hero">
+            <div className="video-hero-copy">
+              <span className="video-hero-badge">Video nổi bật</span>
+              <h2>Khám phá thế giới<br />qua những thước phim</h2>
+              <p>Từ những khoảnh khắc đời thường đến các nội dung hữu ích, chỉ có tại CMC Talk Video.</p>
+              <button type="button" onClick={() => videoListRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}><span aria-hidden="true">▶</span>Xem ngay</button>
+            </div>
+            <div className="video-hero-art" aria-hidden="true">
+              <span className="video-hero-orbit" />
+              <span className="video-hero-spark video-hero-spark-one">✦</span>
+              <span className="video-hero-spark video-hero-spark-two">✦</span>
+              <span className="video-hero-camera">●</span>
+              <span className="video-hero-clapper"><span /><i>▶</i></span>
+            </div>
+          </section>
+          <div className="video-feed-heading" ref={videoListRef}>
+            <div><span className="video-heading-icon" aria-hidden="true">▶</span><h2>{filter === 'FOLLOWING' ? 'Video đang theo dõi' : 'Video đề xuất'}</h2></div>
+            <button type="button" onClick={() => { setFilter('ALL'); setQueryInput('') }}>Xem tất cả <span aria-hidden="true">›</span></button>
+          </div>
           {loading && <LoadingState label="Đang tải video..." />}
           {!loading && error && videos.length === 0 && <ErrorState title="Không tải được video" message={error} onRetry={() => { setError(''); setRetryKey((current) => current + 1) }} />}
           {!loading && !error && videos.length === 0 && <EmptyState icon="▶" title="Chưa có video phù hợp" description={filter === 'FOLLOWING' ? 'Video từ những nhà sáng tạo bạn theo dõi sẽ xuất hiện ở đây.' : 'Thử tìm kiếm với từ khóa khác nhé.'} />}
@@ -233,9 +264,10 @@ export default function VideosPage() {
             const comments = post.comments || []
             const roots = comments.filter((comment) => !comment.parentCommentId)
             return <article className="video-card" key={post.postId}>
-              <header className="video-card-author"><Link to={`/feed/profile/${post.authorId}`}><Avatar src={post.authorAvatar} name={post.authorName} size={42} /></Link><div className="video-author-copy"><Link to={`/feed/profile/${post.authorId}`}>{post.authorName}</Link><time>{post.createdAt ? new Date(post.createdAt).toLocaleString('vi-VN', { dateStyle: 'medium', timeStyle: 'short' }) : 'Mới đây'}</time></div>{!isOwner && <button className="video-follow-button" type="button" onClick={() => toggleFollow(card)}>{card.followingCreator ? 'Đang theo dõi' : 'Theo dõi'}</button>}<div className="video-more-actions">{isOwner ? <button type="button" onClick={() => deleteVideo(card)}>Xóa</button> : <button type="button" onClick={() => { setReportTarget(card); setReportReason('') }}>Báo cáo</button>}</div></header>
-              {post.content && <p className="video-description">{post.content}</p>}
-                <video className="video-player" src={videoApi.resolveMediaUrl(card.playbackUrl || post.imageUrl)} controls playsInline preload="metadata" onPlay={() => recordView(post.postId)} onError={handleVideoError} />
+              <video className="video-player" src={videoApi.resolveMediaUrl(card.playbackUrl || post.imageUrl)} controls playsInline preload="metadata" onPlay={() => recordView(post.postId)} onError={handleVideoError} />
+              <div className="video-card-details">
+                {post.content && <p className="video-description">{post.content}</p>}
+                <header className="video-card-author"><Link to={`/feed/profile/${post.authorId}`}><Avatar src={post.authorAvatar} name={post.authorName} size={34} /></Link><div className="video-author-copy"><Link to={`/feed/profile/${post.authorId}`}>{post.authorName}</Link><time>{post.createdAt ? new Date(post.createdAt).toLocaleString('vi-VN', { dateStyle: 'medium', timeStyle: 'short' }) : 'Mới đây'}</time></div>{!isOwner && <button className="video-follow-button" type="button" onClick={() => toggleFollow(card)}>{card.followingCreator ? 'Đang theo dõi' : 'Theo dõi'}</button>}<div className="video-more-actions">{isOwner ? <button type="button" onClick={() => deleteVideo(card)}>Xóa</button> : <button type="button" onClick={() => { setReportTarget(card); setReportReason('') }}>Báo cáo</button>}</div></header>
               <div className="video-metrics">
                 <span>{post.viewCount || 0} lượt xem</span><span>{post.likeCount || 0} lượt thích</span>
                 <span>{comments.length} bình luận</span><span>{post.shareCount || 0} lượt chia sẻ</span>
@@ -251,10 +283,12 @@ export default function VideosPage() {
                     {reactions.map(([type, emoji, label]) => <button key={type} type="button" title={label} aria-label={label} onClick={() => reactToVideo(post.postId, type)}>{emoji}</button>)}
                   </div>
                 </div>
-                <button type="button" onClick={() => document.getElementById(`video-comment-${post.postId}`)?.focus()}><CommentIcon size={17} /> {comments.length > 0 && <span className="action-count">{comments.length}</span>} Bình luận</button>
+                <button type="button" onClick={() => { const input = document.getElementById(`video-comment-${post.postId}`); input?.closest('details')?.setAttribute('open', ''); input?.focus() }}><CommentIcon size={17} /> {comments.length > 0 && <span className="action-count">{comments.length}</span>} Bình luận</button>
                 <button type="button" onClick={() => { setShareTarget(post); setShareCaption(''); setShareError('') }}><ShareIcon size={17} /> {post.shareCount > 0 && <span className="action-count">{post.shareCount}</span>} Chia sẻ</button>
               </div>
-              <section className="video-comments">
+              <details className="video-comments-disclosure">
+                <summary>{comments.length ? `Xem ${comments.length} bình luận` : 'Viết bình luận đầu tiên'}</summary>
+                <section className="video-comments">
                 <div className="video-comment-list">
                   {roots.map((comment) => <div className="video-comment-thread" key={comment.commentId}>
                     <div className="video-comment"><Avatar src={comment.authorAvatar} name={comment.authorName} size={30} /><div><strong>{comment.authorName}</strong><p>{comment.content}</p></div></div>
@@ -270,7 +304,9 @@ export default function VideosPage() {
                   <input id={`video-comment-${post.postId}`} value={commentDrafts[`${post.postId}:root`] || ''} onChange={(event) => setCommentDrafts((current) => ({ ...current, [`${post.postId}:root`]: event.target.value }))} placeholder="Viết bình luận..." maxLength={1000} />
                   <button type="submit" disabled={!(commentDrafts[`${post.postId}:root`] || '').trim()}>Gửi</button>
                 </form>
-              </section>
+                </section>
+              </details>
+              </div>
             </article>
           })}</div>
           <div className="video-load-sentinel" ref={sentinelRef} />

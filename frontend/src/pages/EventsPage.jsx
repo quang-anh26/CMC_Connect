@@ -5,7 +5,7 @@ import Avatar from '../components/Avatar'
 import EmptyState from '../components/EmptyState'
 import LoadingState from '../components/LoadingState'
 import ErrorState from '../components/ErrorState'
-import { CalendarIcon, LocationPinIcon, MessengerLogo } from '../components/Icons'
+import { CalendarIcon, LocationPinIcon } from '../components/Icons'
 import { eventApi } from '../api/eventApi'
 import { useAuth } from '../context/AuthContext'
 
@@ -201,11 +201,7 @@ export default function EventsPage() {
   return (
     <div className="events-page">
       <header className="events-topbar">
-        <button className="events-brand" type="button" onClick={() => navigate('/feed')} aria-label="CMC Talk - Trang chủ">
-          <MessengerLogo size={34} /><span>CMC Talk</span>
-        </button>
         <div className="events-topbar-label">Sự kiện</div>
-        <button className="ui-button ui-button--secondary events-feed-link" type="button" onClick={() => navigate('/feed')}>Về bảng tin</button>
       </header>
 
       <main className="events-content">

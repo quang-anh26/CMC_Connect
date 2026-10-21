@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import Avatar from './Avatar'
 import EmptyState from './EmptyState'
 import { useAuth } from '../context/AuthContext'
+import { useNavigate } from 'react-router-dom'
 import { userApi } from '../api/userApi'
 import { blockApi } from '../api/blockApi'
 import {
@@ -36,7 +37,8 @@ function playNotificationChime() {
 }
 
 export default function SettingsModal({ isOpen, onClose }) {
-  const { user, setUser, logout } = useAuth()
+  const { user, setUser } = useAuth()
+  const navigate = useNavigate()
 
   // Setting States persisted in localStorage
   const [activeStatus, setActiveStatus] = useState(() => {
@@ -170,7 +172,10 @@ export default function SettingsModal({ isOpen, onClose }) {
                 {/* Profile row */}
                 <div
                   className="settings-item profile-item"
-                  onClick={() => setActiveSubView('profile')}
+                  onClick={() => {
+                    onClose()
+                    navigate('/feed/profile')
+                  }}
                 >
                   <div className="settings-item-icon avatar-icon">
                     <Avatar
@@ -332,21 +337,6 @@ export default function SettingsModal({ isOpen, onClose }) {
                   </div>
                 </div>
 
-                {/* Đăng xuất option */}
-                <div
-                  className="settings-item danger-item"
-                  onClick={() => {
-                    logout()
-                    onClose()
-                  }}
-                  style={{ marginTop: 12 }}
-                >
-                  <div className="settings-item-content">
-                    <div className="settings-item-title" style={{ color: '#ef4444' }}>
-                      Đăng xuất tài khoản
-                    </div>
-                  </div>
-                </div>
               </div>
             </>
           )}
