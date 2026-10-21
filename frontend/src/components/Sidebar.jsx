@@ -393,6 +393,18 @@ export default function Sidebar({ activeConversationId }) {
 
   return (
     <div className="sidebar">
+      <header className="chat-list-heading">
+        <h1>{location.pathname === '/friends' ? 'Bạn bè' : showArchivedOnly ? 'Đã lưu trữ' : 'Trò chuyện'}</h1>
+        {location.pathname !== '/friends' && !showArchivedOnly && (
+          <button
+            type="button"
+            className="chat-list-create"
+            onClick={() => setGroupOpen((open) => !open)}
+            title="Tạo nhóm chat mới"
+            aria-label="Tạo nhóm chat mới"
+          >＋</button>
+        )}
+      </header>
       {/* Search Input Bar with Create Group Button */}
       <div className="search-bar-container">
         <div className="search-input-wrapper">
@@ -406,18 +418,6 @@ export default function Sidebar({ activeConversationId }) {
           <span className="search-icon-btn">
             <SearchIcon size={16} color="#8392a5" />
           </span>
-        </div>
-
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
-          <button
-            type="button"
-            className="icon-btn"
-            style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 4, color: 'var(--accent)', padding: '2px 8px' }}
-            onClick={() => setGroupOpen((v) => !v)}
-            title="Tạo nhóm chat mới"
-          >
-            <span>＋ Tạo nhóm</span>
-          </button>
         </div>
       </div>
 
