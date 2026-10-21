@@ -20,11 +20,11 @@
   --color-warning: #f59e0b;
   --color-overlay: rgb(4 10 20 / 72%);
   --color-white: #fff;
-  --color-neutral-100: #f0f2f5;
-  --color-neutral-200: #e4e6eb;
-  --color-neutral-700: #65676b;
-  --color-neutral-900: #1c1e21;
-  --color-neutral-black: #050505;
+  --color-neutral-100: #101a29;
+  --color-neutral-200: #26364c;
+  --color-neutral-700: #aab8cc;
+  --color-neutral-900: #e8eef8;
+  --color-neutral-black: #f5f7fb;
   --color-brand-social: #1877f2;
   --color-success-social: #31a24c;
 
@@ -85,6 +85,11 @@
   --color-text-primary: #050505;
   --color-text-secondary: #65676b;
   --color-text-muted: #8a8d91;
+  --color-neutral-100: #f0f2f5;
+  --color-neutral-200: #e4e6eb;
+  --color-neutral-700: #65676b;
+  --color-neutral-900: #1c1e21;
+  --color-neutral-black: #050505;
   --color-overlay: rgb(0 0 0 / 65%);
   --shadow-sm: 0 1px 3px rgb(0 0 0 / 5%);
   --shadow-md: 0 8px 24px rgb(0 0 0 / 10%);

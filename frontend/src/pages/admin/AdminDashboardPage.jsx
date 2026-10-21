@@ -79,7 +79,7 @@ export default function AdminDashboardPage() {
               placeholder="Tìm theo username / tên..."
               value={q}
               onChange={(e) => { setQ(e.target.value); loadUsers(e.target.value) }}
-              style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #ddd', width: 280 }}
+              className="admin-search"
             />
           </div>
 

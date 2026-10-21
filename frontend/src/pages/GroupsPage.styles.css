@@ -16,6 +16,15 @@
   color: var(--group-text);
 }
 [data-theme="dark"] .groups-page {
+  --group-bg: #101a2b;
+  --group-panel: #17263b;
+  --group-panel-soft: #203652;
+  --group-line: #30445f;
+  --group-text: #e8f0fc;
+  --group-muted: #a7b8d0;
+  --group-accent: #72acff;
+  --group-accent-ink: #ffffff;
+  --group-danger: #ff9e9e;
   background: radial-gradient(ellipse at 10% 0%, rgba(65, 137, 255, .16), transparent 34%), #101b2d;
 }
 .groups-page-head, .groups-toolbar, .groups-results, .group-invites { max-width: 1260px; }
@@ -60,13 +69,16 @@
 .groups-page .group-quiet-button { border-radius: 10px; }
 .groups-toolbar { align-items: center; gap: 18px; margin: 0 auto; padding: 15px; border: 1px solid var(--group-line); border-radius: 17px; background: var(--group-panel); box-shadow: 0 7px 22px rgba(43,88,156,.045); }
 .groups-search { height: 46px; min-width: min(440px, 100%); border-color: #dce7f8; border-radius: var(--radius-lg); background: #f7faff; }
-[data-theme="dark"] .groups-search { background: var(--group-bg); }
+[data-theme="dark"] .groups-search { background: var(--group-panel); }
+[data-theme="dark"] .groups-search { border-color: var(--group-line); }
+[data-theme="dark"] .groups-search input::placeholder { color: #8398b2; }
 .groups-search:focus-within { border-color: var(--group-accent); box-shadow: 0 0 0 3px rgba(40,121,245,.11); }
 .groups-search span { color: var(--group-accent); font-size: 25px; }
 .groups-search input { color: var(--group-text); font-size: 13px; }
 .groups-tabs { padding: var(--space-1); border: 1px solid var(--group-line); border-radius: var(--radius-lg); background: var(--group-bg); }
 .groups-tabs button { min-height: 36px; padding: 0 var(--space-4); border-radius: 9px; transition: background .15s ease, color .15s ease; }
 .groups-tabs button.selected { color: #236fe8; background: #e5efff; box-shadow: inset 0 0 0 1px #d3e4ff; }
+[data-theme="dark"] .groups-tabs button { color: var(--group-muted); }
 [data-theme="dark"] .groups-tabs button.selected { color: var(--color-white); background: #2b4e7c; box-shadow: none; }
 .groups-results { margin: 0 auto; padding-top: 30px; }
 .group-section-heading { margin-bottom: 17px; }
@@ -76,6 +88,7 @@
 .group-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); border-top: 0; }
 .group-list-item { grid-template-columns: 84px minmax(0,1fr); gap: 15px; min-height: 150px; padding: 17px; border: 1px solid var(--group-line); border-radius: 18px; background: var(--group-panel); box-shadow: 0 8px 22px rgba(43,88,156,.045); transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease; }
 .group-list-item:hover { transform: translateY(-2px); border-color: #b9d2ff; box-shadow: 0 14px 28px rgba(43,88,156,.09); }
+[data-theme="dark"] .group-list-item:hover { border-color: #42678f; box-shadow: 0 14px 28px rgb(0 0 0 / 22%); }
 .group-list-cover { width: 84px; height: 84px; border: 1px solid rgba(40,121,245,.14); border-radius: 17px; background: linear-gradient(145deg, #dceaff, #8db9ff); }
 .group-list-cover span { width: 48px; height: 48px; color: var(--color-white); background: linear-gradient(145deg, #63a2ff, #2675f5); box-shadow: 0 5px 12px rgba(40,121,245,.2); }
 .group-list-cover img { border-radius: var(--radius-xl); }
@@ -83,6 +96,8 @@
 .group-list-title > a:hover { color: var(--group-accent); }
 .group-privacy { padding: var(--space-1) 7px; border-radius: var(--radius-full); color: #246fe9; background: #e8f1ff; font-size: 9px; letter-spacing: .3px; }
 .group-privacy.private { color: #94620b; background: #fff3d6; }
+[data-theme="dark"] .group-privacy { color: #9cc4ff; background: #203a5d; }
+[data-theme="dark"] .group-privacy.private { color: #f0cb78; background: #42371f; }
 .group-list-meta { margin-top: 7px; color: var(--group-muted); font-size: 11px; }
 .group-list-copy p { margin-top: var(--space-2); color: var(--group-muted); font-size: var(--font-size-xs); line-height: 1.55; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .group-list-item > .group-primary-button, .group-list-item > .group-secondary-button { grid-column: 2; justify-self: start; }

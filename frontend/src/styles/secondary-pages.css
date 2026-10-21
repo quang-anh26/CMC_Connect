@@ -169,6 +169,23 @@
   margin-top: 0;
 }
 
+.admin-search {
+  width: 280px;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+}
+
+[data-theme="dark"] .admin-search {
+  border-color: var(--border-light);
+  background: var(--bg-input);
+  color: var(--text-primary);
+}
+
+[data-theme="dark"] .admin-search::placeholder {
+  color: var(--text-muted);
+}
+
 .admin-stats {
   display: flex;
   gap: var(--space-4);
@@ -231,4 +248,3 @@ table.admin-table th {
   border-radius: var(--radius-full);
   font-size: var(--font-size-xs);
 }
-

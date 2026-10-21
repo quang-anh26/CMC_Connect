@@ -102,13 +102,13 @@
 }
 @keyframes saved-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 
-/* Trang Đã lưu luôn có nền sáng cố định -> ép các khối trạng thái dùng màu sáng, kể cả khi app ở chế độ Tối */
+/* Keep shared state components aligned with the active app theme. */
 .saved-page .ui-state,
 .saved-page .ui-skeleton-list {
   --text-primary: var(--color-neutral-900);
   --text-secondary: var(--color-neutral-700);
-  --border-light: #ccd0d5;
-  --bg-item-active: #e7f3ff;
+  --border-light: var(--color-border-strong);
+  --bg-item-active: var(--color-surface-selected);
   --bg-item-hover: var(--color-neutral-100);
   --bg-input: var(--color-neutral-200);
   --accent: var(--color-brand-social);
@@ -626,6 +626,113 @@
 .saved-video-preview { background: #14243a; }
 .saved-load-more { border-radius: 10px; color: #fff; background: #1680f7; }
 .saved-load-more:hover { background: #006de7; }
+
+[data-theme="dark"] .saved-page {
+  --saved-surface: #17263b;
+  --saved-surface-raised: #1d2e46;
+  --saved-input: #111d2e;
+  --saved-line: #30445f;
+  --saved-ink: #e7effa;
+  --saved-muted: #a2b2c8;
+  background: #101a29;
+  color: var(--saved-ink);
+}
+
+[data-theme="dark"] .saved-topbar,
+[data-theme="dark"] .saved-sidebar,
+[data-theme="dark"] .saved-toolbar,
+[data-theme="dark"] .saved-card,
+[data-theme="dark"] .saved-empty-panel,
+[data-theme="dark"] .saved-collection-row details > div {
+  border-color: var(--saved-line);
+  background: var(--saved-surface);
+  color: var(--saved-ink);
+  box-shadow: 0 8px 22px rgb(0 0 0 / 18%);
+}
+
+[data-theme="dark"] .saved-topbar { border-bottom-color: var(--saved-line); }
+[data-theme="dark"] .saved-hero {
+  border: 1px solid #304967;
+  background: linear-gradient(110deg, #192c45, #1b3452 58%, #203c5e);
+}
+[data-theme="dark"] .saved-hero::before {
+  background:
+    radial-gradient(ellipse at 76% 50%, rgb(110 166 232 / 14%), transparent 32%),
+    linear-gradient(150deg, transparent 62%, rgb(98 165 245 / 9%) 62%);
+}
+[data-theme="dark"] .saved-eyebrow,
+[data-theme="dark"] .saved-hero p { color: #a2b6d0; }
+[data-theme="dark"] .saved-hero h2 { color: #e7effa; }
+[data-theme="dark"] .saved-art-tile,
+[data-theme="dark"] .saved-empty-tile { border-color: #456183; color: #9dc6ff; background: #1a2c43; }
+[data-theme="dark"] .saved-sidebar nav { border-color: var(--saved-line); }
+[data-theme="dark"] .saved-sidebar > p,
+[data-theme="dark"] .saved-sidebar-heading p,
+[data-theme="dark"] .saved-heading p,
+[data-theme="dark"] .saved-heading > label,
+[data-theme="dark"] .saved-card-footer label,
+[data-theme="dark"] .saved-description,
+[data-theme="dark"] .saved-author span { color: var(--saved-muted); }
+[data-theme="dark"] .saved-sidebar-heading h1,
+[data-theme="dark"] .saved-collections-heading,
+[data-theme="dark"] .saved-heading h2,
+[data-theme="dark"] .saved-card-title,
+[data-theme="dark"] .saved-author strong { color: var(--saved-ink); }
+[data-theme="dark"] .saved-sidebar nav button,
+[data-theme="dark"] .saved-all-collections,
+[data-theme="dark"] .saved-collection-select,
+[data-theme="dark"] .saved-collection-row details > div button { color: #bdcbe0; }
+[data-theme="dark"] .saved-collection-select small,
+[data-theme="dark"] .saved-collection-row details > div button { color: var(--saved-muted); }
+[data-theme="dark"] .saved-sidebar nav button span,
+[data-theme="dark"] .saved-all-collections > span,
+[data-theme="dark"] .saved-collections-heading button,
+[data-theme="dark"] .saved-collection-select > span:first-child {
+  color: #82b8ff;
+  background: #203652;
+}
+[data-theme="dark"] .saved-sidebar nav button:hover,
+[data-theme="dark"] .saved-sidebar nav button.active,
+[data-theme="dark"] .saved-all-collections:hover,
+[data-theme="dark"] .saved-all-collections.active,
+[data-theme="dark"] .saved-collection-row:hover,
+[data-theme="dark"] .saved-collection-row.active {
+  color: var(--saved-ink);
+  background: #203652;
+}
+[data-theme="dark"] .saved-collection-row details > div button:hover { background: #263a55; }
+[data-theme="dark"] .saved-tip {
+  color: var(--saved-muted);
+  background: linear-gradient(135deg, #1b304b, #1a2b42);
+}
+[data-theme="dark"] .saved-tip strong,
+[data-theme="dark"] .saved-sidebar nav button.active small { color: #82b8ff; }
+[data-theme="dark"] .saved-search,
+[data-theme="dark"] .saved-toolbar .saved-search,
+[data-theme="dark"] .saved-sort { border-color: var(--saved-line); color: var(--saved-muted); background: var(--saved-input); }
+[data-theme="dark"] .saved-search input,
+[data-theme="dark"] .saved-toolbar .saved-search input,
+[data-theme="dark"] .saved-sort select { color: var(--saved-ink); }
+[data-theme="dark"] .saved-search input::placeholder,
+[data-theme="dark"] .saved-toolbar .saved-search input::placeholder { color: #8294ad; }
+[data-theme="dark"] .saved-type-tabs { border-color: var(--saved-line); }
+[data-theme="dark"] .saved-type-tabs button { color: var(--saved-muted); }
+[data-theme="dark"] .saved-type-tabs button:hover,
+[data-theme="dark"] .saved-type-tabs button.active { color: #8dbaff; }
+[data-theme="dark"] .saved-toolbar .saved-type-tabs button:hover,
+[data-theme="dark"] .saved-toolbar .saved-type-tabs button.active { color: #fff; background: #2879e8; }
+[data-theme="dark"] .saved-heading select,
+[data-theme="dark"] .saved-card-footer select { border-color: var(--saved-line); color: var(--saved-ink); background: var(--saved-input); }
+[data-theme="dark"] .saved-unsave { color: #c2d2e8; background: #263a55; }
+[data-theme="dark"] .saved-unsave:hover { background: #304967; }
+[data-theme="dark"] .saved-card-footer { border-color: var(--saved-line); }
+[data-theme="dark"] .saved-empty-panel { border-color: var(--saved-line); background: #142238; }
+[data-theme="dark"] .saved-empty-panel .ui-state__title { color: var(--saved-ink); }
+[data-theme="dark"] .saved-empty-panel .ui-state__text { color: var(--saved-muted); }
+[data-theme="dark"] .saved-empty-orbit { background: #203652; }
+[data-theme="dark"] .saved-empty-tile { border-color: #426084; color: #9dc6ff; background: #1b304b; }
+[data-theme="dark"] .saved-error { border-color: #70414a; color: #ffc5cb; background: #38232d; }
+[data-theme="dark"] .saved-toast { border-color: #31567e; color: #dbeaff; background: #1b304b; }
 
 @media (max-width: 1050px) {
   .saved-content { padding: 16px; }

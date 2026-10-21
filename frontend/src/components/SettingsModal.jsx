@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import { useNavigate } from 'react-router-dom'
 import { userApi } from '../api/userApi'
 import { blockApi } from '../api/blockApi'
+import { readThemeMode, saveThemeMode } from '../utils/theme'
 import {
   SpeakerIcon,
   SpeakerMuteIcon,
@@ -51,7 +52,7 @@ export default function SettingsModal({ isOpen, onClose }) {
     return localStorage.getItem('messenger-dnd') === 'true'
   })
   const [themeMode, setThemeMode] = useState(() => {
-    return localStorage.getItem('messenger-theme') || 'light'
+    return readThemeMode()
   })
 
   // Sub-view modal states
@@ -73,18 +74,8 @@ export default function SettingsModal({ isOpen, onClose }) {
     }
   }, [user])
 
-  // Apply theme when themeMode changes
   useEffect(() => {
-    localStorage.setItem('messenger-theme', themeMode)
-    if (themeMode === 'light') {
-      document.documentElement.setAttribute('data-theme', 'light')
-    } else if (themeMode === 'dark') {
-      document.documentElement.setAttribute('data-theme', 'dark')
-    } else {
-      // auto
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-      document.documentElement.setAttribute('data-theme', prefersDark ? 'dark' : 'light')
-    }
+    saveThemeMode(themeMode)
   }, [themeMode])
 
   // Save sound setting

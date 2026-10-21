@@ -346,3 +346,150 @@
   [data-theme="light"] .friends-request-item { flex-wrap: wrap; }
   [data-theme="light"] .friends-request-actions { flex-direction: row; width: 100%; padding-left: 60px; }
 }
+
+[data-theme="dark"] .friends-page {
+  color: #e5edf9;
+  background: linear-gradient(145deg, #111d2e 0%, #101a29 52%, #121f32 100%);
+}
+[data-theme="dark"] .friends-page-topbar {
+  border-color: #2b3d56;
+  background: rgb(20 32 49 / 94%);
+}
+[data-theme="dark"] .friends-eyebrow,
+[data-theme="dark"] .friends-kicker { color: #8dbaff; }
+[data-theme="dark"] .friends-topbar-copy strong,
+[data-theme="dark"] .friends-hero h1 { color: #e8f0fc; }
+[data-theme="dark"] .friends-topbar-count {
+  border-color: #30445f;
+  color: #a6b8d0;
+  background: #1a2a40;
+}
+[data-theme="dark"] .friends-topbar-count span { color: #8dbaff; }
+[data-theme="dark"] .friends-hero {
+  border-color: #304967;
+  background: linear-gradient(115deg, #17263b 0%, #1a2d47 50%, #1d3655 100%);
+  box-shadow: 0 14px 34px rgb(0 0 0 / 18%);
+}
+[data-theme="dark"] .friends-hero p { color: #a8bad1; }
+[data-theme="dark"] .friends-orbit { border-color: rgb(125 175 245 / 24%); }
+[data-theme="dark"] .friends-orbit-two { background: rgb(90 139 204 / 12%); }
+[data-theme="dark"] .friends-stat {
+  border-color: #30445f;
+  background: rgb(25 42 64 / 90%);
+  box-shadow: 0 5px 15px rgb(0 0 0 / 12%);
+}
+[data-theme="dark"] .friends-stat-icon,
+[data-theme="dark"] .friends-section-icon.received-icon {
+  color: #8dbaff;
+  background: #203a5d;
+}
+[data-theme="dark"] .friends-section-icon.sent-icon { color: #6ed7bc; background: #1d443f; }
+[data-theme="dark"] .friends-stat strong,
+[data-theme="dark"] .friends-section-heading h2 { color: #e5edf9; }
+[data-theme="dark"] .friends-stat small,
+[data-theme="dark"] .friends-section-heading p { color: #a0b1c8; }
+[data-theme="dark"] .friends-request-card,
+[data-theme="dark"] .friends-feedback-card {
+  border-color: #2d425e;
+  background: rgb(23 38 59 / 96%);
+  box-shadow: 0 10px 28px rgb(0 0 0 / 16%);
+}
+[data-theme="dark"] .friends-section-heading { border-color: #2b3d56; }
+[data-theme="dark"] .friends-count-pill { color: #9cc4ff; background: #203a5d; }
+[data-theme="dark"] .friends-request-item { border-color: #2a3b54; }
+[data-theme="dark"] .friends-person-info strong { color: #e3ecf8; }
+[data-theme="dark"] .friends-person-info span { color: #b0bfd3; }
+[data-theme="dark"] .friends-person-info small { color: #91a4bf; }
+[data-theme="dark"] .friends-reject-button { color: #c0cde0; background: #263a54; }
+[data-theme="dark"] .friends-reject-button:hover { background: #304967; }
+[data-theme="dark"] .friends-sent-avatar { color: #72d5bb; background: linear-gradient(145deg, #21443f, #1b3839); }
+[data-theme="dark"] .friends-pending-pill { color: #f0cb78; background: #42371f; }
+[data-theme="dark"] .friends-empty-icon { color: #9cc4ff; background: linear-gradient(145deg, #203a5d, #1c304a); box-shadow: inset 0 0 0 1px #34557d; }
+[data-theme="dark"] .friends-empty-state strong { color: #e3ecf8; }
+[data-theme="dark"] .friends-empty-state p { color: #a0b1c8; }
+
+/* The friends refresh originally scoped its layout rules to light mode only. */
+[data-theme="dark"] .friends-page { overflow: auto; }
+[data-theme="dark"] .friends-page-topbar {
+  display: flex;
+  min-height: 78px;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 34px;
+}
+[data-theme="dark"] .friends-brand-mark {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 auto;
+  place-items: center;
+}
+[data-theme="dark"] .friends-topbar-copy { display: flex; flex-direction: column; gap: 3px; }
+[data-theme="dark"] .friends-page-content { overflow: visible; padding: 28px clamp(18px, 3vw, var(--space-12)) 44px; }
+[data-theme="dark"] .friends-hero {
+  position: relative;
+  display: flex;
+  min-height: 190px;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-6);
+  margin-bottom: var(--space-6);
+  padding: 30px 34px;
+  overflow: hidden;
+}
+[data-theme="dark"] .friends-hero-copy { position: relative; z-index: 2; max-width: 600px; }
+[data-theme="dark"] .friends-hero-art { position: absolute; top: 0; right: 28%; width: 210px; height: 100%; }
+[data-theme="dark"] .friends-orbit { position: absolute; display: block; border-radius: 50%; }
+[data-theme="dark"] .friends-orbit-one { top: 10px; left: 10px; width: 170px; height: 170px; }
+[data-theme="dark"] .friends-orbit-two { top: 35px; left: 35px; width: 120px; height: 120px; }
+[data-theme="dark"] .friends-person { position: absolute; display: grid; width: 56px; height: 56px; place-items: center; border: 4px solid #17263b; border-radius: 50%; color: transparent; }
+[data-theme="dark"] .friends-person-back { top: 48px; left: 44px; }
+[data-theme="dark"] .friends-person-front { top: 72px; left: 98px; }
+[data-theme="dark"] .friends-hero-plus { position: absolute; top: 23px; left: 130px; }
+[data-theme="dark"] .friends-stats { position: relative; z-index: 2; display: flex; min-width: 205px; flex-direction: column; gap: 10px; }
+[data-theme="dark"] .friends-stat { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) 15px; }
+[data-theme="dark"] .friends-stat-icon { display: grid; width: 38px; height: 38px; place-items: center; }
+[data-theme="dark"] .friends-stat strong,
+[data-theme="dark"] .friends-stat small { display: block; }
+[data-theme="dark"] .friends-stat small { margin-top: var(--space-1); }
+[data-theme="dark"] .friends-requests-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: stretch; gap: var(--space-5); }
+[data-theme="dark"] .friends-request-card,
+[data-theme="dark"] .friends-feedback-card { min-width: 0; overflow: hidden; }
+[data-theme="dark"] .friends-request-card { padding: 22px; }
+[data-theme="dark"] .friends-section-heading { display: flex; align-items: center; gap: var(--space-3); padding-bottom: 19px; }
+[data-theme="dark"] .friends-section-icon { display: grid; width: 44px; height: 44px; flex: 0 0 auto; place-items: center; }
+[data-theme="dark"] .friends-section-heading h2 { margin: 0 0 var(--space-1); }
+[data-theme="dark"] .friends-section-heading p { margin: 0; }
+[data-theme="dark"] .friends-count-pill { display: grid; min-width: 30px; height: 30px; place-items: center; margin-left: auto; padding: 0 9px; }
+[data-theme="dark"] .friends-request-list { display: flex; flex-direction: column; }
+[data-theme="dark"] .friends-request-item { display: flex; align-items: center; gap: 13px; padding: 17px 0; }
+[data-theme="dark"] .friends-request-item:last-child { padding-bottom: 2px; }
+[data-theme="dark"] .friends-person-info { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 3px; }
+[data-theme="dark"] .friends-person-info strong,
+[data-theme="dark"] .friends-person-info span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+[data-theme="dark"] .friends-request-actions { display: flex; flex-direction: column; gap: 6px; }
+[data-theme="dark"] .friends-sent-avatar { display: grid; width: 46px; height: 46px; flex: 0 0 auto; place-items: center; }
+[data-theme="dark"] .friends-pending-pill { display: inline-flex; align-items: center; gap: 6px; padding: 7px 9px; white-space: nowrap; }
+[data-theme="dark"] .friends-pending-pill i { width: 6px; height: 6px; border-radius: 50%; }
+[data-theme="dark"] .friends-empty-state { display: flex; min-height: 245px; flex-direction: column; align-items: center; justify-content: center; padding: 26px 18px 22px; text-align: center; }
+[data-theme="dark"] .friends-empty-icon { display: grid; width: 58px; height: 58px; place-items: center; margin-bottom: 15px; }
+[data-theme="dark"] .friends-empty-state p { max-width: 270px; margin: var(--space-2) 0 0; }
+[data-theme="dark"] .friends-feedback-card { display: grid; min-height: 200px; place-items: center; padding: 30px; }
+@media (max-width: 1100px) {
+  [data-theme="dark"] .friends-hero-art { right: 25%; opacity: .45; }
+  [data-theme="dark"] .friends-requests-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 700px) {
+  [data-theme="dark"] .friends-page-topbar { min-height: 68px; padding: var(--space-3) var(--space-4); }
+  [data-theme="dark"] .friends-topbar-count { display: none; }
+  [data-theme="dark"] .friends-page-content { padding: 14px var(--space-3) 28px; }
+  [data-theme="dark"] .friends-hero { align-items: flex-start; padding: var(--space-6) var(--space-5); }
+  [data-theme="dark"] .friends-hero h1 { font-size: 25px; }
+  [data-theme="dark"] .friends-hero-art { display: none; }
+  [data-theme="dark"] .friends-stats { min-width: 0; }
+  [data-theme="dark"] .friends-stat { padding: 9px; }
+  [data-theme="dark"] .friends-stat-icon { display: none; }
+  [data-theme="dark"] .friends-request-card { padding: var(--space-4); }
+  [data-theme="dark"] .friends-request-item { flex-wrap: wrap; }
+  [data-theme="dark"] .friends-request-actions { width: 100%; flex-direction: row; padding-left: 60px; }
+}
