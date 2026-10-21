@@ -1,0 +1,50 @@
+:root {
+  --radius-sm: 4px;
+  --radius-md: 4px;
+  --radius-lg: 4px;
+  --radius-xl: 4px;
+  --radius-2xl: 4px;
+  --radius-3xl: 4px;
+  --radius-full: 4px;
+}
+
+#root :where(
+  [class*="card"],
+  [class*="panel"],
+  [class*="dialog"],
+  [class*="modal"],
+  [class*="page"],
+  [class*="layout"],
+  [class*="wrapper"],
+  [class*="container"],
+  [class*="surface"],
+  [class*="content"],
+  [class*="sidebar"],
+  [class*="rail"],
+  [class*="menu"],
+  [class*="popover"],
+  [class*="dropdown"],
+  [class*="list"],
+  [class*="empty"],
+  [class*="image"],
+  [class*="media"],
+  [role="dialog"]
+):not([class*="avatar"]):not([class*="icon"]):not([class*="indicator"]):not([class*="dot"]) {
+  border-radius: 4px !important;
+}
+
+#root :where(
+  button,
+  [role="button"],
+  [class*="button"],
+  [class*="-btn"],
+  [class*="tab"],
+  [class*="filter"],
+  [class*="nav-"],
+  [class*="-nav"],
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+  select,
+  textarea
+):not([class*="avatar"]):not([class*="icon"]):not([class*="indicator"]):not([class*="dot"]):not(:has(.avatar)) {
+  border-radius: 4px !important;
+}

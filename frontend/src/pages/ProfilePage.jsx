@@ -363,51 +363,59 @@ export default function ProfilePage() {
     <div className="chat-area profile-page">
       <div className="chat-header"><strong>Trang cá nhân</strong></div>
       <div className="profile-page-content">
-        <section className="profile-hero">
-          <div className="profile-hero-cover" style={coverImage ? { backgroundImage: `linear-gradient(180deg, rgba(12, 24, 48, .02), rgba(12, 24, 48, .58)), url(${coverImage})` } : undefined}>
-            {isOwnProfile && <button className="profile-cover-edit" type="button" onClick={() => setEditOpen(true)}>▧ <span>Chỉnh sửa ảnh bìa</span></button>}
-          </div>
-          <div className="profile-hero-details">
-            <Avatar className="profile-hero-avatar" src={avatar} name={profileName} size={152} />
-            <div className="profile-hero-copy">
-              <h1>{profileName} <span className="profile-verified" title="Tài khoản của bạn">✓</span></h1>
-              <p>{bio || `@${profileUsername || ''}`}</p>
-              <small>{isOwnProfile ? `${groups.length} nhóm · ${friends.length} bạn bè` : `@${profileUsername}`}</small>
-            </div>
-            <div className={`profile-hero-actions ${isOwnProfile ? '' : 'profile-viewing-other-actions'}`}>
-              {isOwnProfile ? <>
-                <button className="profile-edit-button" type="button" onClick={() => { setError(''); setEditOpen(true) }}>✎ <span>Chỉnh sửa trang cá nhân</span></button>
-                <button className="profile-more-button" type="button" aria-label="Tùy chọn khác">···</button>
-              </> : <>
-                <button className="profile-message-button" type="button" onClick={openConversation} disabled={relationshipBusy}>
-                  <ChatIcon size={17} /> Nhắn tin
-                </button>
-                {relationship.status === 'NONE' && <button className="profile-friend-action" type="button" onClick={sendFriendRequest} disabled={relationshipBusy}>
-                  <FriendsIcon size={17} /> Thêm bạn bè
-                </button>}
-                {relationship.status === 'SENT' && <button className="profile-friend-action is-pending" type="button" disabled>
-                  <FriendsIcon size={17} /> Đã gửi lời mời
-                </button>}
-                {relationship.status === 'RECEIVED' && <>
-                  <button className="profile-friend-action" type="button" onClick={() => respondToFriendRequest(true)} disabled={relationshipBusy}>Chấp nhận lời mời</button>
-                  <button className="profile-more-button" type="button" onClick={() => respondToFriendRequest(false)} disabled={relationshipBusy} aria-label="Từ chối lời mời">×</button>
-                </>}
-                {relationship.status === 'FRIENDS' && <button className="profile-friend-action is-pending" type="button" disabled>
-                  <FriendsIcon size={17} /> Bạn bè
-                </button>}
-              </>}
-            </div>
-          </div>
-          <nav className="profile-tabs" aria-label="Mục trang cá nhân">
-            {visibleProfileTabs.map((tab) => <button key={tab} className={activeTab === tab ? 'active' : ''} type="button" onClick={() => setActiveTab(tab)}>{tab}</button>)}
-          </nav>
-        </section>
+        <div className={`profile-layout ${isOwnProfile ? '' : 'profile-viewing-other'}`}>
+          <div className="profile-main-column">
+            <section className="profile-hero">
+              <div className="profile-hero-cover" style={coverImage ? { backgroundImage: `linear-gradient(180deg, rgba(12, 24, 48, .02), rgba(12, 24, 48, .58)), url(${coverImage})` } : undefined}>
+                {isOwnProfile && <button className="profile-cover-edit" type="button" onClick={() => setEditOpen(true)}>▧ <span>Chỉnh sửa ảnh bìa</span></button>}
+              </div>
+              <div className="profile-hero-details">
+                <Avatar className="profile-hero-avatar" src={avatar} name={profileName} size={136} />
+                <div className="profile-hero-copy">
+                  <h1>{profileName} <span className="profile-verified" title="Tài khoản của bạn">✓</span></h1>
+                  <p>@{profileUsername}</p>
+                  <div className={`profile-hero-status ${profileOnline ? 'is-online' : ''}`}><i />{profileOnline ? 'Đang hoạt động' : 'CMC Talk'}</div>
+                  {bio && <small className="profile-hero-bio">{bio}</small>}
+                  {isOwnProfile && <div className="profile-hero-stats">
+                    <span><b>{posts.length}</b>Bài viết</span>
+                    <span><b>{friends.length}</b>Bạn bè</span>
+                    <span><b>{groups.length}</b>Nhóm chat</span>
+                  </div>}
+                </div>
+                <div className={`profile-hero-actions ${isOwnProfile ? '' : 'profile-viewing-other-actions'}`}>
+                  {isOwnProfile ? <>
+                    <button className="profile-edit-button" type="button" onClick={() => { setError(''); setEditOpen(true) }}>✎ <span>Chỉnh sửa trang cá nhân</span></button>
+                    <button className="profile-more-button" type="button" aria-label="Tùy chọn khác">···</button>
+                  </> : <>
+                    <button className="profile-message-button" type="button" onClick={openConversation} disabled={relationshipBusy}>
+                      <ChatIcon size={17} /> Nhắn tin
+                    </button>
+                    {relationship.status === 'NONE' && <button className="profile-friend-action" type="button" onClick={sendFriendRequest} disabled={relationshipBusy}>
+                      <FriendsIcon size={17} /> Thêm bạn bè
+                    </button>}
+                    {relationship.status === 'SENT' && <button className="profile-friend-action is-pending" type="button" disabled>
+                      <FriendsIcon size={17} /> Đã gửi lời mời
+                    </button>}
+                    {relationship.status === 'RECEIVED' && <>
+                      <button className="profile-friend-action" type="button" onClick={() => respondToFriendRequest(true)} disabled={relationshipBusy}>Chấp nhận lời mời</button>
+                      <button className="profile-more-button" type="button" onClick={() => respondToFriendRequest(false)} disabled={relationshipBusy} aria-label="Từ chối lời mời">×</button>
+                    </>}
+                    {relationship.status === 'FRIENDS' && <button className="profile-friend-action is-pending" type="button" disabled>
+                      <FriendsIcon size={17} /> Bạn bè
+                    </button>}
+                  </>}
+                </div>
+              </div>
+              <nav className="profile-tabs" aria-label="Mục trang cá nhân">
+                {visibleProfileTabs.map((tab) => <button key={tab} className={activeTab === tab ? 'active' : ''} type="button" onClick={() => setActiveTab(tab)}>{tab}</button>)}
+              </nav>
+            </section>
 
-        {notice && <div className="profile-notice">{notice}</div>}
-        {error && <div className="profile-system-error" role="alert">{error}</div>}
+            {notice && <div className="profile-notice">{notice}</div>}
+            {error && <div className="profile-system-error" role="alert">{error}</div>}
 
-        <div className={`profile-columns ${isOwnProfile ? '' : 'profile-viewing-other'}`}>
-          <aside className="profile-left-column">
+            <div className={`profile-columns ${isOwnProfile ? '' : 'profile-viewing-other'}`}>
+              <aside className="profile-left-column">
             <section className="profile-panel profile-intro-panel">
               <h2>Giới thiệu</h2>
               <div className="profile-info-row"><span className="profile-school-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21h18M5 21V8l7-4 7 4v13M9 21v-5h6v5M8 10h2m4 0h2m-8 3h2m4 0h2" /></svg></span><span>{education || 'Chưa cập nhật trường học'}</span></div>
@@ -415,14 +423,6 @@ export default function ProfilePage() {
               <div className="profile-info-row"><span className="profile-relationship-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.2 20.3 4.1 16.2a3.1 3.1 0 0 1 4.4-4.4l1.2 1.2 1.2-1.2a3.1 3.1 0 0 1 4.4 4.4l-4.1 4.1a2.1 2.1 0 0 1-3 0ZM15.1 12.1l-1.4-1.4a4.4 4.4 0 0 1 6.2-6.2 4.4 4.4 0 0 1 0 6.2l-5 5" /></svg></span><span>{relationshipStatus || 'Chưa cập nhật'}</span></div>
               <div className="profile-info-row"><span className="profile-birthday-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 8V4m5 4V3m5 5V5M6 10h12a2 2 0 0 1 2 2v7H4v-7a2 2 0 0 1 2-2Zm-2 4c2 0 2 1 4 1s2-1 4-1 2 1 4 1 2-1 4-1M3 21h18" /></svg></span><span>Ngày sinh: {formatBirthDate(birthDate) || 'Chưa cập nhật'}</span></div>
               {isOwnProfile && <button type="button" className="profile-secondary-button" onClick={() => setEditOpen(true)}>Chỉnh sửa phần giới thiệu</button>}
-            </section>
-            <section className="profile-panel">
-              <div className="profile-panel-heading"><h2>Bộ sưu tập ảnh</h2><button type="button" onClick={() => setActiveTab('Ảnh')}>Xem tất cả</button></div>
-              {imagePosts.length ? (
-                <div className="profile-photo-grid">
-                  {imagePosts.slice(0, 6).map((post) => <button type="button" key={post.postId} onClick={() => setActiveTab('Ảnh')}><img src={post.imageUrl} alt="Ảnh trong bài viết" /></button>)}
-                </div>
-              ) : <p className="profile-muted">Ảnh bạn chia sẻ sẽ xuất hiện ở đây.</p>}
             </section>
             {isOwnProfile && <details className="profile-panel profile-security-panel">
               <summary>Bảo mật tài khoản</summary>
@@ -467,12 +467,22 @@ export default function ProfilePage() {
             {isOwnProfile && activeTab === 'Nhóm' && <section className="profile-panel profile-tab-panel"><h2>Nhóm ({groups.length})</h2>{groups.length ? groups.map((group) => <div className="profile-group-row" key={group.conversationId}><span className="profile-group-icon">♧</span><div><strong>{group.name || 'Nhóm chat'}</strong><small>Nhóm trò chuyện</small></div></div>) : <p className="profile-muted">Bạn chưa tham gia nhóm nào.</p>}</section>}
             {activeTab === 'Sự kiện' && <EmptyState title="Chưa có hoạt động sự kiện" description="Các sự kiện bạn tham gia sẽ xuất hiện tại đây." />}
           </main>
+          </div>
+          </div>
 
           {isOwnProfile && <aside className="profile-right-column">
             <section className="profile-panel profile-right-friends">
               <div className="profile-panel-heading"><div><h2>Bạn bè</h2><small>{friends.length} người bạn</small></div><button type="button" onClick={() => setActiveTab('Bạn bè')}>Xem tất cả</button></div>
               <div className="profile-friend-strip">{friends.slice(0, 4).map((friend) => { const item = getFriendInfo(friend, user?.userId); return <button type="button" className="profile-user-link" key={friend.id} onClick={() => navigate(`/feed/profile/${item.id}`)}><Avatar src={item.avatar} name={item.name} size={42} /><span>{item.name}</span></button> })}</div>
               {friends.length === 0 && <p className="profile-muted">Danh sách bạn bè sẽ hiển thị tại đây.</p>}
+            </section>
+            <section className="profile-panel">
+              <div className="profile-panel-heading"><h2>Ảnh</h2><button type="button" onClick={() => setActiveTab('Ảnh')}>Xem tất cả</button></div>
+              {imagePosts.length ? (
+                <div className="profile-photo-grid">
+                  {imagePosts.slice(0, 5).map((post) => <button type="button" key={post.postId} onClick={() => setActiveTab('Ảnh')}><img src={post.imageUrl} alt="Ảnh trong bài viết" /></button>)}
+                </div>
+              ) : <p className="profile-muted">Ảnh bạn chia sẻ sẽ xuất hiện ở đây.</p>}
             </section>
             <section className="profile-panel">
               <div className="profile-panel-heading"><h2>Nhóm tham gia</h2><button type="button" onClick={() => setActiveTab('Nhóm')}>Xem tất cả</button></div>
