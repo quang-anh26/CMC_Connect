@@ -9,6 +9,7 @@ import { friendApi } from '../api/friendApi'
 import { storyApi } from '../api/storyApi'
 import { userApi } from '../api/userApi'
 import { useAuth } from '../context/AuthContext'
+import { ChatIcon, FriendsIcon } from '../components/Icons'
 
 const profileTabs = ['Bài viết', 'Giới thiệu', 'Bạn bè', 'Ảnh', 'Video', 'Nhóm', 'Sự kiện']
 
@@ -59,6 +60,8 @@ export default function ProfilePage() {
   const [posts, setPosts] = useState([])
   const [friends, setFriends] = useState([])
   const [groups, setGroups] = useState([])
+  const [relationship, setRelationship] = useState({ status: 'NONE', requestId: null })
+  const [relationshipBusy, setRelationshipBusy] = useState(false)
   const [activeTab, setActiveTab] = useState('Bài viết')
   const [editOpen, setEditOpen] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -93,12 +96,16 @@ export default function ProfilePage() {
     setPosts([])
     setFriends([])
     setGroups([])
+    setRelationship({ status: 'NONE', requestId: null })
     const profileRequest = isOwnProfile ? userApi.me() : userApi.getById(profileUserId)
     const friendsRequest = isOwnProfile ? friendApi.accepted() : Promise.resolve({ data: [] })
     const groupsRequest = isOwnProfile ? conversationApi.list() : Promise.resolve({ data: [] })
-    Promise.allSettled([profileRequest, feedApi.list(), friendsRequest, groupsRequest]).then((results) => {
+    const relationshipRequests = isOwnProfile
+      ? [Promise.resolve({ data: [] }), Promise.resolve({ data: [] }), Promise.resolve({ data: [] })]
+      : [friendApi.accepted(), friendApi.sent(), friendApi.received()]
+    Promise.allSettled([profileRequest, feedApi.list(), friendsRequest, groupsRequest, ...relationshipRequests]).then((results) => {
       if (!active) return
-      const [profileResult, postsResult, friendsResult, groupsResult] = results
+      const [profileResult, postsResult, friendsResult, groupsResult, acceptedResult, sentResult, receivedResult] = results
       if (profileResult.status === 'fulfilled') {
         const profile = profileResult.value.data
         setProfileUsername(profile.username || '')
@@ -124,6 +131,23 @@ export default function ProfilePage() {
       if (friendsResult.status === 'fulfilled') setFriends(friendsResult.value.data || [])
       if (groupsResult.status === 'fulfilled') {
         setGroups((groupsResult.value.data || []).filter((conversation) => conversation.type === 'GROUP'))
+      }
+      if (!isOwnProfile) {
+        const targetId = String(profileUserId)
+        const accepted = acceptedResult.status === 'fulfilled'
+          && (acceptedResult.value.data || []).some((item) => {
+            const otherId = String(item.senderId) === String(user?.userId) ? item.receiverId : item.senderId
+            return String(otherId) === targetId
+          })
+        const sentRequest = sentResult.status === 'fulfilled'
+          ? (sentResult.value.data || []).find((item) => String(item.receiverId) === targetId)
+          : null
+        const receivedRequest = receivedResult.status === 'fulfilled'
+          ? (receivedResult.value.data || []).find((item) => String(item.senderId) === targetId)
+          : null
+        if (accepted) setRelationship({ status: 'FRIENDS', requestId: null })
+        else if (receivedRequest) setRelationship({ status: 'RECEIVED', requestId: receivedRequest.id })
+        else if (sentRequest) setRelationship({ status: 'SENT', requestId: sentRequest.id })
       }
       setLoading(false)
     })
@@ -285,6 +309,52 @@ export default function ProfilePage() {
     }
   }
 
+  const sendFriendRequest = async () => {
+    setRelationshipBusy(true)
+    setError('')
+    try {
+      await friendApi.send(profileUserId)
+      setRelationship({ status: 'SENT', requestId: null })
+    } catch (err) {
+      setError(err.response?.data?.message || 'Không thể gửi lời mời kết bạn. Vui lòng thử lại.')
+    } finally {
+      setRelationshipBusy(false)
+    }
+  }
+
+  const respondToFriendRequest = async (accept) => {
+    if (!relationship.requestId) return
+    setRelationshipBusy(true)
+    setError('')
+    try {
+      if (accept) {
+        await friendApi.accept(relationship.requestId)
+        setRelationship({ status: 'FRIENDS', requestId: null })
+      } else {
+        await friendApi.reject(relationship.requestId)
+        setRelationship({ status: 'NONE', requestId: null })
+      }
+      window.dispatchEvent(new Event('cmctalk-conversations-updated'))
+    } catch (err) {
+      setError(err.response?.data?.message || 'Không thể xử lý lời mời kết bạn. Vui lòng thử lại.')
+    } finally {
+      setRelationshipBusy(false)
+    }
+  }
+
+  const openConversation = async () => {
+    setRelationshipBusy(true)
+    setError('')
+    try {
+      const { data } = await conversationApi.getOrCreatePrivate(profileUserId)
+      navigate(`/chat/${data.conversationId}`)
+    } catch (err) {
+      setError(err.response?.data?.message || 'Không thể mở cuộc trò chuyện. Vui lòng thử lại.')
+    } finally {
+      setRelationshipBusy(false)
+    }
+  }
+
   const tabPosts = activeTab === 'Ảnh' ? imagePosts : activeTab === 'Video' ? videoPosts : posts
   const profileName = displayName || (isOwnProfile ? user?.displayName : '') || profileUsername || 'Trang cá nhân'
   const visibleProfileTabs = profileTabs.filter((tab) => isOwnProfile || !['Bạn bè', 'Nhóm', 'Sự kiện'].includes(tab))
@@ -304,10 +374,29 @@ export default function ProfilePage() {
               <p>{bio || `@${profileUsername || ''}`}</p>
               <small>{isOwnProfile ? `${groups.length} nhóm · ${friends.length} bạn bè` : `@${profileUsername}`}</small>
             </div>
-            {isOwnProfile && <div className="profile-hero-actions">
-              <button className="profile-edit-button" type="button" onClick={() => { setError(''); setEditOpen(true) }}>✎ <span>Chỉnh sửa trang cá nhân</span></button>
-              <button className="profile-more-button" type="button" aria-label="Tùy chọn khác">···</button>
-            </div>}
+            <div className={`profile-hero-actions ${isOwnProfile ? '' : 'profile-viewing-other-actions'}`}>
+              {isOwnProfile ? <>
+                <button className="profile-edit-button" type="button" onClick={() => { setError(''); setEditOpen(true) }}>✎ <span>Chỉnh sửa trang cá nhân</span></button>
+                <button className="profile-more-button" type="button" aria-label="Tùy chọn khác">···</button>
+              </> : <>
+                <button className="profile-message-button" type="button" onClick={openConversation} disabled={relationshipBusy}>
+                  <ChatIcon size={17} /> Nhắn tin
+                </button>
+                {relationship.status === 'NONE' && <button className="profile-friend-action" type="button" onClick={sendFriendRequest} disabled={relationshipBusy}>
+                  <FriendsIcon size={17} /> Thêm bạn bè
+                </button>}
+                {relationship.status === 'SENT' && <button className="profile-friend-action is-pending" type="button" disabled>
+                  <FriendsIcon size={17} /> Đã gửi lời mời
+                </button>}
+                {relationship.status === 'RECEIVED' && <>
+                  <button className="profile-friend-action" type="button" onClick={() => respondToFriendRequest(true)} disabled={relationshipBusy}>Chấp nhận lời mời</button>
+                  <button className="profile-more-button" type="button" onClick={() => respondToFriendRequest(false)} disabled={relationshipBusy} aria-label="Từ chối lời mời">×</button>
+                </>}
+                {relationship.status === 'FRIENDS' && <button className="profile-friend-action is-pending" type="button" disabled>
+                  <FriendsIcon size={17} /> Bạn bè
+                </button>}
+              </>}
+            </div>
           </div>
           <nav className="profile-tabs" aria-label="Mục trang cá nhân">
             {visibleProfileTabs.map((tab) => <button key={tab} className={activeTab === tab ? 'active' : ''} type="button" onClick={() => setActiveTab(tab)}>{tab}</button>)}

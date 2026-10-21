@@ -121,9 +121,9 @@ export default function NavRail() {
           </NavLink>
 
           <NavLink
-            to="/"
+            to="/messages"
             className={({ isActive }) =>
-              `nav-item nav-chat-link ${isActive && !location.pathname.startsWith('/friends') && !location.pathname.startsWith('/message-requests') && !location.pathname.startsWith('/profile') ? 'active' : ''}`
+              `nav-item nav-chat-link ${isActive || location.pathname.startsWith('/chat/') ? 'active' : ''}`
             }
             title="Trò chuyện"
           >

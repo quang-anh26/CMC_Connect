@@ -58,11 +58,11 @@
 .settings-modal-backdrop {
   position: fixed;
   inset: 0;
+  z-index: 1301;
   background: rgba(0, 0, 0, 0.65);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 999;
   backdrop-filter: blur(4px);
   animation: fadeIn 0.15s ease-out;
 }
@@ -73,9 +73,10 @@
 }
 
 .settings-modal-dialog {
-  width: 520px;
+  width: min(520px, calc(100vw - 32px));
   max-width: 92vw;
-  max-height: 88vh;
+  height: auto;
+  max-height: min(680px, calc(100dvh - 40px));
   background: #18191a;
   border-radius: 14px;
   box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6);
@@ -125,9 +126,23 @@
 }
 
 .settings-modal-body {
+  min-height: 0;
   padding: var(--space-2) var(--space-4) var(--space-5);
   overflow-y: auto;
   flex: 1;
+  overscroll-behavior: contain;
+}
+
+@media (max-width: 600px) {
+  .settings-modal-backdrop { padding: 12px; }
+  .settings-modal-dialog {
+    width: 100%;
+    max-width: none;
+    height: auto;
+    max-height: min(680px, calc(100dvh - 24px));
+    border-radius: 14px;
+  }
+  .settings-modal-header { position: sticky; top: 0; z-index: 1; background: inherit; }
 }
 
 /* Sections */

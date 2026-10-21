@@ -158,7 +158,7 @@ export default function Sidebar({ activeConversationId }) {
       await conversationApi.setArchived(conversationId, archived)
       loadConversations()
       if (archived && String(conversationId) === String(activeConversationId)) {
-        navigate('/')
+        navigate('/messages')
       }
     } catch (err) {
       alert(err.response?.data?.message || 'Không thể cập nhật lưu trữ đoạn chat')
@@ -236,7 +236,7 @@ export default function Sidebar({ activeConversationId }) {
       await conversationApi.leave(conversation.conversationId)
       setOpenConversationMenu(null)
       loadConversations()
-      if (String(conversation.conversationId) === String(activeConversationId)) navigate('/')
+      if (String(conversation.conversationId) === String(activeConversationId)) navigate('/messages')
     } catch (err) {
       alert(err.response?.data?.message || 'Không thể xóa đoạn chat')
     }

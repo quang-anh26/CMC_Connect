@@ -12,6 +12,15 @@
 .profile-hero-copy small { display: block; margin-top: 5px; color: var(--text-secondary); font-size: 10px; }
 .profile-verified { display: inline-grid; width: 15px; height: 15px; place-items: center; border-radius: 50%; background: #3885f6; color: var(--color-white); font-size: 10px; }
 .profile-hero-actions { display: flex; align-items: center; gap: var(--space-2); }
+.profile-hero-actions .profile-message-button,
+.profile-hero-actions .profile-friend-action { display: inline-flex; min-height: 38px; align-items: center; justify-content: center; gap: 7px; padding: 0 14px; border: 0; border-radius: 9px; background: #3478ed; color: #fff; font: inherit; font-size: 12px; font-weight: 700; white-space: nowrap; cursor: pointer; }
+.profile-hero-actions .profile-message-button { background: #e9eef6; color: #31415b; }
+.profile-hero-actions .profile-message-button:hover { background: #dce5f2; }
+.profile-hero-actions .profile-friend-action:hover { background: #2469da; }
+.profile-hero-actions .profile-friend-action.is-pending { background: #e9eef6; color: #31415b; cursor: default; }
+.profile-hero-actions .profile-message-button:disabled,
+.profile-hero-actions .profile-friend-action:disabled { opacity: .65; cursor: wait; }
+.profile-hero-actions .profile-friend-action.is-pending:disabled { opacity: 1; cursor: default; }
 .profile-hero-actions .profile-edit-button { width: auto; min-height: 36px; margin: 0; padding: 0 13px; border: 0; border-radius: var(--radius-md); background: #3478ed; color: var(--color-white); font-size: 11px; }
 .profile-hero-actions .profile-edit-button:hover { background: #2469da; }
 .profile-more-button { width: 36px; height: 36px; border-radius: var(--radius-md); background: var(--bg-item-hover); color: var(--text-primary); font-size: var(--font-size-lg); }
@@ -117,6 +126,9 @@
   .profile-hero-details { flex-wrap: wrap; gap: var(--space-2) var(--space-3); padding: 0 13px var(--space-3); }
   .profile-hero-avatar { flex-basis: 104px; width: 104px; height: 104px; margin-top: -50px; }
   .profile-hero-actions { width: 100%; justify-content: flex-end; }
+  .profile-viewing-other-actions { justify-content: flex-start; flex-wrap: wrap; }
+  .profile-hero-actions .profile-message-button,
+  .profile-hero-actions .profile-friend-action { min-height: 36px; padding: 0 11px; font-size: 11px; }
   .profile-hero-actions .profile-edit-button { margin-left: auto; }
   .profile-hero-copy h1 { font-size: var(--font-size-md); }
   .profile-tabs { padding: 0 6px; }
