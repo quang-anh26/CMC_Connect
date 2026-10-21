@@ -54,6 +54,13 @@ function isImageMessage(message) {
   )
 }
 
+const CHAT_WALLPAPER_THEMES = ['mountain-meadow', 'sunset', 'alpine-lake', 'moonlight']
+
+function getChatWallpaperTheme(backgroundImage) {
+  if (!backgroundImage) return undefined
+  return CHAT_WALLPAPER_THEMES.find((theme) => backgroundImage.includes(`/chat-themes/${theme}.`))
+}
+
 export default function ChatWindow() {
   const { conversationId } = useParams()
   const { user } = useAuth()
@@ -456,10 +463,11 @@ export default function ChatWindow() {
   const headerAvatar = conversationInfo?.avatar
   const headerName = conversationInfo?.name || 'Cuộc trò chuyện'
   const isOnline = conversationInfo?.otherUserOnline
+  const chatWallpaperTheme = getChatWallpaperTheme(conversationInfo?.backgroundImage)
 
   return (
     <div className="chat-layout-wrapper">
-      <div className="chat-area">
+      <div className="chat-area" data-chat-wallpaper={chatWallpaperTheme}>
         {/* Chat Header */}
         <div className="chat-header">
           <div className="chat-header-left" onClick={() => setShowInfoPanel((v) => !v)}>
@@ -483,10 +491,10 @@ export default function ChatWindow() {
 
           <div className="chat-header-actions">
             <button className="header-action-btn" title="Gọi video" onClick={() => startCall(conversationInfo, 'video')} disabled={conversationInfo?.type === 'GROUP'}>
-              <VideoCallIcon size={20} color="#8da2b5" />
+              <VideoCallIcon size={20} />
             </button>
             <button className="header-action-btn" title="Gọi thoại" onClick={() => startCall(conversationInfo, 'audio')} disabled={conversationInfo?.type === 'GROUP'}>
-              <PhoneCallIcon size={19} color="#8da2b5" />
+              <PhoneCallIcon size={19} />
             </button>
             <button
               className="header-action-btn"
@@ -496,7 +504,7 @@ export default function ChatWindow() {
               aria-expanded={showInfoPanel}
               aria-controls="chat-contact-info"
             >
-              <InfoIcon size={20} color="#8da2b5" />
+              <InfoIcon size={20} />
             </button>
           </div>
         </div>
@@ -769,7 +777,7 @@ export default function ChatWindow() {
             disabled={uploading || cannotMessage}
             title="Đính kèm tệp/ảnh"
           >
-            <PaperclipIcon size={20} color="#8da2b5" />
+            <PaperclipIcon size={20} />
           </button>
 
           <button
@@ -778,7 +786,7 @@ export default function ChatWindow() {
             onClick={() => setShowEmojiPicker((v) => !v)}
             title="Biểu tượng cảm xúc"
           >
-            <EmojiIcon size={20} color="#8da2b5" />
+            <EmojiIcon size={20} />
           </button>
 
           <button
