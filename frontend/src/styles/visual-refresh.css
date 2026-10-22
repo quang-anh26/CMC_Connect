@@ -286,19 +286,14 @@
 [data-theme="light"] .friends-kicker { display: inline-block; margin-bottom: 10px; color: #186aee; font-size: 11px; font-weight: 800; letter-spacing: 1.4px; }
 [data-theme="light"] .friends-hero h1 { margin: 0 0 10px; color: #172f52; font-size: clamp(25px, 2.3vw, 34px); line-height: 1.2; letter-spacing: -.7px; }
 [data-theme="light"] .friends-hero p { max-width: 540px; margin: 0; color: #6b7f9d; font-size: var(--font-size-sm); line-height: 1.75; }
-[data-theme="light"] .friends-hero-art { position: absolute; right: 28%; top: 0; width: 210px; height: 100%; opacity: .85; }
+[data-theme="light"] .friends-hero-art { position: absolute; right: 8%; top: 0; width: 210px; height: 100%; opacity: .85; }
 [data-theme="light"] .friends-orbit { position: absolute; display: block; border: 1px solid rgba(90,151,246,.2); border-radius: 50%; }
 [data-theme="light"] .friends-orbit-one { width: 170px; height: 170px; top: 10px; left: 10px; }
 [data-theme="light"] .friends-orbit-two { width: 120px; height: 120px; top: 35px; left: 35px; background: rgba(255,255,255,.36); }
-[data-theme="light"] .friends-person { position: absolute; display: grid; place-items: center; width: 56px; height: 56px; border: 4px solid var(--color-white); border-radius: 50%; color: transparent; box-shadow: 0 10px 22px rgba(34,91,170,.18); }
+[data-theme="light"] .friends-person { position: absolute; display: grid; place-items: center; width: 56px; height: 56px; border: 4px solid var(--color-white); border-radius: 50%; color: #fff; box-shadow: 0 10px 22px rgba(34,91,170,.18); font-size: 18px; font-weight: 800; }
 [data-theme="light"] .friends-person-back { top: 48px; left: 44px; background: linear-gradient(145deg,#7db7ff,#4c87ee); }
 [data-theme="light"] .friends-person-front { top: 72px; left: 98px; background: linear-gradient(145deg,#37c6a0,#079b83); }
 [data-theme="light"] .friends-hero-plus { position: absolute; top: 23px; left: 130px; color: #287bf0; font-size: 26px; font-weight: 700; }
-[data-theme="light"] .friends-stats { position: relative; z-index: 2; display: flex; flex-direction: column; gap: 10px; min-width: 205px; }
-[data-theme="light"] .friends-stat { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) 15px; border: 1px solid rgba(216,230,252,.95); border-radius: var(--radius-xl); background: rgba(255,255,255,.8); box-shadow: 0 5px 15px rgba(48,86,145,.04); }
-[data-theme="light"] .friends-stat-icon { display: grid; place-items: center; width: 38px; height: 38px; border-radius: var(--radius-lg); color: #267cf2; background: #e9f2ff; font-size: 19px; }
-[data-theme="light"] .friends-stat strong { display: block; color: #1a3459; font-size: 20px; line-height: 1.1; }
-[data-theme="light"] .friends-stat small { display: block; margin-top: var(--space-1); color: #61738d; font-size: 11px; }
 [data-theme="light"] .friends-requests-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-5); align-items: stretch; }
 [data-theme="light"] .friends-request-card, [data-theme="light"] .friends-feedback-card { min-width: 0; border: 1px solid #dce7f7; border-radius: 22px; background: rgba(255,255,255,.96); box-shadow: 0 10px 28px rgba(31,65,117,.06); overflow: hidden; }
 [data-theme="light"] .friends-request-card { padding: 22px; }
@@ -332,7 +327,7 @@
 [data-theme="light"] .friends-empty-state p { max-width: 270px; margin: var(--space-2) 0 0; color: #63738c; font-size: var(--font-size-xs); line-height: 1.7; }
 [data-theme="light"] .friends-feedback-card { min-height: 200px; display: grid; place-items: center; padding: 30px; }
 @media (max-width: 1100px) {
-  [data-theme="light"] .friends-hero-art { right: 25%; opacity: .45; }
+  [data-theme="light"] .friends-hero-art { right: 4%; opacity: .45; }
   [data-theme="light"] .friends-requests-grid { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 700px) {
@@ -342,9 +337,6 @@
   [data-theme="light"] .friends-hero { padding: var(--space-6) var(--space-5); border-radius: 20px; align-items: flex-start; }
   [data-theme="light"] .friends-hero h1 { font-size: 25px; }
   [data-theme="light"] .friends-hero-art { display: none; }
-  [data-theme="light"] .friends-stats { min-width: 0; }
-  [data-theme="light"] .friends-stat { padding: 9px; }
-  [data-theme="light"] .friends-stat-icon { display: none; }
   [data-theme="light"] .friends-request-card { padding: var(--space-4); border-radius: 18px; }
   [data-theme="light"] .friends-request-item { flex-wrap: wrap; }
   [data-theme="light"] .friends-request-actions { flex-direction: row; width: 100%; padding-left: 60px; }
@@ -441,20 +433,14 @@
   overflow: hidden;
 }
 [data-theme="dark"] .friends-hero-copy { position: relative; z-index: 2; max-width: 600px; }
-[data-theme="dark"] .friends-hero-art { position: absolute; top: 0; right: 28%; width: 210px; height: 100%; }
+[data-theme="dark"] .friends-hero-art { position: absolute; top: 0; right: 8%; width: 210px; height: 100%; }
 [data-theme="dark"] .friends-orbit { position: absolute; display: block; border-radius: 50%; }
 [data-theme="dark"] .friends-orbit-one { top: 10px; left: 10px; width: 170px; height: 170px; }
 [data-theme="dark"] .friends-orbit-two { top: 35px; left: 35px; width: 120px; height: 120px; }
-[data-theme="dark"] .friends-person { position: absolute; display: grid; width: 56px; height: 56px; place-items: center; border: 4px solid #17263b; border-radius: 50%; color: transparent; }
+[data-theme="dark"] .friends-person { position: absolute; display: grid; width: 56px; height: 56px; place-items: center; border: 4px solid #17263b; border-radius: 50%; color: #fff; font-size: 18px; font-weight: 800; }
 [data-theme="dark"] .friends-person-back { top: 48px; left: 44px; }
 [data-theme="dark"] .friends-person-front { top: 72px; left: 98px; }
 [data-theme="dark"] .friends-hero-plus { position: absolute; top: 23px; left: 130px; }
-[data-theme="dark"] .friends-stats { position: relative; z-index: 2; display: flex; min-width: 205px; flex-direction: column; gap: 10px; }
-[data-theme="dark"] .friends-stat { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) 15px; }
-[data-theme="dark"] .friends-stat-icon { display: grid; width: 38px; height: 38px; place-items: center; }
-[data-theme="dark"] .friends-stat strong,
-[data-theme="dark"] .friends-stat small { display: block; }
-[data-theme="dark"] .friends-stat small { margin-top: var(--space-1); }
 [data-theme="dark"] .friends-requests-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: stretch; gap: var(--space-5); }
 [data-theme="dark"] .friends-request-card,
 [data-theme="dark"] .friends-feedback-card { min-width: 0; overflow: hidden; }
@@ -479,7 +465,7 @@
 [data-theme="dark"] .friends-empty-state p { max-width: 270px; margin: var(--space-2) 0 0; }
 [data-theme="dark"] .friends-feedback-card { display: grid; min-height: 200px; place-items: center; padding: 30px; }
 @media (max-width: 1100px) {
-  [data-theme="dark"] .friends-hero-art { right: 25%; opacity: .45; }
+  [data-theme="dark"] .friends-hero-art { right: 4%; opacity: .45; }
   [data-theme="dark"] .friends-requests-grid { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 700px) {
@@ -489,10 +475,98 @@
   [data-theme="dark"] .friends-hero { align-items: flex-start; padding: var(--space-6) var(--space-5); }
   [data-theme="dark"] .friends-hero h1 { font-size: 25px; }
   [data-theme="dark"] .friends-hero-art { display: none; }
-  [data-theme="dark"] .friends-stats { min-width: 0; }
-  [data-theme="dark"] .friends-stat { padding: 9px; }
-  [data-theme="dark"] .friends-stat-icon { display: none; }
   [data-theme="dark"] .friends-request-card { padding: var(--space-4); }
   [data-theme="dark"] .friends-request-item { flex-wrap: wrap; }
   [data-theme="dark"] .friends-request-actions { width: 100%; flex-direction: row; padding-left: 60px; }
+}
+
+.friends-suggestions { margin-bottom: var(--space-6); }
+.friends-suggestions-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+.friends-suggestions-heading .friends-kicker { margin-bottom: 4px; }
+.friends-suggestions-heading h2 { font-size: 20px; }
+.friends-suggestions-view-all {
+  padding: 7px 12px;
+  border: 0;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background .15s ease, color .15s ease;
+}
+.friends-suggestions-view-all:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+.friends-suggestion-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.friends-suggestion-card {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 54px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  padding: 15px;
+  border: 1px solid;
+  border-radius: 16px;
+  box-shadow: 0 8px 22px;
+}
+.friends-suggestion-info { display: grid; min-width: 0; gap: 3px; }
+.friends-suggestion-info strong,
+.friends-suggestion-info span,
+.friends-suggestion-info small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.friends-suggestion-info strong { font-size: 13px; }
+.friends-suggestion-info span,
+.friends-suggestion-info small { font-size: 11px; }
+.friends-suggestion-button {
+  grid-column: 1 / -1;
+  min-height: 36px;
+  border-radius: 9px;
+  font-size: 12px;
+  font-weight: 750;
+  transition: color .15s ease, background .15s ease, border-color .15s ease;
+}
+.friends-suggestion-button:disabled { cursor: default; }
+.friends-suggestion-error { margin-bottom: 10px; font-size: 12px; }
+.friends-suggestions-state { display: grid; min-height: 120px; place-items: center; }
+[data-theme="light"] .friends-suggestions-heading h2,
+[data-theme="light"] .friends-suggestion-info strong { color: #1b3457; }
+[data-theme="light"] .friends-suggestions-view-all { color: #2679ef; background: #eaf3ff; }
+[data-theme="light"] .friends-suggestions-view-all:hover { background: #dcecff; }
+[data-theme="light"] .friends-suggestion-card {
+  border-color: #dce7f7;
+  background: rgba(255,255,255,.96);
+  box-shadow: 0 8px 22px rgba(31,65,117,.06);
+}
+[data-theme="light"] .friends-suggestion-info span,
+[data-theme="light"] .friends-suggestion-info small { color: #71839d; }
+[data-theme="light"] .friends-suggestion-button { color: #fff; background: #287cf0; }
+[data-theme="light"] .friends-suggestion-button:hover:not(:disabled) { background: #1768d7; }
+[data-theme="light"] .friends-suggestion-button.is-sent { border: 1px solid #dce7f7; color: #63738c; background: #f2f5fa; }
+[data-theme="light"] .friends-suggestion-button.is-sent:hover { background: #f2f5fa; }
+[data-theme="light"] .friends-suggestion-error { color: #b42332; }
+[data-theme="dark"] .friends-suggestions-heading h2,
+[data-theme="dark"] .friends-suggestion-info strong { color: #e5edf9; }
+[data-theme="dark"] .friends-suggestions-view-all { color: #9cc4ff; background: #203a5d; }
+[data-theme="dark"] .friends-suggestions-view-all:hover { background: #294970; }
+[data-theme="dark"] .friends-suggestion-card {
+  border-color: #2d425e;
+  background: rgb(23 38 59 / 96%);
+  box-shadow: 0 8px 22px rgb(0 0 0 / 16%);
+}
+[data-theme="dark"] .friends-suggestion-info span,
+[data-theme="dark"] .friends-suggestion-info small { color: #a0b1c8; }
+[data-theme="dark"] .friends-suggestion-button { color: #fff; background: #347fdf; }
+[data-theme="dark"] .friends-suggestion-button:hover:not(:disabled) { background: #286ec8; }
+[data-theme="dark"] .friends-suggestion-button.is-sent { border: 1px solid #3a506d; color: #bdcbe0; background: #263a54; }
+[data-theme="dark"] .friends-suggestion-button.is-sent:hover { background: #263a54; }
+[data-theme="dark"] .friends-suggestion-error { color: #ffc5cb; }
+@media (max-width: 1050px) {
+  .friends-suggestion-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 700px) {
+  .friends-suggestion-grid { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .friends-suggestion-card { padding: 12px; }
 }

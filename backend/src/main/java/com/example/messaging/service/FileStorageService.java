@@ -34,25 +34,33 @@ public class FileStorageService {
     }
 
     public String store(MultipartFile file, long fileLimitMb) {
+        return storeInDirectory(file, fileLimitMb, uploadDirectory.resolve(), "/uploads/");
+    }
+
+    public String storePrivateGroupFile(MultipartFile file, Long groupId) {
+        Path directory = uploadDirectory.resolvePrivateGroup(groupId);
+        return storeInDirectory(file, maxFileSizeMb, directory,
+                "/api/groups/" + groupId + "/uploads/");
+    }
+
+    private String storeInDirectory(MultipartFile file, long fileLimitMb, Path directory, String urlPrefix) {
         if (file.isEmpty()) {
             throw ApiException.badRequest("File rỗng");
         }
         if (fileLimitMb <= 0 || file.getSize() > fileLimitMb * 1024 * 1024) {
             throw ApiException.badRequest("File vượt quá giới hạn " + fileLimitMb + "MB");
         }
-
         try {
-            Path dir = uploadDirectory.resolve();
-            Files.createDirectories(dir);
+            Files.createDirectories(directory);
 
             String original = file.getOriginalFilename() != null ? file.getOriginalFilename() : "file";
             String ext = original.contains(".") ? original.substring(original.lastIndexOf('.')) : "";
             String storedName = UUID.randomUUID() + ext;
 
-            Path target = dir.resolve(storedName);
+            Path target = directory.resolve(storedName);
             Files.copy(file.getInputStream(), target);
 
-            return "/uploads/" + storedName;
+            return urlPrefix + storedName;
         } catch (IOException e) {
             throw new RuntimeException("Không thể lưu file: " + e.getMessage(), e);
         }

@@ -61,6 +61,7 @@ export default function App() {
               <Route path="feed/profile" element={<ProfilePage />} />
               <Route path="feed/profile/:profileUserId" element={<ProfilePage />} />
               <Route path="chat/:conversationId" element={<ChatWindow />} />
+              <Route path="friends/suggestions" element={<FriendsPage />} />
               <Route path="friends" element={<FriendsPage />} />
               <Route path="message-requests" element={<Navigate to="/messages" replace />} />
               <Route path="profile" element={<Navigate to="/feed/profile" replace />} />

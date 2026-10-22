@@ -1,10 +1,13 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import Avatar from '../components/Avatar'
 import LoadingState from '../components/LoadingState'
 import ErrorState from '../components/ErrorState'
 import { friendApi } from '../api/friendApi'
 import { conversationApi } from '../api/conversationApi'
-import { useNavigate } from 'react-router-dom'
+import { userApi } from '../api/userApi'
+import { useAuth } from '../context/AuthContext'
+import { useLocation, useNavigate } from 'react-router-dom'
+import '../styles/friends-suggestions.css'
 
 function EmptyRequests({ icon, title, description }) {
   return (
@@ -21,7 +24,18 @@ export default function FriendsPage() {
   const [sent, setSent] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [suggestions, setSuggestions] = useState([])
+  const [suggestionsLoading, setSuggestionsLoading] = useState(true)
+  const [suggestionsError, setSuggestionsError] = useState('')
+  const [suggestionActionError, setSuggestionActionError] = useState('')
+  const [sendingRequestIds, setSendingRequestIds] = useState([])
+  const [sentRequestIds, setSentRequestIds] = useState([])
+  const [hiddenSuggestionIds, setHiddenSuggestionIds] = useState([])
+  const { user } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
+  const suggestionRailRef = useRef(null)
+  const showingAllSuggestions = location.pathname === '/friends/suggestions'
 
   const load = () => {
     setError('')
@@ -34,7 +48,43 @@ export default function FriendsPage() {
       .finally(() => setLoading(false))
   }
 
-  useEffect(() => { load() }, [])
+  const loadSuggestions = async () => {
+    setSuggestionsLoading(true)
+    setSuggestionsError('')
+    try {
+      const [usersRes, acceptedRes, sentRes, receivedRes] = await Promise.all([
+        userApi.search(''),
+        friendApi.accepted(),
+        friendApi.sent(),
+        friendApi.received(),
+      ])
+      const excludedIds = new Set([
+        ...(acceptedRes.data || []).flatMap((request) => [request.senderId, request.receiverId]),
+        ...(sentRes.data || []).map((request) => request.receiverId),
+        ...(receivedRes.data || []).map((request) => request.senderId),
+      ].filter((id) => id != null).map(String))
+      const currentUserId = user?.userId == null ? null : String(user.userId)
+      const eligibleUsers = (usersRes.data || []).filter((candidate) => {
+        const candidateId = String(candidate.userId)
+        return candidateId !== currentUserId
+          && candidate.status === 'ACTIVE'
+          && candidate.friendshipStatus !== 'ACCEPTED'
+          && candidate.friendshipStatus !== 'PENDING'
+          && !excludedIds.has(candidateId)
+      })
+      setSuggestions(eligibleUsers)
+      setSentRequestIds((sentRes.data || []).map((request) => String(request.receiverId)))
+    } catch {
+      setSuggestionsError('Không tải được danh sách gợi ý kết bạn. Vui lòng thử lại.')
+    } finally {
+      setSuggestionsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    load()
+    loadSuggestions()
+  }, [user?.userId])
 
   const retry = () => {
     setLoading(true)
@@ -54,6 +104,122 @@ export default function FriendsPage() {
     load()
   }
 
+  const sendFriendRequest = async (receiverId) => {
+    const id = String(receiverId)
+    if (sendingRequestIds.includes(id) || sentRequestIds.includes(id)) return
+    setSuggestionActionError('')
+    setSendingRequestIds((current) => [...current, id])
+    try {
+      await friendApi.send(receiverId)
+      setSentRequestIds((current) => [...current, id])
+    } catch (err) {
+      setSuggestionActionError(err.response?.data?.message || 'Không thể gửi lời mời kết bạn. Vui lòng thử lại.')
+    } finally {
+      setSendingRequestIds((current) => current.filter((sendingId) => sendingId !== id))
+    }
+  }
+
+  const hideSuggestion = (userId) => {
+    const id = String(userId)
+    setHiddenSuggestionIds((current) => current.includes(id) ? current : [...current, id])
+  }
+
+  const visibleSuggestions = suggestions.filter(
+    (candidate) => !hiddenSuggestionIds.includes(String(candidate.userId))
+  )
+
+  const scrollSuggestions = (direction) => {
+    const rail = suggestionRailRef.current
+    if (!rail) return
+    const card = rail.querySelector('.friends-suggestion-card')
+    const distance = card ? card.getBoundingClientRect().width + 14 : rail.clientWidth * 0.8
+    rail.scrollBy({ left: direction * distance * 2, behavior: 'smooth' })
+  }
+
+  const renderSuggestionCard = (candidate) => {
+    const candidateId = String(candidate.userId)
+    const requestSent = sentRequestIds.includes(candidateId)
+    const sending = sendingRequestIds.includes(candidateId)
+    const detail = candidate.bio || candidate.location
+    return (
+      <article className="friends-suggestion-card" key={candidate.userId}>
+        <div className="friends-suggestion-photo">
+          <Avatar
+            className="friends-suggestion-avatar"
+            src={candidate.avatar}
+            name={candidate.displayName || candidate.username}
+            size={176}
+          />
+          <button
+            type="button"
+            className="friends-suggestion-hide"
+            onClick={() => hideSuggestion(candidate.userId)}
+            aria-label={`Ẩn gợi ý ${candidate.displayName || candidate.username}`}
+            title="Ẩn gợi ý"
+          >
+            ×
+          </button>
+        </div>
+        <div className="friends-suggestion-info">
+          <strong>{candidate.displayName || candidate.username}</strong>
+          {candidate.username && <span>@{candidate.username}</span>}
+          {detail && <small title={detail}>{detail}</small>}
+        </div>
+        <button
+          type="button"
+          className={`friends-suggestion-button ${requestSent ? 'is-sent' : ''}`}
+          disabled={requestSent || sending}
+          onClick={() => sendFriendRequest(candidate.userId)}
+        >
+          {sending ? 'Đang gửi...' : requestSent ? 'Đã gửi lời mời' : 'Thêm bạn bè'}
+        </button>
+      </article>
+    )
+  }
+
+  if (showingAllSuggestions) {
+    return (
+      <main className="chat-area friends-page friends-all-suggestions">
+        <header className="friends-page-topbar">
+          <button type="button" className="friends-suggestions-back" onClick={() => navigate('/friends')}>
+            ← <span>Quay lại</span>
+          </button>
+          <div className="friends-topbar-copy">
+            <span className="friends-eyebrow">CMC TALK · KẾT NỐI BẠN BÈ</span>
+            <strong>Những người bạn có thể biết</strong>
+          </div>
+        </header>
+        <section className="friends-all-suggestions-content" aria-labelledby="friends-all-title">
+          <div className="friends-all-suggestions-heading">
+            <div>
+              <span className="friends-kicker">KẾT NỐI MỚI</span>
+              <h1 id="friends-all-title">Những người bạn có thể biết</h1>
+              <p>Khám phá và kết nối với những người bạn mới.</p>
+            </div>
+          </div>
+          {suggestionActionError && <p className="friends-suggestion-error" role="alert">{suggestionActionError}</p>}
+          {suggestionsLoading ? (
+            <div className="friends-suggestions-state"><LoadingState label="Đang tải gợi ý..." /></div>
+          ) : suggestionsError ? (
+            <div className="friends-suggestions-state">
+              <ErrorState compact message={suggestionsError} onRetry={loadSuggestions} />
+            </div>
+          ) : visibleSuggestions.length === 0 ? (
+            <EmptyRequests
+              icon="✦"
+              title="Chưa có gợi ý phù hợp"
+              description="Hiện không còn tài khoản nào phù hợp để gợi ý."
+            />
+          ) : (
+            <div className="friends-suggestion-grid friends-all-suggestion-grid">
+              {visibleSuggestions.map(renderSuggestionCard)}
+            </div>
+          )}
+        </section>
+      </main>
+    )
+  }
+
   return (
     <div className="chat-area friends-page">
       <header className="friends-page-topbar">
@@ -66,23 +232,64 @@ export default function FriendsPage() {
       </header>
 
       <div className="friend-panel friends-page-content">
-        <section className="friends-hero">
-          <div className="friends-hero-copy">
-            <span className="friends-kicker">MỞ RỘNG KẾT NỐI</span>
-            <h1>Kết nối với mọi người</h1>
-            <p>Quản lý lời mời kết bạn đã nhận và theo dõi những lời mời ông đã gửi.</p>
+        <section className="friends-suggestions" aria-labelledby="friends-suggestions-title">
+          <div className="friends-suggestions-heading">
+            <div>
+              <span className="friends-kicker">KẾT NỐI MỚI</span>
+              <h2 id="friends-suggestions-title">Gợi ý kết bạn</h2>
+            </div>
+            {!suggestionsLoading && !suggestionsError && visibleSuggestions.length > 0 && (
+              <button
+                type="button"
+                className="friends-suggestions-view-all"
+                onClick={() => navigate('/friends/suggestions')}
+              >
+                Xem tất cả
+              </button>
+            )}
           </div>
-          <div className="friends-hero-art" aria-hidden="true">
-            <span className="friends-orbit friends-orbit-one" />
-            <span className="friends-orbit friends-orbit-two" />
-            <span className="friends-person friends-person-back">●</span>
-            <span className="friends-person friends-person-front">●</span>
-            <span className="friends-hero-plus">＋</span>
-          </div>
-          <div className="friends-stats">
-            <div className="friends-stat"><span className="friends-stat-icon">✉</span><div><strong>{received.length}</strong><small>Lời mời đã nhận</small></div></div>
-            <div className="friends-stat"><span className="friends-stat-icon">➤</span><div><strong>{sent.length}</strong><small>Lời mời đã gửi</small></div></div>
-          </div>
+          {suggestionsLoading ? (
+            <div className="friends-suggestions-state"><LoadingState label="Đang tải gợi ý..." /></div>
+          ) : suggestionsError ? (
+            <div className="friends-suggestions-state">
+              <ErrorState compact message={suggestionsError} onRetry={loadSuggestions} />
+            </div>
+          ) : visibleSuggestions.length === 0 ? (
+            <EmptyRequests
+              icon="✦"
+              title="Chưa có gợi ý phù hợp"
+              description="Hiện không còn tài khoản nào phù hợp để gợi ý."
+            />
+          ) : (
+            <>
+              {suggestionActionError && <p className="friends-suggestion-error" role="alert">{suggestionActionError}</p>}
+              <div className="friends-suggestion-carousel">
+                {visibleSuggestions.length > 4 && (
+                  <button
+                    type="button"
+                    className="friends-suggestion-arrow is-left"
+                    aria-label="Xem gợi ý trước"
+                    onClick={() => scrollSuggestions(-1)}
+                  >
+                    ‹
+                  </button>
+                )}
+                <div className="friends-suggestion-grid friends-suggestion-rail" ref={suggestionRailRef}>
+                  {visibleSuggestions.map(renderSuggestionCard)}
+                </div>
+                {visibleSuggestions.length > 4 && (
+                  <button
+                    type="button"
+                    className="friends-suggestion-arrow is-right"
+                    aria-label="Xem gợi ý tiếp theo"
+                    onClick={() => scrollSuggestions(1)}
+                  >
+                    ›
+                  </button>
+                )}
+              </div>
+            </>
+          )}
         </section>
 
         {loading && <div className="friends-feedback-card"><LoadingState label="Đang tải lời mời..." /></div>}

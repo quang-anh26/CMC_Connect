@@ -104,7 +104,7 @@ export default function GroupsPage() {
       </section>}
 
       <section className="groups-results" aria-live="polite">
-        <div className="group-section-heading"><div><span className="groups-kicker">{tab === 'mine' ? 'ĐANG THAM GIA' : 'CỘNG ĐỒNG MỞ'}</span><h2>{tab === 'mine' ? 'Nhóm của bạn' : 'Có thể bạn quan tâm'}</h2></div><span className="group-result-count">{groups.length} nhóm</span></div>
+        <div className="group-section-heading"><div><span className="groups-kicker">{tab === 'mine' ? 'ĐANG THAM GIA' : 'KHÁM PHÁ CỘNG ĐỒNG'}</span><h2>{tab === 'mine' ? 'Nhóm của bạn' : 'Có thể bạn quan tâm'}</h2></div><span className="group-result-count">{groups.length} nhóm</span></div>
         {loading ? <LoadingState label="Đang tải nhóm..." />
           : error ? <ErrorState title="Không tải được nhóm" message={error} onRetry={loadGroups} />
             : groups.length === 0 ? <EmptyState icon="◌" title={tab === 'mine' ? 'Bạn chưa tham gia nhóm nào' : 'Chưa tìm thấy nhóm phù hợp'} description={tab === 'mine' ? 'Tham gia cộng đồng hoặc tạo nhóm đầu tiên.' : 'Thử từ khóa khác hoặc tạo một cộng đồng mới.'} />
@@ -112,12 +112,14 @@ export default function GroupsPage() {
                 <Link className="group-list-cover" to={`/groups/${group.groupId}`} style={group.coverImage ? { backgroundImage: `linear-gradient(0deg, rgba(9, 17, 23, .18), rgba(9, 17, 23, .04)), url("${group.coverImage}")` } : undefined} aria-label={`Mở nhóm ${group.name}`}>
                   <SafeImage src={group.avatar} fallback={<span>{group.name.slice(0, 1).toUpperCase()}</span>} />
                 </Link>
-                <div className="group-list-copy"><div className="group-list-title"><Link to={`/groups/${group.groupId}`}>{group.name}</Link><span className={`ui-badge group-privacy ${group.visibility === 'PRIVATE' ? 'private' : ''}`}>{group.visibility === 'PRIVATE' ? 'Riêng tư' : 'Công khai'}</span></div>
+                <div className="group-list-copy"><div className="group-list-title"><Link to={`/groups/${group.groupId}`}>{group.name}</Link><span className={`ui-badge group-privacy ${group.visibility === 'PRIVATE' ? 'private' : ''}`}>{group.visibility === 'PRIVATE' ? 'RIÊNG TƯ' : 'CÔNG KHAI'}</span></div>
                   <span className="group-list-meta">{group.category || 'Cộng đồng'} · {group.memberCount} thành viên</span>
                   <p>{group.description || 'Chưa có mô tả cho nhóm này.'}</p>
                 </div>
                 {group.joined ? <Link className="ui-button ui-button--secondary group-secondary-button" to={`/groups/${group.groupId}`}>Xem nhóm</Link>
-                  : <button className="ui-button ui-button--primary group-primary-button compact" type="button" onClick={(event) => joinGroup(event, group)}>Tham gia</button>}
+                  : group.visibility === 'PRIVATE'
+                    ? <Link className="ui-button ui-button--secondary group-secondary-button" to={`/groups/${group.groupId}`}>Xem thông tin</Link>
+                    : <button className="ui-button ui-button--primary group-primary-button compact" type="button" onClick={(event) => joinGroup(event, group)}>Tham gia</button>}
               </article>)}</div>}
       </section>
 

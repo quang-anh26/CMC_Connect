@@ -4,10 +4,13 @@ import com.example.messaging.dto.group.GroupRequests;
 import com.example.messaging.entity.*;
 import com.example.messaging.exception.ApiException;
 import com.example.messaging.repository.*;
+import com.example.messaging.config.UploadDirectory;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.*;
 
 @Service
@@ -34,6 +37,7 @@ public class GroupService {
     private final GroupEventParticipantRepository eventParticipantRepository;
     private final FriendRequestRepository friendRequestRepository;
     private final UserService userService;
+    private final UploadDirectory uploadDirectory;
 
     @Transactional(readOnly = true)
     public List<Map<String, Object>> listGroups(Long userId, String search, boolean mine) {
@@ -43,10 +47,8 @@ public class GroupService {
                     .map(GroupMember::getGroup).toList();
         } else {
             String query = search == null ? "" : search.trim();
-            groups = query.isEmpty() ? groupRepository.findTop50ByOrderByCreatedAtDesc()
-                    : groupRepository.findTop50ByNameContainingIgnoreCaseOrderByCreatedAtDesc(query);
-            groups = groups.stream().filter(group -> "PUBLIC".equals(group.getVisibility())
-                    || memberRepository.existsByGroupGroupIdAndUserUserId(group.getGroupId(), userId)).toList();
+            groups = query.isEmpty() ? groupRepository.findAllByOrderByCreatedAtDesc()
+                    : groupRepository.findAllByNameContainingIgnoreCaseOrderByCreatedAtDesc(query);
         }
         return groups.stream().map(group -> groupSummary(group, userId)).toList();
     }
@@ -69,9 +71,55 @@ public class GroupService {
     }
 
     @Transactional(readOnly = true)
+    public Path groupPostMedia(Long groupId, Long postId, Long viewerId) {
+        requireGroupContentAccess(groupId, viewerId);
+        GroupPost post = postRepository.findByPostIdAndGroupGroupId(postId, groupId)
+                .orElseThrow(() -> ApiException.notFound("Không tìm thấy bài viết"));
+        String mediaUrl = post.getMediaUrl();
+        if (mediaUrl == null) throw ApiException.notFound("Không tìm thấy tệp đính kèm");
+        if (mediaUrl.startsWith("/api/groups/" + groupId + "/uploads/")) {
+            return privateGroupUploadPath(mediaUrl, groupId);
+        }
+        if (!mediaUrl.startsWith("/uploads/")) throw ApiException.notFound("Không tìm thấy tệp đính kèm");
+        String fileName = safeUploadName(mediaUrl.substring("/uploads/".length()));
+        Path directory = uploadDirectory.resolve().toAbsolutePath().normalize();
+        Path file = directory.resolve(fileName).normalize();
+        if (!file.startsWith(directory) || !Files.isRegularFile(file)) {
+            throw ApiException.notFound("Không tìm thấy tệp đính kèm");
+        }
+        return file;
+    }
+
+    @Transactional(readOnly = true)
     public void authorizeUpload(Long groupId, Long userId, boolean groupImage) {
         requireMember(groupId, userId);
         if (groupImage) requireModerator(groupId, userId);
+    }
+
+    @Transactional(readOnly = true)
+    public boolean isPrivateGroup(Long groupId, Long userId) {
+        requireMember(groupId, userId);
+        return "PRIVATE".equals(getGroupOrThrow(groupId).getVisibility());
+    }
+
+    @Transactional(readOnly = true)
+    public boolean authorizeStaticUpload(String mediaUrl, Long userId) {
+        List<GroupPost> posts = postRepository.findAllByMediaUrl(mediaUrl);
+        if (posts.stream().anyMatch(post -> "PUBLIC".equals(post.getGroup().getVisibility()))) return false;
+
+        List<GroupPost> privatePosts = posts.stream()
+                .filter(post -> "PRIVATE".equals(post.getGroup().getVisibility()))
+                .toList();
+        if (privatePosts.isEmpty()) return false;
+        boolean isMember = userId != null && privatePosts.stream()
+                .anyMatch(post -> memberRepository.existsByGroupGroupIdAndUserUserId(
+                        post.getGroup().getGroupId(), userId)
+                        && banRepository.findByGroupGroupIdAndUserUserId(
+                                post.getGroup().getGroupId(), userId).isEmpty());
+        if (!isMember) {
+            throw ApiException.forbidden("Bạn cần là thành viên để xem tệp này");
+        }
+        return true;
     }
 
     @Transactional
@@ -151,13 +199,13 @@ public class GroupService {
 
     @Transactional(readOnly = true)
     public List<Map<String, Object>> listMembers(Long groupId, Long viewerId) {
-        requireReadableGroup(groupId, viewerId);
+        requireGroupContentAccess(groupId, viewerId);
         return memberRepository.findByGroupGroupIdOrderByJoinedAtAsc(groupId).stream().map(this::memberResponse).toList();
     }
 
     @Transactional(readOnly = true)
     public List<Map<String, Object>> listPosts(Long groupId, Long viewerId, String search, String sort, boolean mediaOnly) {
-        requireReadableGroup(groupId, viewerId);
+        requireGroupContentAccess(groupId, viewerId);
         GroupMember viewer = memberRepository.findByGroupGroupIdAndUserUserId(groupId, viewerId).orElse(null);
         boolean moderator = viewer != null && isModeratorRole(viewer.getRole());
         List<GroupPost> posts = postRepository.findByGroupGroupIdAndStatusOrderByPinnedDescCreatedAtDesc(groupId, "PUBLISHED");
@@ -183,6 +231,7 @@ public class GroupService {
         String mediaType = request.mediaType() == null ? null : request.mediaType().trim().toUpperCase(Locale.ROOT);
         if ((content == null || content.isBlank()) && mediaUrl == null) throw ApiException.badRequest("Bài viết cần có nội dung hoặc tệp đính kèm");
         if (mediaUrl != null && !Set.of("IMAGE", "VIDEO", "FILE").contains(mediaType)) throw ApiException.badRequest("Loại tệp không hợp lệ");
+        if (mediaUrl != null && "PRIVATE".equals(group.getVisibility())) privateGroupUploadPath(mediaUrl, groupId);
         if (containsSpam(group, content)) throw ApiException.badRequest("Bài viết chứa từ khóa không được phép");
         boolean pending = group.isPostApprovalRequired();
         GroupPost post = postRepository.save(GroupPost.builder().group(group).author(userService.getByIdOrThrow(authorId))
@@ -194,14 +243,20 @@ public class GroupService {
 
     @Transactional
     public Map<String, Object> updatePost(Long groupId, Long postId, Long requesterId, GroupRequests.CreatePost request) {
+        requireMember(groupId, requesterId);
         GroupPost post = getPostOrThrow(groupId, postId, requesterId);
         if (!post.getAuthor().getUserId().equals(requesterId)) throw ApiException.forbidden("Chỉ tác giả mới được sửa bài viết");
         String content = clean(request.content());
         String mediaUrl = clean(request.mediaUrl());
+        if (mediaUrl != null && mediaUrl.equals(
+                "/api/groups/" + groupId + "/posts/" + postId + "/media")) {
+            mediaUrl = post.getMediaUrl();
+        }
         if ((content == null || content.isBlank()) && mediaUrl == null) throw ApiException.badRequest("Bài viết cần có nội dung hoặc tệp đính kèm");
         if (containsSpam(post.getGroup(), content)) throw ApiException.badRequest("Bài viết chứa từ khóa không được phép");
         String mediaType = request.mediaType() == null ? post.getMediaType() : request.mediaType().trim().toUpperCase(Locale.ROOT);
         if (mediaUrl != null && !Set.of("IMAGE", "VIDEO", "FILE").contains(mediaType)) throw ApiException.badRequest("Loại tệp không hợp lệ");
+        if (mediaUrl != null && "PRIVATE".equals(post.getGroup().getVisibility())) privateGroupUploadPath(mediaUrl, groupId);
         post.setContent(content == null ? "" : content);
         post.setMediaUrl(mediaUrl);
         post.setMediaType(mediaUrl == null ? null : mediaType);
@@ -210,6 +265,7 @@ public class GroupService {
 
     @Transactional
     public void deletePost(Long groupId, Long postId, Long requesterId) {
+        requireMember(groupId, requesterId);
         GroupPost post = getPostOrThrow(groupId, postId, requesterId);
         if (!post.getAuthor().getUserId().equals(requesterId)) requireModerator(groupId, requesterId);
         deletePostChildren(post);
@@ -254,7 +310,7 @@ public class GroupService {
 
     @Transactional(readOnly = true)
     public List<Map<String, Object>> listEvents(Long groupId, Long viewerId) {
-        requireReadableGroup(groupId, viewerId);
+        requireGroupContentAccess(groupId, viewerId);
         return eventRepository.findByGroupGroupIdOrderByStartsAtAsc(groupId).stream().map(event -> eventResponse(event, viewerId)).toList();
     }
 
@@ -323,7 +379,7 @@ public class GroupService {
     public void deleteComment(Long groupId, Long commentId, Long requesterId) {
         GroupComment comment = commentRepository.findById(commentId).orElseThrow(() -> ApiException.notFound("Không tìm thấy bình luận"));
         if (!comment.getPost().getGroup().getGroupId().equals(groupId)) throw ApiException.notFound("Không tìm thấy bình luận");
-        requireReadableGroup(groupId, requesterId);
+        requireMember(groupId, requesterId);
         if (!comment.getAuthor().getUserId().equals(requesterId)) requireModerator(groupId, requesterId);
         commentRepository.deleteAll(commentRepository.findByParentCommentCommentId(commentId));
         commentRepository.delete(comment);
@@ -533,10 +589,32 @@ public class GroupService {
 
     private SocialGroup requireReadableGroup(Long groupId, Long userId) {
         SocialGroup group = getGroupOrThrow(groupId);
-        if ("PRIVATE".equals(group.getVisibility()) && !memberRepository.existsByGroupGroupIdAndUserUserId(groupId, userId)) {
-            throw ApiException.forbidden("Nhóm này ở chế độ riêng tư");
-        }
         if (banRepository.findByGroupGroupIdAndUserUserId(groupId, userId).isPresent()) throw ApiException.forbidden("Bạn không có quyền xem nhóm này");
+        return group;
+    }
+
+    private Path privateGroupUploadPath(String mediaUrl, Long groupId) {
+        String prefix = "/api/groups/" + groupId + "/uploads/";
+        if (!mediaUrl.startsWith(prefix)) throw ApiException.badRequest("Tệp của nhóm riêng tư không hợp lệ");
+        String fileName = safeUploadName(mediaUrl.substring(prefix.length()));
+        Path directory = uploadDirectory.resolvePrivateGroup(groupId).toAbsolutePath().normalize();
+        Path file = directory.resolve(fileName).normalize();
+        if (!file.startsWith(directory) || !Files.isRegularFile(file)) {
+            throw ApiException.badRequest("Không tìm thấy tệp tải lên của nhóm");
+        }
+        return file;
+    }
+
+    private String safeUploadName(String fileName) {
+        if (fileName.isBlank() || fileName.contains("/") || fileName.contains("\\") || fileName.contains("..")) {
+            throw ApiException.notFound("Không tìm thấy tệp đính kèm");
+        }
+        return fileName;
+    }
+
+    private SocialGroup requireGroupContentAccess(Long groupId, Long userId) {
+        SocialGroup group = requireReadableGroup(groupId, userId);
+        if ("PRIVATE".equals(group.getVisibility())) requireMember(groupId, userId);
         return group;
     }
 
@@ -564,7 +642,7 @@ public class GroupService {
     }
 
     private GroupPost getPostOrThrow(Long groupId, Long postId, Long viewerId) {
-        requireReadableGroup(groupId, viewerId);
+        requireGroupContentAccess(groupId, viewerId);
         return postRepository.findByPostIdAndGroupGroupId(postId, groupId)
                 .orElseThrow(() -> ApiException.notFound("Không tìm thấy bài viết"));
     }
@@ -634,7 +712,11 @@ public class GroupService {
         result.put("postId", post.getPostId()); result.put("groupId", post.getGroup().getGroupId());
         result.put("authorId", post.getAuthor().getUserId()); result.put("authorName", displayName(post.getAuthor()));
         result.put("authorAvatar", post.getAuthor().getAvatar()); result.put("content", post.getContent());
-        result.put("mediaUrl", post.getMediaUrl()); result.put("mediaType", post.getMediaType()); result.put("status", post.getStatus());
+        String mediaUrl = post.getMediaUrl();
+        if (mediaUrl != null && "PRIVATE".equals(post.getGroup().getVisibility())) {
+            mediaUrl = "/api/groups/" + post.getGroup().getGroupId() + "/posts/" + post.getPostId() + "/media";
+        }
+        result.put("mediaUrl", mediaUrl); result.put("mediaType", post.getMediaType()); result.put("status", post.getStatus());
         result.put("postType", post.getPostType());
         result.put("pinned", post.isPinned()); result.put("createdAt", post.getCreatedAt());
         result.put("reactionCount", reactionRepository.countByPostPostId(post.getPostId()));

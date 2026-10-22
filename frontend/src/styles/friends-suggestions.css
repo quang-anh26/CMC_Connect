@@ -1,0 +1,280 @@
+.chat-area.friends-page .friends-suggestion-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 12px;
+}
+
+.friends-suggestion-carousel {
+  position: relative;
+  min-width: 0;
+}
+
+.chat-area.friends-page .friends-suggestion-rail {
+  display: flex;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-behavior: smooth;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  padding: 2px 1px 12px;
+}
+
+.chat-area.friends-page .friends-suggestion-rail::-webkit-scrollbar {
+  display: none;
+}
+
+.chat-area.friends-page .friends-suggestion-rail .friends-suggestion-card {
+  flex: 0 0 clamp(190px, 21vw, 236px);
+  scroll-snap-align: start;
+}
+
+.friends-suggestion-arrow {
+  position: absolute;
+  z-index: 2;
+  top: 50%;
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border: 1px solid rgb(120 135 155 / 30%);
+  border-radius: 50%;
+  color: #3d4d62;
+  background: var(--bg-card, #fff);
+  box-shadow: 0 3px 12px rgb(0 0 0 / 18%);
+  font-size: 30px;
+  line-height: 1;
+  cursor: pointer;
+  transform: translateY(-50%);
+}
+
+.friends-suggestion-arrow:hover { color: #1877f2; }
+.friends-suggestion-arrow.is-left { left: -15px; }
+.friends-suggestion-arrow.is-right { right: -15px; }
+[data-theme="dark"] .friends-suggestion-arrow { color: #e5edf9; background: #28384d; }
+[data-theme="dark"] .friends-suggestion-arrow:hover { color: #78b0ff; background: #344b68; }
+
+.friends-all-suggestions {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.chat-area.friends-page.friends-all-suggestions {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.friends-all-suggestions-content {
+  width: 100%;
+  padding: 28px clamp(18px, 3vw, 44px) 48px;
+}
+
+.friends-all-suggestions-heading {
+  margin-bottom: 22px;
+}
+
+.friends-all-suggestions-heading h1 {
+  margin: 0 0 7px;
+  font-size: clamp(23px, 3vw, 30px);
+}
+
+[data-theme="light"] .friends-all-suggestions-heading h1 { color: #1b3457; }
+[data-theme="dark"] .friends-all-suggestions-heading h1 { color: #e5edf9; }
+
+.friends-all-suggestions-heading p {
+  margin: 0;
+  color: var(--text-secondary, #71839d);
+}
+
+[data-theme="dark"] .friends-all-suggestions-heading p { color: #a0b1c8; }
+
+.chat-area.friends-page .friends-all-suggestion-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr));
+  align-items: stretch;
+  gap: 16px;
+}
+
+.friends-suggestions-back {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 8px;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.friends-suggestions-back:hover { background: rgb(120 145 180 / 12%); }
+.friends-suggestions-back + .friends-topbar-copy { margin-left: 4px; }
+
+.chat-area.friends-page .friends-suggestion-card {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  overflow: hidden;
+  padding: 0;
+  border-radius: 13px;
+  box-shadow: 0 5px 16px rgb(31 65 117 / 7%);
+  transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease;
+}
+
+.chat-area.friends-page .friends-suggestion-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 22px rgb(31 65 117 / 12%);
+}
+
+.friends-suggestion-photo {
+  position: relative;
+  width: 100%;
+  height: 176px;
+  flex: 0 0 176px;
+  overflow: hidden;
+}
+
+.chat-area.friends-page .friends-suggestion-avatar {
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 0 !important;
+}
+
+.chat-area.friends-page .friends-suggestion-avatar img {
+  object-fit: cover;
+}
+
+.friends-suggestion-hide {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 1px solid rgb(255 255 255 / 72%);
+  border-radius: 50%;
+  color: #fff;
+  background: rgb(25 42 62 / 58%);
+  font-size: 21px;
+  line-height: 1;
+  transition: background .15s ease, transform .15s ease;
+}
+
+.friends-suggestion-hide:hover {
+  transform: scale(1.06);
+  background: rgb(25 42 62 / 82%);
+}
+
+.chat-area.friends-page .friends-suggestion-info {
+  min-height: 68px;
+  align-content: start;
+  gap: 4px;
+  padding: 10px 11px 8px;
+}
+
+.chat-area.friends-page .friends-suggestion-info strong,
+.chat-area.friends-page .friends-suggestion-info span,
+.chat-area.friends-page .friends-suggestion-info small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-area.friends-page .friends-suggestion-info strong {
+  font-size: 14px;
+  font-weight: 750;
+}
+
+.chat-area.friends-page .friends-suggestion-info span,
+.chat-area.friends-page .friends-suggestion-info small {
+  font-size: 11px;
+}
+
+.chat-area.friends-page .friends-suggestion-button {
+  min-height: 34px;
+  margin: 0 10px 10px;
+  border-radius: 7px;
+  font-size: 11px;
+}
+
+.chat-area.friends-page .friends-suggestion-button.is-sent {
+  cursor: default;
+}
+
+[data-theme="light"] .chat-area.friends-page .friends-suggestion-card {
+  border-color: #dce7f7;
+  background: #fff;
+  box-shadow: 0 5px 16px rgb(31 65 117 / 7%);
+}
+
+[data-theme="light"] .chat-area.friends-page .friends-suggestion-card:hover {
+  border-color: #b9d2f7;
+  box-shadow: 0 10px 22px rgb(31 65 117 / 12%);
+}
+
+[data-theme="light"] .chat-area.friends-page .friends-suggestion-info strong {
+  color: #1b3457;
+}
+
+[data-theme="light"] .chat-area.friends-page .friends-suggestion-info span,
+[data-theme="light"] .chat-area.friends-page .friends-suggestion-info small {
+  color: #71839d;
+}
+
+[data-theme="dark"] .chat-area.friends-page .friends-suggestion-card {
+  border-color: #2d425e;
+  background: #17263b;
+  box-shadow: 0 5px 16px rgb(0 0 0 / 20%);
+}
+
+[data-theme="dark"] .chat-area.friends-page .friends-suggestion-card:hover {
+  border-color: #47678c;
+  box-shadow: 0 10px 22px rgb(0 0 0 / 28%);
+}
+
+[data-theme="dark"] .chat-area.friends-page .friends-suggestion-info strong {
+  color: #e5edf9;
+}
+
+[data-theme="dark"] .chat-area.friends-page .friends-suggestion-info span,
+[data-theme="dark"] .chat-area.friends-page .friends-suggestion-info small {
+  color: #a0b1c8;
+}
+
+@media (max-width: 1150px) {
+  .chat-area.friends-page .friends-suggestion-rail .friends-suggestion-card { flex-basis: 220px; }
+}
+
+@media (max-width: 850px) {
+  .friends-all-suggestions-content { padding: 22px 18px 36px; }
+  .chat-area.friends-page .friends-all-suggestion-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 190px), 1fr)); gap: 12px; }
+}
+
+@media (max-width: 520px) {
+  .chat-area.friends-page .friends-suggestion-rail .friends-suggestion-card { flex-basis: min(76vw, 250px); }
+  .friends-suggestion-arrow { width: 36px; height: 36px; }
+  .friends-suggestion-arrow.is-left { left: -9px; }
+  .friends-suggestion-arrow.is-right { right: -9px; }
+  .friends-all-suggestions-content { padding: 18px 12px 28px; }
+  .chat-area.friends-page .friends-all-suggestion-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .friends-suggestion-photo { height: 170px; flex-basis: 170px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-area.friends-page .friends-suggestion-card,
+  .friends-suggestion-hide,
+  .friends-suggestion-rail {
+    transition: none;
+    scroll-behavior: auto;
+  }
+}

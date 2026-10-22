@@ -619,3 +619,13 @@
 [data-theme="light"] .video-eyebrow { color: #1a63d8; }
 [data-theme="light"] .video-feed-heading > button { color: #1a63d8; }
 [data-theme="light"] .video-end-note { color: #5b6f8b; }
+
+/* ---------- Trạng thái rỗng / tải của trang Video ---------- */
+.video-empty,.video-loading { margin-top: 6px; }
+.video-empty .ui-state { min-height: 320px; padding: 28px 18px; border-radius: 16px; }
+.video-empty .ui-state__icon { width: auto; height: auto; background: transparent; }
+.video-empty-art { display: block; width: 150px; height: 112px; }
+.video-empty .ui-state__action { display: inline-flex; align-items: center; justify-content: center; min-height: 42px; padding: 0 22px; border: 0; border-radius: 9px; background: #0b6bff; color: #fff; font-weight: 800; text-decoration: none; cursor: pointer; }
+.video-empty .ui-state__action:hover { background: #0057d9; }
+.video-trending-tags button.active { background: #0b6bff; color: #fff; }
+[data-theme="light"] .video-trending-tags button.active { background: #0b6bff; color: #fff; }

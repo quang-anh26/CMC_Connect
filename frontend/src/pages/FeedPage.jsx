@@ -344,18 +344,18 @@ export default function FeedPage() {
     } catch (err) {
       setError(err.response?.data?.message || 'Không thể cập nhật cảm xúc. Vui lòng thử lại.')
     }
+  }
 
-    const togglePostSaved = async (post) => {
-      const contentType = post.mediaType === 'VIDEO' ? 'VIDEO'
-        : /https?:\/\/[^\s<>()]+/i.test(post.content || '') ? 'LINK' : 'POST'
-      try {
-        const { data } = await savedApi.toggle(contentType, post.postId)
-        setPosts((current) => current.map((entry) => entry.postId === post.postId
-          ? { ...entry, savedByViewer: data.saved } : entry))
-        setNotice(data.saved ? 'Đã lưu nội dung.' : 'Đã bỏ lưu nội dung.')
-      } catch (err) {
-        setError(err.response?.data?.message || 'Không thể cập nhật nội dung đã lưu.')
-      }
+  const togglePostSaved = async (post) => {
+    const contentType = post.mediaType === 'VIDEO' ? 'VIDEO'
+      : /https?:\/\/[^\s<>()]+/i.test(post.content || '') ? 'LINK' : 'POST'
+    try {
+      const { data } = await savedApi.toggle(contentType, post.postId)
+      setPosts((current) => current.map((entry) => entry.postId === post.postId
+        ? { ...entry, savedByViewer: data.saved } : entry))
+      setNotice(data.saved ? 'Đã lưu nội dung.' : 'Đã bỏ lưu nội dung.')
+    } catch (err) {
+      setError(err.response?.data?.message || 'Không thể cập nhật nội dung đã lưu.')
     }
   }
 
