@@ -406,7 +406,7 @@ export default function SettingsModal({ isOpen, onClose }) {
               </form>
 
               {profileMsg && (
-                <p style={{ color: '#22c55e', marginTop: 14, fontSize: 13.5, fontWeight: 500 }}>
+                <p style={{ color: 'var(--color-success-text)', marginTop: 14, fontSize: 13.5, fontWeight: 500 }}>
                   {profileMsg}
                 </p>
               )}

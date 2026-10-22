@@ -27,6 +27,11 @@
   --color-neutral-black: #f5f7fb;
   --color-brand-social: #1877f2;
   --color-success-social: #31a24c;
+  --color-bubble-theirs: #1e293b;
+  --color-scrollbar-thumb: #1c2838;
+  --color-scrollbar-thumb-hover: #25374d;
+  --color-success-text: #4ade80;
+  --color-danger-text: #ff8a94;
 
   --font-family-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-size-xs: 0.75rem;
@@ -91,6 +96,11 @@
   --color-neutral-900: #1c1e21;
   --color-neutral-black: #050505;
   --color-overlay: rgb(0 0 0 / 65%);
+  --color-bubble-theirs: #e7eef8;
+  --color-scrollbar-thumb: #c5cdd9;
+  --color-scrollbar-thumb-hover: #a4afc0;
+  --color-success-text: #15803d;
+  --color-danger-text: #c0282f;
   --shadow-sm: 0 1px 3px rgb(0 0 0 / 5%);
   --shadow-md: 0 8px 24px rgb(0 0 0 / 10%);
   --shadow-lg: 0 16px 40px rgb(0 0 0 / 15%);

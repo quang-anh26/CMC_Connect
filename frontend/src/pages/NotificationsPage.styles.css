@@ -68,7 +68,7 @@
 .notifications-sidebar-heading p {
   max-width: 220px;
   margin-top: 4px;
-  color: #8397b2;
+  color: #5b7393;
   font-size: 10px;
   line-height: 1.5;
 }
@@ -114,7 +114,7 @@
   place-items: center;
   padding: 0 5px;
   border-radius: 999px;
-  color: #7187a4;
+  color: #5c7390;
   background: #edf3fa;
   font-size: 10px;
 }
@@ -342,7 +342,7 @@
 }
 
 .notification-copy p strong { color: #2d4562; font-weight: 750; }
-.notification-copy time { display: block; color: #879bb5; font-size: 9px; }
+.notification-copy time { display: block; color: #5b7494; font-size: 9px; }
 .notification-actions { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 7px; }
 
 .notification-actions .ui-button {
@@ -420,7 +420,7 @@
 }
 
 .notifications-empty strong { color: #274365; font-size: 15px; }
-.notifications-empty p { max-width: 420px; margin: 8px 0 0; color: #7a90ac; font-size: 12px; line-height: 1.55; }
+.notifications-empty p { max-width: 420px; margin: 8px 0 0; color: #5b7492; font-size: 12px; line-height: 1.55; }
 
 [data-theme="dark"] .notifications-page {
   --notice-panel: #17263b;

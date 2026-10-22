@@ -141,7 +141,7 @@
   border-radius: var(--radius-2xl); background: linear-gradient(115deg, rgba(255,255,255,.98), rgba(231,241,255,.92));
   box-shadow: 0 12px 30px rgba(45, 88, 155, .07);
 }
-[data-theme="light"] .feed-kicker { color: #397cf0; font-size: 11px; font-weight: 800; letter-spacing: 1.15px; }
+[data-theme="light"] .feed-kicker { color: #1d69ee; font-size: 11px; font-weight: 800; letter-spacing: 1.15px; }
 [data-theme="light"] .feed-header h1 { margin: 6px 0 0; color: #132b4d; font-size: clamp(25px, 2.2vw, 32px); letter-spacing: -.8px; }
 [data-theme="light"] .feed-count { padding: var(--space-2) var(--space-3); border-radius: var(--radius-full); color: #326fc8; background: #e7f0ff; font-size: var(--font-size-xs); font-weight: 700; }
 [data-theme="light"] .story-panel,
@@ -255,7 +255,10 @@
   border: 0;
   border-radius: 0;
   box-shadow: none;
-  overflow: auto;
+}
+[data-theme="light"] .chat-area.friends-page {
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 [data-theme="light"] .friends-page-topbar {
   min-height: 78px; padding: 14px 34px; display: flex; align-items: center; gap: 14px;
@@ -280,7 +283,7 @@
   box-shadow: 0 14px 34px rgba(41,83,145,.07);
 }
 [data-theme="light"] .friends-hero-copy { position: relative; z-index: 2; max-width: 600px; }
-[data-theme="light"] .friends-kicker { display: inline-block; margin-bottom: 10px; color: #347cf0; font-size: 11px; font-weight: 800; letter-spacing: 1.4px; }
+[data-theme="light"] .friends-kicker { display: inline-block; margin-bottom: 10px; color: #186aee; font-size: 11px; font-weight: 800; letter-spacing: 1.4px; }
 [data-theme="light"] .friends-hero h1 { margin: 0 0 10px; color: #172f52; font-size: clamp(25px, 2.3vw, 34px); line-height: 1.2; letter-spacing: -.7px; }
 [data-theme="light"] .friends-hero p { max-width: 540px; margin: 0; color: #6b7f9d; font-size: var(--font-size-sm); line-height: 1.75; }
 [data-theme="light"] .friends-hero-art { position: absolute; right: 28%; top: 0; width: 210px; height: 100%; opacity: .85; }
@@ -295,38 +298,38 @@
 [data-theme="light"] .friends-stat { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) 15px; border: 1px solid rgba(216,230,252,.95); border-radius: var(--radius-xl); background: rgba(255,255,255,.8); box-shadow: 0 5px 15px rgba(48,86,145,.04); }
 [data-theme="light"] .friends-stat-icon { display: grid; place-items: center; width: 38px; height: 38px; border-radius: var(--radius-lg); color: #267cf2; background: #e9f2ff; font-size: 19px; }
 [data-theme="light"] .friends-stat strong { display: block; color: #1a3459; font-size: 20px; line-height: 1.1; }
-[data-theme="light"] .friends-stat small { display: block; margin-top: var(--space-1); color: #7586a0; font-size: 11px; }
+[data-theme="light"] .friends-stat small { display: block; margin-top: var(--space-1); color: #61738d; font-size: 11px; }
 [data-theme="light"] .friends-requests-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-5); align-items: stretch; }
 [data-theme="light"] .friends-request-card, [data-theme="light"] .friends-feedback-card { min-width: 0; border: 1px solid #dce7f7; border-radius: 22px; background: rgba(255,255,255,.96); box-shadow: 0 10px 28px rgba(31,65,117,.06); overflow: hidden; }
 [data-theme="light"] .friends-request-card { padding: 22px; }
 [data-theme="light"] .friends-section-heading { display: flex; align-items: center; gap: var(--space-3); padding-bottom: 19px; border-bottom: 1px solid #edf2fa; }
 [data-theme="light"] .friends-section-icon { display: grid; place-items: center; width: 44px; height: 44px; flex: 0 0 auto; border-radius: 14px; font-size: 22px; font-weight: 800; }
 [data-theme="light"] .friends-section-icon.received-icon { color: #2479f1; background: #e8f2ff; }
-[data-theme="light"] .friends-section-icon.sent-icon { color: #099b84; background: #e4f9f3; }
+[data-theme="light"] .friends-section-icon.sent-icon { color: #07806d; background: #e4f9f3; }
 [data-theme="light"] .friends-section-heading h2 { margin: 0 0 var(--space-1); color: #1b3457; font-size: 17px; }
-[data-theme="light"] .friends-section-heading p { margin: 0; color: #7b8ba4; font-size: var(--font-size-xs); }
+[data-theme="light"] .friends-section-heading p { margin: 0; color: #61728d; font-size: var(--font-size-xs); }
 [data-theme="light"] .friends-count-pill { display: grid; place-items: center; min-width: 30px; height: 30px; margin-left: auto; padding: 0 9px; border-radius: 10px; color: #2679ef; background: #edf4ff; font-size: var(--font-size-xs); font-weight: 800; }
 [data-theme="light"] .friends-request-list { display: flex; flex-direction: column; }
 [data-theme="light"] .friends-request-item { display: flex; align-items: center; gap: 13px; padding: 17px 0; border-bottom: 1px solid #eef2f8; }
 [data-theme="light"] .friends-request-item:last-child { border-bottom: 0; padding-bottom: 2px; }
 [data-theme="light"] .friends-person-info { display: flex; flex: 1; flex-direction: column; min-width: 0; gap: 3px; }
 [data-theme="light"] .friends-person-info strong { overflow: hidden; color: #1e304b; font-size: var(--font-size-sm); text-overflow: ellipsis; white-space: nowrap; }
-[data-theme="light"] .friends-person-info span { overflow: hidden; color: #7b879a; font-size: var(--font-size-xs); text-overflow: ellipsis; white-space: nowrap; }
-[data-theme="light"] .friends-person-info small { color: #8a9ab1; font-size: 11px; }
+[data-theme="light"] .friends-person-info span { overflow: hidden; color: #667386; font-size: var(--font-size-xs); text-overflow: ellipsis; white-space: nowrap; }
+[data-theme="light"] .friends-person-info small { color: #5f738f; font-size: 11px; }
 [data-theme="light"] .friends-request-actions { display: flex; flex-direction: column; gap: 6px; }
 [data-theme="light"] .friends-request-actions button { border: 0; border-radius: 10px; padding: var(--space-2) var(--space-3); font-size: 11px; font-weight: 750; cursor: pointer; transition: transform .16s ease, box-shadow .16s ease, background .16s ease; }
 [data-theme="light"] .friends-request-actions button:hover { transform: translateY(-1px); }
 [data-theme="light"] .friends-accept-button { color: white; background: linear-gradient(135deg,#4d96ff,#1976f3); box-shadow: 0 5px 12px rgba(25,118,243,.17); }
 [data-theme="light"] .friends-accept-button:hover { box-shadow: 0 7px 16px rgba(25,118,243,.25); }
-[data-theme="light"] .friends-reject-button { color: #71819a; background: #f2f5fa; }
+[data-theme="light"] .friends-reject-button { color: #63738c; background: #f2f5fa; }
 [data-theme="light"] .friends-reject-button:hover { background: #e9eef7; }
-[data-theme="light"] .friends-sent-avatar { display: grid; place-items: center; width: 46px; height: 46px; flex: 0 0 auto; border-radius: 15px; color: #0c9d86; background: linear-gradient(145deg,#e8fbf5,#d8f6ed); font-size: 23px; font-weight: 800; }
+[data-theme="light"] .friends-sent-avatar { display: grid; place-items: center; width: 46px; height: 46px; flex: 0 0 auto; border-radius: 15px; color: #0a7e6c; background: linear-gradient(145deg,#e8fbf5,#d8f6ed); font-size: 23px; font-weight: 800; }
 [data-theme="light"] .friends-pending-pill { display: inline-flex; align-items: center; gap: 6px; padding: 7px 9px; border-radius: 9px; color: #a27620; background: #fff6df; font-size: 10px; font-weight: 750; white-space: nowrap; }
 [data-theme="light"] .friends-pending-pill i { width: 6px; height: 6px; border-radius: 50%; background: #e7ae37; }
 [data-theme="light"] .friends-empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 245px; padding: 26px 18px 22px; text-align: center; }
-[data-theme="light"] .friends-empty-icon { display: grid; place-items: center; width: 58px; height: 58px; margin-bottom: 15px; border-radius: 19px; color: #2380f6; background: linear-gradient(145deg,#eaf3ff,#dceaff); box-shadow: inset 0 0 0 1px #d5e5ff; font-size: 25px; }
+[data-theme="light"] .friends-empty-icon { display: grid; place-items: center; width: 58px; height: 58px; margin-bottom: 15px; border-radius: 19px; color: #0a6ce9; background: linear-gradient(145deg,#eaf3ff,#dceaff); box-shadow: inset 0 0 0 1px #d5e5ff; font-size: 25px; }
 [data-theme="light"] .friends-empty-state strong { color: #233b5e; font-size: var(--font-size-sm); }
-[data-theme="light"] .friends-empty-state p { max-width: 270px; margin: var(--space-2) 0 0; color: #8492a8; font-size: var(--font-size-xs); line-height: 1.7; }
+[data-theme="light"] .friends-empty-state p { max-width: 270px; margin: var(--space-2) 0 0; color: #63738c; font-size: var(--font-size-xs); line-height: 1.7; }
 [data-theme="light"] .friends-feedback-card { min-height: 200px; display: grid; place-items: center; padding: 30px; }
 @media (max-width: 1100px) {
   [data-theme="light"] .friends-hero-art { right: 25%; opacity: .45; }

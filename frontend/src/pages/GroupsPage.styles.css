@@ -143,3 +143,5 @@
 @media (prefers-reduced-motion: reduce) {
   .groups-page *, .groups-page *::before, .groups-page *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; }
 }
+.groups-page .group-primary-button.ui-button--primary, .groups-page .groups-hero .group-primary-button.ui-button--primary { color: var(--color-white); }
+[data-theme="light"] .groups-page .groups-tabs button:not(.selected) { color: #55698a; }

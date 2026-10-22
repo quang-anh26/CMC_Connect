@@ -77,14 +77,14 @@
   max-width: 92vw;
   height: auto;
   max-height: min(680px, calc(100dvh - 40px));
-  background: #18191a;
+  background: var(--color-surface-panel);
   border-radius: 14px;
   box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6);
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border: 1px solid #2f3031;
-  color: var(--color-neutral-200);
+  border: 1px solid var(--border-light);
+  color: var(--text-primary);
   animation: modalScale 0.15s ease-out;
 }
 
@@ -99,7 +99,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 1px solid #2f3031;
+  border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
 
@@ -113,7 +113,7 @@
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  background: #242526;
+  background: var(--color-surface-raised);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -122,7 +122,7 @@
 }
 
 .settings-close-btn:hover {
-  background: #3a3b3c;
+  background: var(--color-surface-selected);
 }
 
 .settings-modal-body {
@@ -148,7 +148,7 @@
 /* Sections */
 .settings-section {
   padding: 10px 0;
-  border-bottom: 1px solid #2f3031;
+  border-bottom: 1px solid var(--border);
 }
 
 .settings-section:last-child {
@@ -158,7 +158,7 @@
 .settings-section-title {
   font-size: var(--font-size-md);
   font-weight: 700;
-  color: var(--color-neutral-200);
+  color: var(--text-primary);
   padding: 6px var(--space-3) 6px;
 }
 
@@ -174,7 +174,7 @@
 }
 
 .settings-item:hover {
-  background: #242526;
+  background: var(--color-surface-raised);
 }
 
 .settings-item.no-hover:hover {
@@ -206,12 +206,12 @@
 .settings-item-title {
   font-size: 14.5px;
   font-weight: 600;
-  color: var(--color-neutral-200);
+  color: var(--text-primary);
 }
 
 .settings-item-desc {
   font-size: 12.5px;
-  color: #b0b3b8;
+  color: var(--text-secondary);
   margin-top: 2px;
   line-height: 1.35;
 }
@@ -232,12 +232,12 @@
 
 .status-pill.on {
   background: rgba(34, 197, 94, 0.18);
-  color: var(--color-success);
+  color: var(--color-success-text);
 }
 
 .status-pill.off {
   background: rgba(148, 163, 184, 0.18);
-  color: #94a3b8;
+  color: var(--text-secondary);
 }
 
 /* Messenger Switch Toggle */
@@ -259,7 +259,7 @@
   position: absolute;
   cursor: pointer;
   inset: 0;
-  background-color: #3e4042;
+  background-color: var(--color-neutral-200);
   transition: 0.2s;
   border-radius: 25px;
 }
@@ -306,13 +306,13 @@
 }
 
 .theme-radio-item:hover {
-  background: #242526;
+  background: var(--color-surface-raised);
 }
 
 .radio-label {
   font-size: var(--font-size-sm);
   font-weight: 500;
-  color: var(--color-neutral-200);
+  color: var(--text-primary);
 }
 
 .radio-text-col {
@@ -323,7 +323,7 @@
 
 .radio-sub {
   font-size: var(--font-size-xs);
-  color: #b0b3b8;
+  color: var(--text-secondary);
   margin-top: 2px;
   line-height: 1.35;
 }
@@ -332,7 +332,7 @@
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  border: 2px solid #5a5c60;
+  border: 2px solid var(--color-text-muted);
   display: inline-block;
   flex-shrink: 0;
   transition: border-color 0.15s, background-color 0.15s;
@@ -341,7 +341,7 @@
 .custom-radio.selected {
   border-color: var(--color-brand);
   background-color: var(--color-brand);
-  box-shadow: inset 0 0 0 3px #18191a;
+  box-shadow: inset 0 0 0 3px var(--color-surface-panel);
 }
 
 .wallpaper-picker {
@@ -430,7 +430,7 @@
 
 .wallpaper-error {
   margin-top: var(--space-2);
-  color: #f87171;
+  color: var(--color-danger-text);
   font-size: var(--font-size-xs);
 }
 
@@ -463,3 +463,9 @@
 }
 
 /* Feed theme follows the selected app theme. */
+
+/* Light: các thành phần của modal Cài đặt cần giá trị riêng cho nền sáng */
+[data-theme="light"] .messenger-switch .slider { background-color: #b9c0cc; }
+[data-theme="light"] .settings-item:hover { background: var(--color-surface-raised); }
+[data-theme="light"] .settings-close-btn { background: var(--color-neutral-100); color: var(--color-neutral-900); }
+[data-theme="light"] .settings-close-btn:hover { background: var(--color-neutral-200); }

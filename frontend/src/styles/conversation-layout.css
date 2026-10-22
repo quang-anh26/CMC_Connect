@@ -310,35 +310,35 @@
 
 [data-theme="light"] .chat-list-heading { border-color: #e7edf5; }
 [data-theme="light"] .chat-list-heading h1 { color: #183657; }
-[data-theme="light"] .chat-list-create { color: #287ff0; background: #eaf3ff; }
+[data-theme="light"] .chat-list-create { color: #106de7; background: #eaf3ff; }
 [data-theme="light"] .chat-list-create:hover { color: #fff; background: #287ff0; }
 [data-theme="light"] .search-input-wrapper { border-color: #e0e8f3; background: #f5f8fd; }
 [data-theme="light"] .conversation-filters { border-color: #e7edf5; background: #fff; }
 [data-theme="light"] .conversation-item.active { background: #e8f2ff; }
 [data-theme="light"] .conv-name { color: #243a58; }
-[data-theme="light"] .conv-last { color: #8495ac; }
-[data-theme="light"] .conv-time { color: #8598b2; }
+[data-theme="light"] .conv-last { color: #60738e; }
+[data-theme="light"] .conv-time { color: #5c7291; }
 [data-theme="light"] .conversation-item.active .conv-name { color: #1677f8; }
 [data-theme="light"] .conversation-item.active .conv-last { color: #617997; }
 [data-theme="light"] .chat-area { overflow: hidden; }
 [data-theme="light"] .chat-header { border-color: #e7edf5; background: #fff; }
 [data-theme="light"] .chat-header-name { color: #203957; }
-[data-theme="light"] .chat-header-status { color: #7d91ac; }
-[data-theme="light"] .header-action-btn { color: #6582a5; background: #f1f6fc; }
+[data-theme="light"] .chat-header-status { color: #5d7391; }
+[data-theme="light"] .header-action-btn { color: #587496; background: #f1f6fc; }
 [data-theme="light"] .header-action-btn:hover { color: #1677f8; background: #e7f1ff; }
-[data-theme="light"] .chat-header .header-action-btn:disabled { color: #9aabc0; }
+[data-theme="light"] .chat-header .header-action-btn:disabled { color: #5b7392; }
 [data-theme="dark"] .chat-header .header-action-btn { color: #91a9c7; background: #1b2e48; }
 [data-theme="dark"] .chat-header .header-action-btn:hover:not(:disabled) { color: #83baff; background: #243d5e; }
 [data-theme="dark"] .chat-header .header-action-btn:disabled { color: #667d9d; }
 [data-theme="light"] .chat-messages { background: linear-gradient(180deg, #f8faff 0%, #f2f6fd 100%); }
-[data-theme="light"] .date-separator span { color: #7186a3; background: #eaf2fc; }
+[data-theme="light"] .date-separator span { color: #5d7390; background: #eaf2fc; }
 [data-theme="light"] .bubble-theirs { color: #233b5a; background: #e7eef8; }
 [data-theme="light"] .chat-input-bar { border-color: #e7edf5; background: #fff; }
-[data-theme="light"] .input-tool-btn { color: #6983a3; }
+[data-theme="light"] .input-tool-btn { color: #5a7493; }
 [data-theme="light"] .chat-input-bar .input-tool-btn:hover:not(:disabled) { color: #1677f8; background: #e7f1ff; }
 [data-theme="light"] .chat-input-pill { border-color: #e0e8f3; background: #f5f8fd; }
 [data-theme="light"] .chat-input-pill input { color: #243a58; }
-[data-theme="light"] .chat-input-pill input::placeholder { color: #91a2b8; }
+[data-theme="light"] .chat-input-pill input::placeholder { color: #5d7390; }
 [data-theme="dark"] .chat-input-bar {
   border-color: var(--border);
   background: var(--bg-chat);
@@ -359,9 +359,9 @@
 [data-theme="light"] .info-panel { color: #263b59; }
 [data-theme="light"] .info-panel-header { color: #617895; }
 [data-theme="light"] .info-profile-name { color: #203957; }
-[data-theme="light"] .info-status-row .status-label { color: #7d91ac; }
+[data-theme="light"] .info-status-row .status-label { color: #5d7391; }
 [data-theme="light"] .info-metadata-card { border-color: #e4ebf5; background: #fff; }
-[data-theme="light"] .info-metadata-label { color: #7d91ac; }
+[data-theme="light"] .info-metadata-label { color: #5d7391; }
 [data-theme="light"] .info-metadata-value { color: #2d4564; }
 [data-theme="light"] .info-action-text { color: #526a88; }
 [data-theme="light"] .info-action-item:hover { background: #f1f6fc; }
@@ -578,3 +578,6 @@
 .chat-area[data-chat-wallpaper] > .chat-input-bar .send-action-btn:disabled {
   opacity: .55;
 }
+[data-theme="light"] .conversation-item.active .conv-name { color: #0b5fd0; }
+[data-theme="light"] .conversation-item.active .conv-last { color: #4a6482; }
+[data-theme="light"] .conversation-filters button.active, [data-theme="light"] .conversation-filters .active { color: #0b5fd0; }

@@ -1,7 +1,7 @@
 /* ==========================================================================
    Auth pages (Đăng nhập / Đăng ký) - nền xanh navy, thẻ kính mờ, bố cục hai cột.
-   Tham khảo phong cách mẫu, giữ thương hiệu CMC Talk. Luôn dùng tông tối
-   bất kể theme Sáng/Tối của ứng dụng.
+   Tham khảo phong cách mẫu, giữ thương hiệu CMC Talk. Mặc định tông tối;
+   có bản Light riêng ở cuối file (theo data-theme).
    ========================================================================== */
 .ap-page {
   --ap-muted: rgba(205, 222, 255, 0.74);
@@ -522,3 +522,56 @@ ol.ap-bottom { grid-template-columns: repeat(3, 1fr); }
   .ap-btn { transition: none; }
 }
 
+
+/* ==========================================================================
+   Light Mode cho trang Đăng nhập / Đăng ký (data-theme="light")
+   Giữ nguyên bố cục; chỉ đổi bảng màu sang tông sáng.
+   ========================================================================== */
+[data-theme="light"] .ap-page {
+  --ap-muted: #4a5f80;
+  --ap-line: rgba(40, 100, 200, 0.32);
+  --ap-link: #1a63d8;
+  color: #12294d;
+  background:
+    radial-gradient(900px 520px at 80% 4%, rgba(60, 140, 255, 0.22), transparent 62%),
+    radial-gradient(720px 540px at 14% 64%, rgba(80, 160, 255, 0.18), transparent 64%),
+    linear-gradient(160deg, #f4f8ff 0%, #e0eeff 58%, #edf4ff 100%);
+}
+[data-theme="light"] .ap-page::before { background-image: radial-gradient(rgba(40, 110, 220, 0.16) 1px, transparent 1px); }
+[data-theme="light"] .ap-brand { color: #12294d; }
+[data-theme="light"] .ap-hero h1 em { background: linear-gradient(90deg, #1d6bff, #0a8fe8); -webkit-background-clip: text; background-clip: text; }
+[data-theme="light"] .ap-platform span { border-color: rgba(40, 130, 240, 0.55); background: linear-gradient(135deg, rgba(120, 180, 255, 0.35), rgba(255, 255, 255, 0.75)); box-shadow: 0 0 36px rgba(40, 130, 255, 0.25), inset 0 0 24px rgba(60, 150, 255, 0.12); }
+[data-theme="light"] .ap-platform span:nth-child(2) { border-color: rgba(40, 140, 240, 0.65); background: rgba(190, 220, 255, 0.55); }
+[data-theme="light"] .ap-platform span:nth-child(3) { border-color: rgba(30, 130, 240, 0.8); background: rgba(120, 180, 255, 0.5); box-shadow: 0 0 34px rgba(60, 160, 255, 0.4), inset 0 0 20px rgba(255, 255, 255, 0.5); }
+[data-theme="light"] .ap-float { color: #1d5fc0; background: linear-gradient(145deg, rgba(255, 255, 255, 0.92), rgba(205, 225, 255, 0.85)); border-color: rgba(60, 130, 230, 0.4); box-shadow: 0 12px 28px rgba(30, 90, 190, 0.2), inset 0 0 14px rgba(255, 255, 255, 0.6); }
+[data-theme="light"] .ap-dot { background: #3b9bff; box-shadow: 0 0 10px rgba(59, 155, 255, 0.6); }
+[data-theme="light"] .ap-feature { border-left-color: rgba(40, 100, 200, 0.22); }
+[data-theme="light"] .ap-feature-icon { color: #1d63d0; background: rgba(40, 110, 255, 0.12); border-color: rgba(40, 110, 255, 0.4); }
+[data-theme="light"] .ap-feature-icon b { background: #5a7bb8; border-color: #f4f8ff; }
+[data-theme="light"] .ap-feature.is-active .ap-feature-icon { color: var(--color-white); background: linear-gradient(145deg, #2f8cff, #1455e9); border-color: #86ccff; }
+[data-theme="light"] .ap-feature.is-active .ap-feature-icon b { background: #2f8cff; }
+[data-theme="light"] .ap-feature.is-done .ap-feature-icon { color: var(--color-white); background: #16a34a; border-color: #4ade80; }
+[data-theme="light"] .ap-card { border-color: rgba(60, 120, 220, 0.28); background: linear-gradient(160deg, rgba(255, 255, 255, 0.96), rgba(236, 244, 255, 0.92)); box-shadow: 0 24px 60px rgba(30, 80, 170, 0.22), 0 0 48px rgba(60, 140, 255, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.9); }
+[data-theme="light"] .ap-progress span, [data-theme="light"] .ap-strength-bars span { background: rgba(40, 100, 200, 0.16); }
+[data-theme="light"] .ap-progress span.on { background: linear-gradient(90deg, #2f8cff, #4aa8ff); }
+[data-theme="light"] .ap-input { background: var(--color-white); color: #4a6a9c; }
+[data-theme="light"] .ap-input:focus-within { background: var(--color-white); box-shadow: 0 0 0 4px rgba(26, 99, 216, 0.16); }
+[data-theme="light"] .ap-input.has-error { border-color: #d9364f; box-shadow: 0 0 0 4px rgba(217, 54, 79, 0.12); }
+[data-theme="light"] .ap-input input { color: #14284a; }
+[data-theme="light"] .ap-input input::placeholder { color: #667a99; }
+[data-theme="light"] .ap-input input:-webkit-autofill, [data-theme="light"] .ap-input input:-webkit-autofill:focus { -webkit-text-fill-color: #14284a; -webkit-box-shadow: 0 0 0 100px #ffffff inset; caret-color: #14284a; }
+[data-theme="light"] .ap-at, [data-theme="light"] .ap-eye { color: #4a6a9c; }
+[data-theme="light"] .ap-eye:hover { background: rgba(40, 100, 200, 0.1); }
+[data-theme="light"] .ap-field-error { color: #c0273d; }
+[data-theme="light"] .ap-check { color: #243b63; }
+[data-theme="light"] .ap-check input { border-color: rgba(40, 100, 200, 0.55); background: var(--color-white); }
+[data-theme="light"] .ap-check input:checked { background: #2f8cff; border-color: #2f8cff; }
+[data-theme="light"] .ap-alert.error { color: #a61b30; background: rgba(255, 80, 110, 0.1); border-color: rgba(217, 54, 79, 0.45); }
+[data-theme="light"] .ap-alert.success { color: #12683a; background: rgba(34, 197, 94, 0.12); border-color: rgba(22, 163, 74, 0.45); }
+[data-theme="light"] .ap-link-btn:disabled { color: #7a8ba6; }
+[data-theme="light"] .ap-switch { border-top-color: rgba(40, 100, 200, 0.22); }
+[data-theme="light"] .ap-otp input { background: var(--color-white); color: #14284a; }
+[data-theme="light"] .ap-otp input.filled { background: rgba(47, 140, 255, 0.1); }
+[data-theme="light"] .ap-otp input.has-error { border-color: #d9364f; background: rgba(255, 80, 110, 0.08); }
+[data-theme="light"] .ap-strength.level-3 .on { background: #5fb83a; }
+[data-theme="light"] .ap-verified-chip { color: #12683a; background: rgba(34, 197, 94, 0.14); border-color: rgba(22, 163, 74, 0.45); }

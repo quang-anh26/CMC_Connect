@@ -172,8 +172,10 @@
 .admin-search {
   width: 280px;
   padding: 8px 12px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border-light);
   border-radius: 8px;
+  background: var(--bg-input);
+  color: var(--text-primary);
 }
 
 [data-theme="dark"] .admin-search {
@@ -235,7 +237,7 @@ table.admin-table th {
 
 .badge-locked {
   background: rgba(239, 68, 68, 0.15);
-  color: var(--danger);
+  color: var(--color-danger-text);
   padding: 2px 9px;
   border-radius: var(--radius-full);
   font-size: var(--font-size-xs);
@@ -243,7 +245,7 @@ table.admin-table th {
 
 .badge-active {
   background: rgba(34, 197, 94, 0.15);
-  color: var(--online);
+  color: var(--color-success-text);
   padding: 2px 9px;
   border-radius: var(--radius-full);
   font-size: var(--font-size-xs);

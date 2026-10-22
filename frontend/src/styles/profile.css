@@ -14,10 +14,10 @@
 .profile-hero-actions { display: flex; align-items: center; gap: var(--space-2); }
 .profile-hero-actions .profile-message-button,
 .profile-hero-actions .profile-friend-action { display: inline-flex; min-height: 38px; align-items: center; justify-content: center; gap: 7px; padding: 0 14px; border: 0; border-radius: 9px; background: #3478ed; color: #fff; font: inherit; font-size: 12px; font-weight: 700; white-space: nowrap; cursor: pointer; }
-.profile-hero-actions .profile-message-button { background: #e9eef6; color: #31415b; }
-.profile-hero-actions .profile-message-button:hover { background: #dce5f2; }
+.profile-hero-actions .profile-message-button { background: var(--color-neutral-200); color: var(--color-neutral-900); }
+.profile-hero-actions .profile-message-button:hover { background: var(--color-border-strong); }
 .profile-hero-actions .profile-friend-action:hover { background: #2469da; }
-.profile-hero-actions .profile-friend-action.is-pending { background: #e9eef6; color: #31415b; cursor: default; }
+.profile-hero-actions .profile-friend-action.is-pending { background: var(--color-neutral-200); color: var(--color-neutral-900); cursor: default; }
 .profile-hero-actions .profile-message-button:disabled,
 .profile-hero-actions .profile-friend-action:disabled { opacity: .65; cursor: wait; }
 .profile-hero-actions .profile-friend-action.is-pending:disabled { opacity: 1; cursor: default; }
@@ -39,7 +39,7 @@
 .profile-panel h2 { color: var(--text-primary); font-size: 13px; }
 .profile-intro-bio { margin: var(--space-3) 0; color: var(--text-secondary); font-size: 11px; line-height: 1.55; overflow-wrap: anywhere; }
 .profile-info-row { display: flex; align-items: center; gap: 9px; margin-top: 10px; color: var(--text-secondary); font-size: 10px; }
-.profile-info-row > span:first-child { display: grid; width: 18px; place-items: center; color: #7593c0; }
+.profile-info-row > span:first-child { display: grid; width: 18px; place-items: center; color: #4e73aa; }
 .profile-home-icon svg { display: block; width: 14px; height: 14px; fill: currentColor; }
 .profile-school-icon svg { display: block; width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .profile-birthday-icon svg { display: block; width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
@@ -93,7 +93,7 @@
 .profile-friend-strip .avatar { width: 42px; height: 42px; }
 .profile-friend-strip span { width: 100%; overflow: hidden; color: var(--text-primary); font-size: 8px; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
 .profile-group-row { display: flex; align-items: center; gap: 9px; margin-top: 10px; }
-.profile-group-icon { display: grid; flex: 0 0 34px; width: 34px; height: 34px; place-items: center; border-radius: 9px; background: rgba(60, 126, 232, .13); color: #4283e8; font-size: var(--font-size-lg); }
+.profile-group-icon { display: grid; flex: 0 0 34px; width: 34px; height: 34px; place-items: center; border-radius: 9px; background: rgba(60, 126, 232, .13); color: #206de4; font-size: var(--font-size-lg); }
 .profile-group-row > div { display: grid; min-width: 0; gap: 3px; }
 .profile-group-row strong { overflow: hidden; color: var(--text-primary); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .profile-group-row small { color: var(--text-secondary); font-size: 9px; }
@@ -132,7 +132,7 @@
 .profile-hero-avatar { flex-basis: 132px; width: 132px; height: 132px; margin-top: -62px; }
 .profile-hero-copy { padding: 14px 0 0; }
 .profile-hero-copy h1 { font-size: clamp(18px, 1.5vw, 22px); }
-.profile-hero-copy > p { margin-top: 3px; color: #8194ae; }
+.profile-hero-copy > p { margin-top: 3px; color: var(--text-secondary); }
 .profile-hero-status { display: flex; align-items: center; gap: 6px; margin-top: 5px; color: var(--text-secondary); font-size: 10px; }
 .profile-hero-status i { width: 7px; height: 7px; border-radius: 50%; background: #9ba9bb; }
 .profile-hero-status.is-online i { background: #2dbb78; }
