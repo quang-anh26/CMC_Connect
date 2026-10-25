@@ -1,6 +1,7 @@
 package com.example.messaging.entity;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.Nationalized;
 import lombok.*;
 
 import java.time.LocalDateTime;
@@ -22,6 +23,7 @@ public class SocialGroup {
     @JoinColumn(name = "owner_id", nullable = false)
     private User owner;
 
+    @Nationalized
     @Column(nullable = false, length = 100)
     private String name;
 
@@ -34,6 +36,7 @@ public class SocialGroup {
     @Column(name = "cover_image", length = 500)
     private String coverImage;
 
+    @Nationalized
     @Column(length = 80)
     private String category;
 

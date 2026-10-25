@@ -469,3 +469,7 @@
 [data-theme="light"] .settings-item:hover { background: var(--color-surface-raised); }
 [data-theme="light"] .settings-close-btn { background: var(--color-neutral-100); color: var(--color-neutral-900); }
 [data-theme="light"] .settings-close-btn:hover { background: var(--color-neutral-200); }
+
+/* Icon colours follow the active theme (previously hard-coded in JSX) */
+.settings-item-icon { color: var(--color-text-secondary); }
+.settings-close-btn { color: var(--color-text-secondary); }

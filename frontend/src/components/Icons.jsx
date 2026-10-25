@@ -98,20 +98,22 @@ export function CalendarIcon({ size = 20, color = 'currentColor' }) {
 
 export function LocationPinIcon({ size = 20, color = 'currentColor' }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7Z" fill={color} />
-      <circle cx="12" cy="9" r="2.5" fill="white" />
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 21.5s7-6.4 7-12a7 7 0 0 0-14 0c0 5.6 7 12 7 12Z" />
+      <circle cx="12" cy="9.5" r="2.5" />
     </svg>
   )
 }
 
 export function GroupIcon({ size = 20, color = 'currentColor' }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-      <circle cx="9" cy="7" r="4" />
-      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-      <circle cx="17.5" cy="6.5" r="3.5" />
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="7.5" r="3.2" />
+      <path d="M6.5 20.5v-1.5a4.5 4.5 0 0 1 4.5-4.5h2a4.5 4.5 0 0 1 4.5 4.5v1.5" />
+      <circle cx="4.3" cy="10" r="2.2" />
+      <path d="M1.3 19.5v-.6a3 3 0 0 1 3-3" />
+      <circle cx="19.7" cy="10" r="2.2" />
+      <path d="M22.7 19.5v-.6a3 3 0 0 0-3-3" />
     </svg>
   )
 }
@@ -178,9 +180,8 @@ export function VideoCallIcon({ size = 20, color = 'currentColor' }) {
 export function FeedVideoIcon({ size = 20, color = 'currentColor' }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <rect x="3.5" y="4.5" width="17" height="15" rx="4" stroke={color} strokeWidth="2" />
-      <circle cx="12" cy="12" r="3.25" stroke={color} strokeWidth="1.8" />
-      <path d="m11.3 10.55 2.65 1.45-2.65 1.45v-2.9Z" fill={color} />
+      <rect x="3" y="4" width="18" height="16" rx="4" stroke={color} strokeWidth="2" />
+      <path d="m10 8.8 5 3.2-5 3.2V8.8Z" fill={color} stroke={color} strokeWidth="1.4" strokeLinejoin="round" />
     </svg>
   )
 }
@@ -366,4 +367,133 @@ export function CloseIcon({ size = 18, color = 'currentColor' }) {
       <line x1="6" y1="6" x2="18" y2="18" />
     </svg>
   )
+}
+
+/* ------------------------------------------------------------------ */
+/* Shared icon set: 24x24 grid, 2px round stroke, currentColor.        */
+/* `size` accepts a number (px) or a CSS length such as "1em" so the   */
+/* icon can replace a text glyph and follow the surrounding font size. */
+/* ------------------------------------------------------------------ */
+function Svg({ size = 20, color = 'currentColor', fill = 'none', strokeWidth = 2, className, children }) {
+  return (
+    <svg
+      className={className ? `ui-icon ${className}` : 'ui-icon'}
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill={fill}
+      stroke={color}
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      {children}
+    </svg>
+  )
+}
+
+export function HomeIcon(props) {
+  return <Svg {...props}><path d="m3 10 9-7 9 7" /><path d="M5 9v11h14V9M9 20v-6h6v6" /></Svg>
+}
+
+export function BookmarkIcon({ filled = false, ...props }) {
+  return (
+    <Svg {...props} fill={filled ? 'currentColor' : 'none'}>
+      <path d="M6 4.75A1.75 1.75 0 0 1 7.75 3h8.5A1.75 1.75 0 0 1 18 4.75V21l-6-4-6 4V4.75Z" />
+    </Svg>
+  )
+}
+
+export function UserIcon(props) {
+  return <Svg {...props}><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></Svg>
+}
+
+export function UserPlusIcon(props) {
+  return <Svg {...props}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M19 8v6M22 11h-6" /></Svg>
+}
+
+export function UserCheckIcon(props) {
+  return <Svg {...props}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="m16 11 2 2 4-4" /></Svg>
+}
+
+export function LogoutIcon(props) {
+  return <Svg {...props}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="m16 17 5-5-5-5M21 12H9" /></Svg>
+}
+
+export function PencilIcon(props) {
+  return <Svg {...props}><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></Svg>
+}
+
+export function ImageIcon(props) {
+  return <Svg {...props}><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="m21 15-5-5L5 21" /></Svg>
+}
+
+export function PlayIcon(props) {
+  return <Svg {...props} fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5Z" /></Svg>
+}
+
+export function PlusIcon(props) {
+  return <Svg {...props}><path d="M12 5v14M5 12h14" /></Svg>
+}
+
+export function CheckIcon(props) {
+  return <Svg {...props}><path d="m20 6-11 11-5-5" /></Svg>
+}
+
+export function ArrowLeftIcon(props) {
+  return <Svg {...props}><path d="M19 12H5M12 19l-7-7 7-7" /></Svg>
+}
+
+export function ExternalLinkIcon(props) {
+  return <Svg {...props}><path d="M7 17 17 7M8 7h9v9" /></Svg>
+}
+
+export function FolderIcon(props) {
+  return <Svg {...props}><path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" /></Svg>
+}
+
+export function FileIcon(props) {
+  return <Svg {...props}><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z" /><path d="M14 3v5h5M9 13h6M9 17h6" /></Svg>
+}
+
+export function LinkIcon(props) {
+  return <Svg {...props}><path d="M10 13a5 5 0 0 0 7.1 0l3-3a5 5 0 0 0-7.1-7.1l-1.7 1.7" /><path d="M14 11a5 5 0 0 0-7.1 0l-3 3A5 5 0 0 0 11 21.1l1.7-1.7" /></Svg>
+}
+
+export function GlobeIcon(props) {
+  return <Svg {...props}><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" /></Svg>
+}
+
+export function LockIcon(props) {
+  return <Svg {...props}><rect x="4" y="11" width="16" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></Svg>
+}
+
+export function MailIcon(props) {
+  return <Svg {...props}><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 7 9 6 9-6" /></Svg>
+}
+
+export function ClockIcon(props) {
+  return <Svg {...props}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></Svg>
+}
+
+export function PinIcon(props) {
+  return <Svg {...props}><path d="M12 17v5M9 3h6l-1 6 3 4H7l3-4Z" /></Svg>
+}
+
+export function SparkleIcon(props) {
+  return <Svg {...props}><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8Z" /><path d="M19 15v4M17 17h4" /></Svg>
+}
+
+export function ThumbUpIcon(props) {
+  return <Svg {...props}><path d="M7 10v11H3V10ZM7 10l4-7a2.5 2.5 0 0 1 2.5 2.7L13 9h6.2a2 2 0 0 1 2 2.4l-1.3 7a2 2 0 0 1-2 1.6H7" /></Svg>
+}
+
+export function SendIcon(props) {
+  return <Svg {...props}><path d="m22 2-7 20-4-9-9-4Z" /><path d="M22 2 11 13" /></Svg>
+}
+
+export function ReplyIcon(props) {
+  return <Svg {...props}><path d="M9 14 4 9l5-5" /><path d="M4 9h10a6 6 0 0 1 6 6v3" /></Svg>
 }

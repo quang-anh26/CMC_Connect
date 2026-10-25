@@ -6,6 +6,7 @@ import LoadingState from '../components/LoadingState'
 import ErrorState from '../components/ErrorState'
 import { savedApi } from '../api/savedApi'
 import { videoApi } from '../api/videoApi'
+import { BookmarkIcon, ClockIcon, ExternalLinkIcon, FileIcon, FolderIcon, GlobeIcon, ImageIcon, LinkIcon, MoreVerticalIcon, PlayIcon, SearchIcon } from '../components/Icons'
 import '../styles/saved.css'
 import '../styles/saved-redesign.css'
 
@@ -45,9 +46,9 @@ function Thumb({ item, href }) {
     {src && isVideo && <video src={`${src}#t=0.5`} preload="metadata" muted playsInline tabIndex={-1}
       onLoadedMetadata={(event) => setDuration(formatDuration(event.currentTarget.duration))} onError={() => setFailed(true)} />}
     {src && !isVideo && <img src={src} alt="" loading="lazy" onError={() => setFailed(true)} />}
-    {!src && <span className="sv-thumb-fallback" aria-hidden="true">{item.contentType === 'LINK' ? hostOf(item.targetUrl).slice(0, 1).toUpperCase() || '↗' : isVideo ? '▶' : '▧'}</span>}
+    {!src && <span className="sv-thumb-fallback" aria-hidden="true">{item.contentType === 'LINK' ? hostOf(item.targetUrl).slice(0, 1).toUpperCase() || <ExternalLinkIcon size="1em" /> : isVideo ? <PlayIcon size="1em" /> : <ImageIcon size="1em" />}</span>}
     <span className="sv-badge">{typeLabel(item.contentType)}</span>
-    {isVideo && <span className="sv-play" aria-hidden="true">▶</span>}
+    {isVideo && <span className="sv-play" aria-hidden="true"><PlayIcon size="1em" /></span>}
     {isVideo && duration && <span className="sv-duration">{duration}</span>}
   </>
   return item.contentType === 'LINK' && item.targetUrl
@@ -227,22 +228,22 @@ export default function SavedPage() {
         <div className="sv-layout">
           <aside className="sv-sidebar">
             <header className="sv-side-head">
-              <span className="sv-side-mark" aria-hidden="true">▮</span>
+              <span className="sv-side-mark" aria-hidden="true"><BookmarkIcon size="1em" /></span>
               <div><h1>Đã lưu</h1><p>Nội dung bạn đã lưu để xem lại sau</p></div>
             </header>
             <button type="button" className={`sv-side-all ${!collectionId ? 'active' : ''}`} onClick={() => setCollectionId(null)}>
-              <span aria-hidden="true">▣</span>Tất cả<small>{totalCount}</small>
+              <span aria-hidden="true"><BookmarkIcon size="1em" /></span>Tất cả<small>{totalCount}</small>
             </button>
             <div className="sv-side-divider" />
             <div className="sv-collections-head"><strong>Bộ sưu tập</strong><button type="button" disabled={collectionBusy} onClick={createCollection} aria-label="Tạo bộ sưu tập" title="Tạo bộ sưu tập">＋</button></div>
             <div className="sv-collection-list">
               <div className={`sv-collection-row ${!collectionId ? 'active' : ''}`}>
-                <button type="button" className="sv-collection-select" onClick={() => setCollectionId(null)}><span className="sv-folder" aria-hidden="true">▤</span><span className="sv-collection-name">Tất cả nội dung đã lưu</span><small>{totalCount}</small></button>
+                <button type="button" className="sv-collection-select" onClick={() => setCollectionId(null)}><span className="sv-folder" aria-hidden="true"><FolderIcon size="1em" /></span><span className="sv-collection-name">Tất cả nội dung đã lưu</span><small>{totalCount}</small></button>
               </div>
               {collections.map((collection) => <div className={`sv-collection-row ${collectionId === collection.collectionId ? 'active' : ''}`} key={collection.collectionId}>
-                <button type="button" className="sv-collection-select" onClick={() => setCollectionId(collection.collectionId)}><span className="sv-folder" aria-hidden="true">▤</span><span className="sv-collection-name">{collection.name}</span><small>{collection.itemCount}</small></button>
+                <button type="button" className="sv-collection-select" onClick={() => setCollectionId(collection.collectionId)}><span className="sv-folder" aria-hidden="true"><FolderIcon size="1em" /></span><span className="sv-collection-name">{collection.name}</span><small>{collection.itemCount}</small></button>
                 <div className="sv-menu-wrap">
-                  <button type="button" className="sv-kebab" aria-label={`Tùy chọn ${collection.name}`} aria-expanded={menu === `c${collection.collectionId}`} onClick={() => setMenu(menu === `c${collection.collectionId}` ? null : `c${collection.collectionId}`)}>⋮</button>
+                  <button type="button" className="sv-kebab" aria-label={`Tùy chọn ${collection.name}`} aria-expanded={menu === `c${collection.collectionId}`} onClick={() => setMenu(menu === `c${collection.collectionId}` ? null : `c${collection.collectionId}`)}><MoreVerticalIcon size={18} /></button>
                   {menu === `c${collection.collectionId}` && <div className="sv-menu" role="menu"><button type="button" role="menuitem" onClick={() => renameCollection(collection)}>Đổi tên</button><button type="button" role="menuitem" onClick={() => deleteCollection(collection)}>Xóa bộ sưu tập</button></div>}
                 </div>
               </div>)}
@@ -250,19 +251,19 @@ export default function SavedPage() {
           </aside>
           <section className="sv-main">
             <header className="sv-hero">
-              <span className="sv-hero-icon" aria-hidden="true">▮</span>
+              <span className="sv-hero-icon" aria-hidden="true"><BookmarkIcon size="1em" /></span>
               <div className="sv-hero-copy"><span className="sv-eyebrow">CMC TALK · ĐÃ LƯU</span><h2>{heroTitle}</h2><p>Xem lại những nội dung bạn đã lưu, bao gồm bài viết, video, liên kết và các nội dung khác. Dễ dàng tìm kiếm và sắp xếp theo nhu cầu của bạn.</p></div>
               <div className="sv-hero-art" aria-hidden="true">
                 <span className="sv-art-folder"><i /></span>
-                <span className="sv-art-tile sv-art-doc">▤</span>
-                <span className="sv-art-tile sv-art-play">▶</span>
-                <span className="sv-art-tile sv-art-link">∞</span>
+                <span className="sv-art-tile sv-art-doc"><FileIcon size="1em" /></span>
+                <span className="sv-art-tile sv-art-play"><PlayIcon size="1em" /></span>
+                <span className="sv-art-tile sv-art-link"><LinkIcon size="1em" /></span>
               </div>
             </header>
             <div className="sv-toolbar">
               <button type="button" className="sv-all-chip" onClick={() => { setCollectionId(null) }}>Tất cả</button>
-              <label className="sv-search"><span aria-hidden="true">⌕</span><input value={searchInput} onChange={(event) => setSearchInput(event.target.value)} placeholder="Tìm kiếm trong mục đã lưu..." aria-label="Tìm kiếm nội dung đã lưu" />{searchInput && <button type="button" onClick={() => setSearchInput('')} aria-label="Xóa tìm kiếm">×</button>}</label>
-              <label className="sv-sort"><span aria-hidden="true">◷</span><select value={sort} onChange={(event) => setSort(event.target.value)} aria-label="Sắp xếp nội dung đã lưu"><option value="NEWEST">Mới lưu nhất</option><option value="OLDEST">Cũ nhất</option></select></label>
+              <label className="sv-search"><span aria-hidden="true"><SearchIcon size={18} /></span><input value={searchInput} onChange={(event) => setSearchInput(event.target.value)} placeholder="Tìm kiếm trong mục đã lưu..." aria-label="Tìm kiếm nội dung đã lưu" />{searchInput && <button type="button" onClick={() => setSearchInput('')} aria-label="Xóa tìm kiếm">×</button>}</label>
+              <label className="sv-sort"><span aria-hidden="true"><ClockIcon size={17} /></span><select value={sort} onChange={(event) => setSort(event.target.value)} aria-label="Sắp xếp nội dung đã lưu"><option value="NEWEST">Mới lưu nhất</option><option value="OLDEST">Cũ nhất</option></select></label>
             </div>
             {error && <ErrorState title="Có lỗi xảy ra" message={error} onRetry={() => { setError(''); loadCollections(); setRetryKey((current) => current + 1) }} />}
             {loading && <LoadingState variant="skeleton" lines={4} skeletonHeight={130} label="Đang tải nội dung đã lưu..." />}
@@ -277,21 +278,21 @@ export default function SavedPage() {
               return <article className="sv-card" key={item.savedItemId}>
                 <Thumb item={item} href={href} />
                 <div className="sv-info">
-                  {item.contentType !== 'VIDEO' && item.contentType !== 'LINK' && <span className="sv-kind">▤ {typeLabel(item.contentType)}</span>}
+                  {item.contentType !== 'VIDEO' && item.contentType !== 'LINK' && <span className="sv-kind"><FileIcon size="1em" /> {typeLabel(item.contentType)}</span>}
                   <h3 className="sv-title" title={title}>{title}</h3>
                   <div className="sv-source">
-                    {isLink ? <span className="sv-globe" aria-hidden="true">◍</span> : <Avatar src={item.authorAvatar} name={item.authorName} size={22} />}
+                    {isLink ? <span className="sv-globe" aria-hidden="true"><GlobeIcon size="1em" /></span> : <Avatar src={item.authorAvatar} name={item.authorName} size={22} />}
                     <span>{isLink ? hostOf(item.targetUrl) : (item.authorName || 'Nội dung đã lưu')}</span>
                   </div>
                   <div className="sv-meta">
-                    <span className="sv-saved-at"><i aria-hidden="true">▮</i>Đã lưu {timeAgo(item.savedAt)}</span>
+                    <span className="sv-saved-at"><i aria-hidden="true"><BookmarkIcon size="1em" filled /></i>Đã lưu {timeAgo(item.savedAt)}</span>
                     {item.collectionName && <span className="sv-chip" title="Bộ sưu tập">{item.collectionName}</span>}
                     <span className="sv-actions">
                       {isLink
-                        ? <a className="sv-icon-btn" href={item.targetUrl} target="_blank" rel="noreferrer" aria-label="Mở liên kết" title="Mở liên kết">↗</a>
-                        : <Link className="sv-icon-btn" to={href} aria-label="Mở nội dung" title="Mở nội dung">↗</Link>}
+                        ? <a className="sv-icon-btn" href={item.targetUrl} target="_blank" rel="noreferrer" aria-label="Mở liên kết" title="Mở liên kết"><ExternalLinkIcon size={17} /></a>
+                        : <Link className="sv-icon-btn" to={href} aria-label="Mở nội dung" title="Mở nội dung"><ExternalLinkIcon size={17} /></Link>}
                       <span className="sv-menu-wrap">
-                        <button type="button" className="sv-icon-btn" aria-label="Tùy chọn" aria-expanded={menu === `i${item.savedItemId}`} disabled={itemBusy === item.savedItemId} onClick={() => setMenu(menu === `i${item.savedItemId}` ? null : `i${item.savedItemId}`)}>⋮</button>
+                        <button type="button" className="sv-icon-btn" aria-label="Tùy chọn" aria-expanded={menu === `i${item.savedItemId}`} disabled={itemBusy === item.savedItemId} onClick={() => setMenu(menu === `i${item.savedItemId}` ? null : `i${item.savedItemId}`)}><MoreVerticalIcon size={18} /></button>
                         {menu === `i${item.savedItemId}` && <div className="sv-menu sv-menu-item" role="menu">
                           <span className="sv-menu-label">Chuyển vào bộ sưu tập</span>
                           <button type="button" role="menuitem" className={!item.collectionId ? 'on' : ''} onClick={() => changeCollection(item, '')}>Chưa phân loại</button>

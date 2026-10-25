@@ -4,7 +4,7 @@ import Avatar from '../components/Avatar'
 import { feedApi } from '../api/feedApi'
 import { videoApi } from '../api/videoApi'
 import { useAuth } from '../context/AuthContext'
-import { CommentIcon, ShareIcon } from '../components/Icons'
+import { BookmarkIcon, CommentIcon, PlayIcon, SearchIcon, ShareIcon, SparkleIcon, ThumbUpIcon, UserCheckIcon } from '../components/Icons'
 import EmptyState from '../components/EmptyState'
 import LoadingState from '../components/LoadingState'
 import ErrorState from '../components/ErrorState'
@@ -220,7 +220,7 @@ export default function VideosPage() {
         video: { ...current.video, shareCount: (current.video.shareCount || 0) + 1 },
       }))
       closeShareDialog()
-      setNotice('Đã chia sẻ video lên bảng tin.')
+      setNotice('Đã chia sẻ video lên trang chủ.')
     } catch (err) {
       setShareError(err.response?.data?.message || 'Không thể chia sẻ video. Vui lòng thử lại.')
     } finally {
@@ -244,23 +244,15 @@ export default function VideosPage() {
       <div className="video-layout">
         <aside className="video-sidebar">
           <header className="video-sidebar-heading">
-            <span className="video-sidebar-mark" aria-hidden="true"><span>▶</span></span>
+            <span className="video-sidebar-mark" aria-hidden="true"><span><PlayIcon size="1em" /></span></span>
             <div><span className="video-eyebrow">CMC TALK · VIDEO</span><h1>Video</h1></div>
           </header>
           <p className="video-sidebar-note">Khám phá, chia sẻ những khoảnh khắc đáng nhớ cùng cộng đồng CMC Talk!</p>
-          <label className="video-search"><span aria-hidden="true">⌕</span><input value={queryInput} onChange={(event) => setQueryInput(event.target.value)} placeholder="Tìm video, hashtag..." aria-label="Tìm video" />{queryInput && <button type="button" onClick={() => setQueryInput('')} aria-label="Xóa tìm kiếm">×</button>}</label>
+          <label className="video-search"><span aria-hidden="true"><SearchIcon size={18} /></span><input value={queryInput} onChange={(event) => setQueryInput(event.target.value)} placeholder="Tìm video, hashtag..." aria-label="Tìm video" />{queryInput && <button type="button" onClick={() => setQueryInput('')} aria-label="Xóa tìm kiếm">×</button>}</label>
           <nav className="video-nav" aria-label="Bảng tin video">
-            <button type="button" className={filter === 'ALL' ? 'active' : ''} onClick={() => setFilter('ALL')}><span>✦</span>Dành cho bạn</button>
-            <button type="button" className={filter === 'FOLLOWING' ? 'active' : ''} onClick={() => setFilter('FOLLOWING')}><span>◉</span>Đang theo dõi</button>
+            <button type="button" className={filter === 'ALL' ? 'active' : ''} onClick={() => setFilter('ALL')}><span><SparkleIcon size="1em" /></span>Dành cho bạn</button>
+            <button type="button" className={filter === 'FOLLOWING' ? 'active' : ''} onClick={() => setFilter('FOLLOWING')}><span><UserCheckIcon size="1em" /></span>Đang theo dõi</button>
           </nav>
-          <section className="video-trending-tags" aria-label="Hashtag phổ biến">
-            <h2>Hashtag phổ biến</h2>
-            <div>
-              {['#CMC', '#CôngNghệ', '#CuộcSống', '#HọcTập', '#GiảiTrí', '#TeamIT'].map((tag) => (
-                <button key={tag} type="button" className={query.toLowerCase() === tag.slice(1).toLowerCase() ? 'active' : ''} aria-pressed={query.toLowerCase() === tag.slice(1).toLowerCase()} onClick={() => setQueryInput(query.toLowerCase() === tag.slice(1).toLowerCase() ? '' : tag.slice(1))}>{tag}</button>
-              ))}
-            </div>
-          </section>
         </aside>
 
         <section className="video-feed" aria-label="Bảng tin video">
@@ -269,33 +261,33 @@ export default function VideosPage() {
               <span className="video-hero-badge">Video nổi bật</span>
               <h2>Khám phá thế giới<br />qua những thước phim</h2>
               <p>Từ những khoảnh khắc đời thường đến các nội dung hữu ích, chỉ có tại CMC Talk Video.</p>
-              <button type="button" onClick={() => videoListRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}><span aria-hidden="true">▶</span>Xem ngay</button>
+              <button type="button" onClick={() => videoListRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}><span aria-hidden="true"><PlayIcon size="1em" /></span>Xem ngay</button>
             </div>
             <div className="video-hero-art" aria-hidden="true">
               <span className="video-hero-orbit" />
-              <span className="video-hero-spark video-hero-spark-one">✦</span>
-              <span className="video-hero-spark video-hero-spark-two">✦</span>
+              <span className="video-hero-spark video-hero-spark-one"><SparkleIcon size="1em" /></span>
+              <span className="video-hero-spark video-hero-spark-two"><SparkleIcon size="1em" /></span>
               <span className="video-hero-camera">●</span>
-              <span className="video-hero-clapper"><span /><i>▶</i></span>
+              <span className="video-hero-clapper"><span /><i><PlayIcon size="1em" /></i></span>
             </div>
           </section>
           <div className="video-feed-heading" ref={videoListRef}>
-            <div><span className="video-heading-icon" aria-hidden="true">▶</span><h2>{query ? `Kết quả cho “${query}”` : filter === 'FOLLOWING' ? 'Video đang theo dõi' : 'Video đề xuất'}</h2></div>
+            <div><span className="video-heading-icon" aria-hidden="true"><PlayIcon size="1em" /></span><h2>{query ? `Kết quả cho “${query}”` : filter === 'FOLLOWING' ? 'Video đang theo dõi' : 'Video đề xuất'}</h2></div>
           </div>
           {loading && <div className="video-loading"><LoadingState variant="skeleton" lines={2} skeletonHeight={300} label="Đang tải video..." /></div>}
           {!loading && error && videos.length === 0 && <ErrorState title="Không tải được video" message={error} onRetry={() => { setError(''); setRetryKey((current) => current + 1) }} />}
           {!loading && !error && videos.length === 0 && <div className="video-empty">
             {query
               ? <EmptyState icon={<VideoEmptyArt variant="search" />} title={`Không tìm thấy video cho “${query}”`}
-                  description={filter === 'FOLLOWING' ? 'Không có video nào từ những người bạn theo dõi khớp với từ khóa này. Hãy thử từ khóa khác hoặc xóa bộ lọc.' : 'Hãy kiểm tra chính tả, thử từ khóa khác hoặc chọn một hashtag phổ biến ở bên trái.'}
+                  description={filter === 'FOLLOWING' ? 'Không có video nào từ những người bạn theo dõi khớp với từ khóa này. Hãy thử từ khóa khác hoặc xóa bộ lọc.' : 'Hãy kiểm tra chính tả, thử từ khóa khác.'}
                   action={<button type="button" className="ui-state__action" onClick={clearFilters}>Xóa bộ lọc</button>} />
               : filter === 'FOLLOWING'
                 ? <EmptyState icon={<VideoEmptyArt variant="following" />} title="Chưa có video từ người bạn theo dõi"
                     description="Nhấn “Theo dõi” trên video của một nhà sáng tạo để xem video mới của họ tại đây."
                     action={<button type="button" className="ui-state__action" onClick={() => setFilter('ALL')}>Khám phá video</button>} />
                 : <EmptyState icon={<VideoEmptyArt variant="none" />} title="Chưa có video nào"
-                    description="Hãy là người đầu tiên chia sẻ một khoảnh khắc. Video bạn đăng ở Bảng tin sẽ xuất hiện tại đây để mọi người cùng xem."
-                    action={<Link className="ui-state__action" to="/feed">Đăng video ở Bảng tin</Link>} />}
+                    description="Hãy là người đầu tiên chia sẻ một khoảnh khắc. Video bạn đăng ở Trang chủ sẽ xuất hiện tại đây để mọi người cùng xem."
+                    action={<Link className="ui-state__action" to="/feed">Đăng video ở Trang chủ</Link>} />}
           </div>}
 
           <div className="video-list">{videos.map((card) => {
@@ -325,7 +317,7 @@ export default function VideosPage() {
                 </div>
                 <button type="button" onClick={() => { const input = document.getElementById(`video-comment-${post.postId}`); input?.closest('details')?.setAttribute('open', ''); input?.focus() }}><CommentIcon size={17} /> {comments.length > 0 && <span className="action-count">{comments.length}</span>} Bình luận</button>
                 <button type="button" onClick={() => { setShareTarget(post); setShareCaption(''); setShareError('') }}><ShareIcon size={17} /> {post.shareCount > 0 && <span className="action-count">{post.shareCount}</span>} Chia sẻ</button>
-                <button type="button" className={card.savedByViewer ? 'saved-action-active' : ''} onClick={() => toggleSaved(card)} aria-pressed={!!card.savedByViewer}>{card.savedByViewer ? '▣ Đã lưu' : '▣ Lưu'}</button>
+                <button type="button" className={card.savedByViewer ? 'saved-action-active' : ''} onClick={() => toggleSaved(card)} aria-pressed={!!card.savedByViewer}><BookmarkIcon size="1.05em" filled={!!card.savedByViewer} /> {card.savedByViewer ? 'Đã lưu' : 'Lưu'}</button>
               </div>
               <details className="video-comments-disclosure">
                 <summary>{comments.length ? `Xem ${comments.length} bình luận` : 'Viết bình luận đầu tiên'}</summary>
@@ -365,7 +357,7 @@ export default function VideosPage() {
           </header>
           <div className="share-dialog-author">
             <Avatar src={user?.avatar} name={user?.displayName || user?.username || 'Bạn'} size={38} />
-            <div><strong>{user?.displayName || user?.username || 'Bạn'}</strong><small>Chia sẻ lên bảng tin</small></div>
+            <div><strong>{user?.displayName || user?.username || 'Bạn'}</strong><small>Chia sẻ lên trang chủ</small></div>
           </div>
           <textarea className="share-caption-input" value={shareCaption} onChange={(event) => setShareCaption(event.target.value)} placeholder="Viết điều gì đó về video này..." maxLength={10000} rows={3} />
           <div className="share-source-preview">

@@ -4,12 +4,18 @@ import Avatar from './Avatar'
 import {
   BellIcon,
   CalendarIcon,
+  BookmarkIcon,
   ChatIcon,
+  ChevronDown,
   FeedVideoIcon,
   FriendsIcon,
   GroupIcon,
+  HomeIcon,
+  LogoutIcon,
   MessengerLogo,
   SearchIcon,
+  SettingsIcon,
+  UserIcon,
 } from './Icons'
 import { groupApi } from '../api/groupApi'
 import { friendApi } from '../api/friendApi'
@@ -17,23 +23,6 @@ import { conversationApi } from '../api/conversationApi'
 import { userApi } from '../api/userApi'
 import { useAuth } from '../context/AuthContext'
 import SettingsModal from './SettingsModal'
-
-function HomeIcon({ size = 20 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="m3 10 9-7 9 7" />
-      <path d="M5 9v11h14V9M9 20v-6h6v6" />
-    </svg>
-  )
-}
-
-function SavedIcon({ size = 20 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M6 4.75A1.75 1.75 0 0 1 7.75 3h8.5A1.75 1.75 0 0 1 18 4.75V21l-6-4-6 4V4.75Z" />
-    </svg>
-  )
-}
 
 export default function AppTopBar() {
   const { user, logout } = useAuth()
@@ -184,7 +173,7 @@ export default function AppTopBar() {
     <>
       <header className="app-topbar">
       <div className="app-topbar-left">
-        <button className="app-topbar-brand" type="button" aria-label="Bảng tin" onClick={() => navigate('/feed')}>
+        <button className="app-topbar-brand" type="button" aria-label="Trang chủ" onClick={() => navigate('/feed')}>
           <MessengerLogo size={38} />
         </button>
         <div className="app-topbar-search" ref={searchRef}>
@@ -232,8 +221,8 @@ export default function AppTopBar() {
       </div>
 
       <nav className="app-topbar-navigation" aria-label="Điều hướng chính">
-        <NavLink to="/feed" end className={({ isActive }) => `app-topbar-link ${isActive ? 'active' : ''}`} aria-label="Bảng tin" title="Bảng tin">
-          <HomeIcon />
+        <NavLink to="/feed" end className={({ isActive }) => `app-topbar-link ${isActive ? 'active' : ''}`} aria-label="Trang chủ" title="Trang chủ">
+          <HomeIcon size={20} />
         </NavLink>
         <NavLink to="/video" className={({ isActive }) => `app-topbar-link ${isActive ? 'active' : ''}`} aria-label="Video" title="Video">
           <FeedVideoIcon size={20} />
@@ -248,7 +237,7 @@ export default function AppTopBar() {
           <CalendarIcon size={20} />
         </NavLink>
         <NavLink to="/saved" className={({ isActive }) => `app-topbar-link ${isActive ? 'active' : ''}`} aria-label="Đã lưu" title="Đã lưu">
-          <SavedIcon size={20} />
+          <BookmarkIcon size={20} />
         </NavLink>
       </nav>
 
@@ -272,7 +261,7 @@ export default function AppTopBar() {
             onClick={() => setAccountMenuOpen((open) => !open)}
           >
             <Avatar src={user?.avatar} name={profileName} size={36} />
-            <span className="app-account-menu-caret" aria-hidden="true">⌄</span>
+            <span className="app-account-menu-caret" aria-hidden="true"><ChevronDown size={14} /></span>
           </button>
           {accountMenuOpen && (
             <div className="app-account-menu" role="menu" aria-label="Menu tài khoản">
@@ -281,16 +270,16 @@ export default function AppTopBar() {
                 <div><strong>{profileName}</strong><span>@{user?.username || ''}</span></div>
               </div>
               <button type="button" role="menuitem" onClick={() => { setAccountMenuOpen(false); navigate('/feed/profile') }}>
-                <span className="app-account-menu-icon">◉</span>
+                <span className="app-account-menu-icon"><UserIcon size={18} /></span>
                 Xem trang cá nhân
               </button>
               <button type="button" role="menuitem" onClick={openSettings}>
-                <span className="app-account-menu-icon">⚙</span>
+                <span className="app-account-menu-icon"><SettingsIcon size={18} /></span>
                 Cài đặt và quyền riêng tư
               </button>
               <div className="app-account-menu-divider" />
               <button type="button" role="menuitem" className="app-account-logout" onClick={() => { setAccountMenuOpen(false); logout() }}>
-                <span className="app-account-menu-icon">⇥</span>
+                <span className="app-account-menu-icon"><LogoutIcon size={18} /></span>
                 Đăng xuất
               </button>
             </div>

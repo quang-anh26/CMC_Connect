@@ -21,7 +21,7 @@ spring:
   sql:
     init:
       mode: always
-      schema-locations: classpath:db/migration/ensure-user-cover-image.sql,classpath:db/migration/ensure-user-email.sql,classpath:db/migration/ensure-video-schema.sql,classpath:db/migration/ensure-message-request-schema.sql,classpath:db/migration/ensure-message-edit-schema.sql,classpath:db/migration/ensure-conversation-requests.sql,classpath:db/migration/ensure-conversation-background.sql
+      schema-locations: classpath:db/migration/ensure-user-cover-image.sql,classpath:db/migration/ensure-user-email.sql,classpath:db/migration/ensure-video-schema.sql,classpath:db/migration/ensure-message-request-schema.sql,classpath:db/migration/ensure-message-edit-schema.sql,classpath:db/migration/ensure-conversation-requests.sql,classpath:db/migration/ensure-conversation-background.sql,classpath:db/migration/ensure-group-unicode-columns.sql
 
   jpa:
     hibernate:

@@ -1,6 +1,7 @@
 package com.example.messaging.entity;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.Nationalized;
 import lombok.*;
 
 import java.time.LocalDateTime;
@@ -25,12 +26,14 @@ public class GroupEvent {
     @JoinColumn(name = "created_by", nullable = false)
     private User createdBy;
 
+    @Nationalized
     @Column(nullable = false, length = 120)
     private String title;
 
     @Column(columnDefinition = "NVARCHAR(2000)")
     private String description;
 
+    @Nationalized
     @Column(length = 200)
     private String location;
 

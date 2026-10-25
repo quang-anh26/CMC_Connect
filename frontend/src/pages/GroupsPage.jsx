@@ -5,6 +5,7 @@ import { SafeImage } from '../components/Avatar'
 import EmptyState from '../components/EmptyState'
 import LoadingState from '../components/LoadingState'
 import ErrorState from '../components/ErrorState'
+import { CheckIcon, GroupIcon, PlusIcon, SearchIcon, SparkleIcon, ExternalLinkIcon, UserCheckIcon } from '../components/Icons'
 import './GroupsPage.styles.css'
 
 const initialForm = { name: '', description: '', category: '', visibility: 'PUBLIC' }
@@ -75,12 +76,12 @@ export default function GroupsPage() {
   return (
     <main className="groups-page">
       <header className="groups-page-head groups-hero">
-        <div className="groups-hero-copy"><span className="groups-kicker">CMC TALK · CỘNG ĐỒNG</span><h1>Khám phá nhóm</h1><p>Tìm cộng đồng cùng sở thích, chia sẻ kiến thức và kết nối với mọi người.</p><div className="groups-hero-points"><span>✦ Cùng sở thích</span><span>◉ Kết nối cộng đồng</span><span>↗ Chia sẻ mỗi ngày</span></div></div>
-        <div className="groups-hero-action"><div className="groups-hero-icon" aria-hidden="true">♧</div><button className="ui-button ui-button--primary group-primary-button" type="button" onClick={() => setModalOpen(true)}><span aria-hidden="true">+</span> Tạo nhóm mới</button></div>
+        <div className="groups-hero-copy"><span className="groups-kicker">CMC TALK · CỘNG ĐỒNG</span><h1>Khám phá nhóm</h1><p>Tìm cộng đồng cùng sở thích, chia sẻ kiến thức và kết nối với mọi người.</p><div className="groups-hero-points"><span><SparkleIcon size="1em" /> Cùng sở thích</span><span><GroupIcon size="1em" /> Kết nối cộng đồng</span><span><ExternalLinkIcon size="1em" /> Chia sẻ mỗi ngày</span></div></div>
+        <div className="groups-hero-action"><div className="groups-hero-icon" aria-hidden="true"><GroupIcon size={30} /></div><button className="ui-button ui-button--primary group-primary-button" type="button" onClick={() => setModalOpen(true)}><PlusIcon size="1.1em" /> Tạo nhóm mới</button></div>
       </header>
 
       <div className="groups-toolbar">
-        <label className="groups-search"><span aria-hidden="true">⌕</span><input className="ui-input" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm nhóm theo tên" aria-label="Tìm nhóm" /></label>
+        <label className="groups-search"><span aria-hidden="true"><SearchIcon size={18} /></span><input className="ui-input" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm nhóm theo tên" aria-label="Tìm nhóm" /></label>
         <div className="groups-tabs ui-tabs" role="tablist" aria-label="Danh sách nhóm">
           <button type="button" role="tab" aria-selected={tab === 'discover'} className={`ui-tab${tab === 'discover' ? ' selected' : ''}`} onClick={() => setTab('discover')}>Gợi ý</button>
           <button type="button" role="tab" aria-selected={tab === 'mine'} className={`ui-tab${tab === 'mine' ? ' selected' : ''}`} onClick={() => setTab('mine')}>Nhóm của bạn</button>
@@ -107,7 +108,7 @@ export default function GroupsPage() {
         <div className="group-section-heading"><div><span className="groups-kicker">{tab === 'mine' ? 'ĐANG THAM GIA' : 'KHÁM PHÁ CỘNG ĐỒNG'}</span><h2>{tab === 'mine' ? 'Nhóm của bạn' : 'Có thể bạn quan tâm'}</h2></div><span className="group-result-count">{groups.length} nhóm</span></div>
         {loading ? <LoadingState label="Đang tải nhóm..." />
           : error ? <ErrorState title="Không tải được nhóm" message={error} onRetry={loadGroups} />
-            : groups.length === 0 ? <EmptyState icon="◌" title={tab === 'mine' ? 'Bạn chưa tham gia nhóm nào' : 'Chưa tìm thấy nhóm phù hợp'} description={tab === 'mine' ? 'Tham gia cộng đồng hoặc tạo nhóm đầu tiên.' : 'Thử từ khóa khác hoặc tạo một cộng đồng mới.'} />
+            : groups.length === 0 ? <EmptyState icon={<GroupIcon size={28} />} title={tab === 'mine' ? 'Bạn chưa tham gia nhóm nào' : 'Chưa tìm thấy nhóm phù hợp'} description={tab === 'mine' ? 'Tham gia cộng đồng hoặc tạo nhóm đầu tiên.' : 'Thử từ khóa khác hoặc tạo một cộng đồng mới.'} />
               : <div className="group-list">{groups.map((group) => <article className="group-list-item ui-card" key={group.groupId}>
                 <Link className="group-list-cover" to={`/groups/${group.groupId}`} style={group.coverImage ? { backgroundImage: `linear-gradient(0deg, rgba(9, 17, 23, .18), rgba(9, 17, 23, .04)), url("${group.coverImage}")` } : undefined} aria-label={`Mở nhóm ${group.name}`}>
                   <SafeImage src={group.avatar} fallback={<span>{group.name.slice(0, 1).toUpperCase()}</span>} />

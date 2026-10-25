@@ -2,6 +2,8 @@ package com.example.messaging.service;
 
 import com.example.messaging.entity.EmailVerification;
 import com.example.messaging.exception.ApiException;
+import com.example.messaging.repository.UserRepository;
+import com.example.messaging.util.StudentEmailPolicy;
 import com.example.messaging.repository.EmailVerificationRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -33,6 +35,7 @@ public class EmailVerificationService {
 
     private final EmailVerificationRepository verificationRepository;
     private final MailService mailService;
+    private final UserRepository userRepository;
 
     @Value("${app.jwt.secret}")
     private String hashSecret; // dùng làm "pepper" khi hash mã/token

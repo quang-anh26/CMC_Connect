@@ -505,3 +505,10 @@ input, textarea {
   color: var(--danger);
   font-size: 13px;
 }
+
+/* Shared SVG icons: sized by prop, inherit text colour, never shrink in flex rows */
+.ui-icon {
+  display: inline-block;
+  flex: none;
+  vertical-align: -0.125em;
+}

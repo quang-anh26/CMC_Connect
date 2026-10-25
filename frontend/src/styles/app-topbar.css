@@ -213,11 +213,26 @@
     padding-top: 0 !important;
     margin-top: 0 !important;
     align-self: start !important;
-    position: static !important;
-    top: auto !important;
+    position: sticky !important;
+    top: 0 !important;
   }
   .app-frame .feed-shell .feed-side-menu {
     margin-top: 0 !important;
     padding-top: 0 !important;
   }
 }
+
+/* Trang chủ: chỉ cột giữa cuộn; cột phải đứng yên (sticky) và không che nội dung.
+   Chiều cao tối đa = chiều cao vùng cuộn, nếu màn hình thấp thì tự cuộn bên trong cột. */
+.app-frame .feed-shell .feed-layout { align-items: start; }
+.app-frame .feed-shell .feed-right-rail {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  gap: 16px;
+  max-height: calc(100vh - 150px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+.app-frame .feed-shell .feed-right-rail::-webkit-scrollbar { display: none; }

@@ -1,6 +1,6 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
-import { MessengerLogo } from './Icons'
+import { GroupIcon, MessengerLogo } from './Icons'
 import {
   CheckIcon,
   MailIcon,
@@ -8,7 +8,6 @@ import {
   ShieldCheckIcon,
   UserIcon,
   UserPlusIcon,
-  UsersIcon,
   VideoIcon,
   ZapIcon,
 } from './AuthIcons'
@@ -22,7 +21,7 @@ const REGISTER_STEPS = [
 const FEATURES = [
   { icon: ZapIcon, title: 'Thời gian thực', desc: 'Tin nhắn đến ngay lập tức, 1-1 hoặc nhóm.' },
   { icon: VideoIcon, title: 'Gọi thoại & video', desc: 'Kết nối với bạn bè chỉ một cú chạm.' },
-  { icon: UsersIcon, title: 'Cộng đồng', desc: 'Bảng tin, nhóm và sự kiện trong một nơi.' },
+  { icon: GroupIcon, title: 'Cộng đồng', desc: 'Trang chủ, nhóm và sự kiện trong một nơi.' },
   { icon: ShieldCheckIcon, title: 'An toàn', desc: 'Xác thực email, mật khẩu được mã hóa.' },
 ]
 

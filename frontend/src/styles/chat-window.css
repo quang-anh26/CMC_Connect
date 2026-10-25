@@ -390,7 +390,7 @@
 }
 
 .inline-message-editor input {
-  background: rgba(15, 23, 42, 0.9);
+  background: var(--bg-input);
   border: 1px solid var(--border-light);
   border-radius: 10px;
   color: var(--text-primary);
@@ -417,14 +417,14 @@
   padding: 10px var(--space-3);
   border: 1px solid var(--border-light);
   border-radius: var(--radius-lg);
-  background: rgba(15, 23, 42, 0.45);
+  background: var(--color-surface-raised);
 }
 
 .conversation-search-input {
   width: 100%;
   border: 1px solid var(--border-light);
   border-radius: 10px;
-  background: rgba(15, 23, 42, 0.7);
+  background: var(--bg-input);
   color: var(--text-primary);
   padding: 9px 10px;
   font-size: 13px;
@@ -451,7 +451,7 @@
   width: 100%;
   text-align: left;
   border: 1px solid var(--border-light);
-  background: rgba(15, 23, 42, 0.3);
+  background: var(--color-surface-raised);
   border-radius: 10px;
   padding: var(--space-2) 10px;
   color: var(--text-primary);
@@ -572,7 +572,8 @@
 }
 
 .reply-preview-bar {
-  background: #141f2e;
+  background: var(--color-surface-raised);
+  color: var(--text-primary);
   padding: var(--space-2) var(--space-5);
   font-size: 12.5px;
   display: flex;
@@ -585,7 +586,7 @@
   position: absolute;
   bottom: 68px;
   left: 30px;
-  background: #141f2e;
+  background: var(--color-surface-raised);
   border: 1px solid var(--border-light);
   border-radius: var(--radius-lg);
   padding: var(--space-2);
@@ -603,7 +604,7 @@
 }
 
 .emoji-btn:hover {
-  background: #1e2c3e;
+  background: var(--bg-item-hover);
 }
 
 /* Chat Input Bar matching screenshot */

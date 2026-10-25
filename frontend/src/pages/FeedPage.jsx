@@ -11,7 +11,7 @@ import Avatar from '../components/Avatar'
 import EmptyState from '../components/EmptyState'
 import LoadingState from '../components/LoadingState'
 import ErrorState from '../components/ErrorState'
-import { BellIcon, CalendarIcon, ChatIcon, CommentIcon, FeedIcon, FeedVideoIcon, FriendsIcon, GroupIcon, ShareIcon } from '../components/Icons'
+import { BellIcon, BookmarkIcon, CalendarIcon, ChatIcon, CommentIcon, FeedVideoIcon, FriendsIcon, GroupIcon, HomeIcon, ImageIcon, PencilIcon, PlayIcon, ShareIcon } from '../components/Icons'
 import { useAuth } from '../context/AuthContext'
 
 const storyImage = 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=500&q=80'
@@ -23,10 +23,6 @@ const postReactions = [
   { type: 'ANGRY', label: 'Phẫn nộ', emoji: '😡' },
 ]
 const storyReactions = ['👍', '❤️', '😂', '😮', '😢', '😡']
-
-function SavedMenuIcon() {
-  return <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 4.75A1.75 1.75 0 0 1 7.75 3h8.5A1.75 1.75 0 0 1 18 4.75V21l-6-4-6 4V4.75Z" /></svg>
-}
 
 function PostReactionControl({ post, onSelect }) {
   const selectedReaction = postReactions.find((reaction) => reaction.type === post.viewerReaction)
@@ -397,7 +393,7 @@ export default function FeedPage() {
         )).filter((post) => post.postId !== sharedPost.postId),
       ])
       closeShareDialog()
-      setNotice('Bài viết đã được chia sẻ lên bảng tin của bạn.')
+      setNotice('Bài viết đã được chia sẻ lên trang chủ của bạn.')
     } catch (err) {
       setShareError(err.response?.data?.message || 'Không thể chia sẻ bài viết. Vui lòng thử lại.')
     } finally {
@@ -603,8 +599,8 @@ export default function FeedPage() {
           />
           <div className="composer-actions">
             <div className="composer-tools">
-              <button type="button" className={composerMode === 'text' ? 'selected' : ''} onClick={() => setComposerMode('text')}>✎ <span>Đăng bài</span></button>
-              <button type="button" className={composerMode === 'media' ? 'selected' : ''} onClick={() => { setComposerMode('media'); postMediaInputRef.current?.click() }}>▣ <span>Ảnh / Video</span></button>
+              <button type="button" className={composerMode === 'text' ? 'selected' : ''} onClick={() => setComposerMode('text')}><PencilIcon size="1.05em" /> <span>Đăng bài</span></button>
+              <button type="button" className={composerMode === 'media' ? 'selected' : ''} onClick={() => { setComposerMode('media'); postMediaInputRef.current?.click() }}><ImageIcon size="1.05em" /> <span>Ảnh / Video</span></button>
             </div>
             <button className="publish-button" type="submit" disabled={posting || (!content.trim() && !postFile)}>{posting ? 'Đang đăng...' : 'Đăng bài'}</button>
           </div>
@@ -612,7 +608,7 @@ export default function FeedPage() {
       </form>
 
       {error && <div className="feed-error">{error}</div>}
-      {feedLoadError && !loading && <ErrorState title="Không tải được bảng tin" message={feedLoadError} onRetry={loadPosts} />}
+      {feedLoadError && !loading && <ErrorState title="Không tải được trang chủ" message={feedLoadError} onRetry={loadPosts} />}
       {notice && <button className="feed-notice" type="button" onClick={() => setNotice('')}>{notice} ×</button>}
       {shareTarget && (
         <div className="share-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) closeShareDialog() }}>
@@ -623,7 +619,7 @@ export default function FeedPage() {
             </header>
             <div className="share-dialog-author">
               <Avatar src={user?.avatar} name={user?.displayName || user?.username || 'Bạn'} size={38} />
-              <div><strong>{user?.displayName || user?.username || 'Bạn'}</strong><small>Chia sẻ lên bảng tin</small></div>
+              <div><strong>{user?.displayName || user?.username || 'Bạn'}</strong><small>Chia sẻ lên trang chủ</small></div>
             </div>
             <textarea className="share-caption-input" value={shareCaption} onChange={(event) => setShareCaption(event.target.value)} placeholder="Viết điều gì đó về bài viết này..." maxLength={10000} rows={3} />
             {(() => {
@@ -641,8 +637,8 @@ export default function FeedPage() {
           </form>
         </div>
       )}
-      {loading && <LoadingState variant="skeleton" lines={3} skeletonHeight={150} label="Đang tải bảng tin..." />}
-      {!loading && !feedLoadError && posts.length === 0 && <EmptyState icon="✎" title="Chưa có bài viết nào" description="Hãy là người đầu tiên chia sẻ điều gì đó với mọi người." />}
+      {loading && <LoadingState variant="skeleton" lines={3} skeletonHeight={150} label="Đang tải trang chủ..." />}
+      {!loading && !feedLoadError && posts.length === 0 && <EmptyState icon={<PencilIcon size={28} />} title="Chưa có bài viết nào" description="Hãy là người đầu tiên chia sẻ điều gì đó với mọi người." />}
 
       <div className="feed-list">
         {posts.map((post) => (
@@ -681,7 +677,7 @@ export default function FeedPage() {
               <PostReactionControl post={post} onSelect={selectReaction} />
               <button type="button" onClick={() => document.getElementById(`comment-${post.postId}`)?.focus()}><CommentIcon size={17} /> {post.comments.length > 0 && <span className="action-count">{post.comments.length}</span>} Bình luận </button>
               <button type="button" onClick={() => { setShareTarget(post); setShareCaption('') }}><ShareIcon size={17} /> {post.shareCount > 0 && <span className="action-count">{post.shareCount}</span>} Chia sẻ </button>
-              <button type="button" className={post.savedByViewer ? 'saved-action-active' : ''} onClick={() => togglePostSaved(post)}>{post.savedByViewer ? '▣ Đã lưu' : '▣ Lưu'}</button>
+              <button type="button" className={post.savedByViewer ? 'saved-action-active' : ''} onClick={() => togglePostSaved(post)}><BookmarkIcon size="1.05em" filled={!!post.savedByViewer} /> {post.savedByViewer ? 'Đã lưu' : 'Lưu'}</button>
             </div>
             <div className="post-comments">
               {post.comments.map((comment) => (
@@ -715,10 +711,10 @@ export default function FeedPage() {
           <div className="feed-side-menu-items">
             <NavLink to="/friends" className="feed-side-link"><FriendsIcon size={23} /><span>Bạn bè</span></NavLink>
             <NavLink to="/events" className="feed-side-link"><CalendarIcon size={23} /><span>Sự kiện</span></NavLink>
-            <NavLink to="/saved" className="feed-side-link"><SavedMenuIcon /><span>Đã lưu</span></NavLink>
+            <NavLink to="/saved" className="feed-side-link"><BookmarkIcon size={23} /><span>Đã lưu</span></NavLink>
             <NavLink to="/groups" className="feed-side-link"><GroupIcon size={23} /><span>Nhóm</span></NavLink>
             <NavLink to="/video" className="feed-side-link"><FeedVideoIcon size={23} /><span>Video</span></NavLink>
-            <NavLink to="/feed" end className="feed-side-link"><FeedIcon size={23} /><span>Bảng tin</span></NavLink>
+            <NavLink to="/feed" end className="feed-side-link"><HomeIcon size={23} /><span>Trang chủ</span></NavLink>
             <NavLink to="/messages" className="feed-side-link"><ChatIcon size={23} /><span>Trò chuyện</span></NavLink>
             <NavLink to="/notifications" className="feed-side-link"><BellIcon size={23} /><span>Thông báo</span></NavLink>
           </div>
@@ -728,17 +724,13 @@ export default function FeedPage() {
       <aside className="feed-right-rail">
         <section className="aside-card preview-events-card">
           <div className="aside-heading"><strong>Sự kiện sắp tới</strong><span className="preview-label">Xem trước</span></div>
-          {upcomingEvents.length ? upcomingEvents.map((item) => <div className="preview-event" key={item.eventId}><span className="preview-event-icon">▦</span><div><strong>{item.title}</strong><small>{new Intl.DateTimeFormat('vi-VN', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(item.startsAt))}<br />{item.location}</small></div><button type="button" onClick={() => navigate(`/events/${item.eventId}`)}>Chi tiết</button></div>) : <EmptyState compact description="Chưa có sự kiện sắp tới." action={<button type="button" className="ui-state__action" onClick={() => navigate('/events')}>Xem sự kiện</button>} />}
+          {upcomingEvents.length ? upcomingEvents.map((item) => <div className="preview-event" key={item.eventId}><span className="preview-event-icon"><CalendarIcon size="1em" /></span><div><strong>{item.title}</strong><small>{new Intl.DateTimeFormat('vi-VN', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(item.startsAt))}<br />{item.location}</small></div><button type="button" onClick={() => navigate(`/events/${item.eventId}`)}>Chi tiết</button></div>) : <EmptyState compact description="Chưa có sự kiện sắp tới." action={<button type="button" className="ui-state__action" onClick={() => navigate('/events')}>Xem sự kiện</button>} />}
         </section>
         <section className="aside-card preview-video-card">
           <div className="aside-heading"><strong>Video gợi ý</strong><span className="preview-label">Xem trước</span></div>
-          <div className="preview-video-thumb" style={{ backgroundImage: `linear-gradient(0deg, rgba(8, 18, 38, .5), transparent), url(${storyImage})` }}><span>▶</span><small>3:45</small></div>
+          <div className="preview-video-thumb" style={{ backgroundImage: `linear-gradient(0deg, rgba(8, 18, 38, .5), transparent), url(${storyImage})` }}><span><PlayIcon size="1em" /></span><small>3:45</small></div>
           <strong className="preview-video-title">Hà Nội · Những khoảnh khắc bình yên</strong>
           <small className="preview-video-meta">Du lịch Việt Nam · 12K lượt xem</small>
-        </section>
-        <section className="aside-card preview-topics-card">
-          <div className="aside-heading"><strong>Chủ đề đang hot</strong><span className="preview-label">Xem trước</span></div>
-          <div className="preview-topic-list">{['#CNTT', '#LậpTrình', '#DuLịch', '#ÂmNhạc', '#Anime', '#CuộcSống'].map((topic) => <span key={topic}>{topic}</span>)}</div>
         </section>
       </aside>
       </div>

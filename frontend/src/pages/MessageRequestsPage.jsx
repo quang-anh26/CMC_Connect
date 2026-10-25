@@ -6,6 +6,7 @@ import LoadingState from '../components/LoadingState'
 import ErrorState from '../components/ErrorState'
 import { conversationApi } from '../api/conversationApi'
 import { getApiErrorMessage } from '../utils/apiError'
+import { MailIcon } from '../components/Icons'
 
 export default function MessageRequestsPage() {
   const [requests, setRequests] = useState([])
@@ -54,7 +55,7 @@ export default function MessageRequestsPage() {
         ) : error && requests.length === 0 ? (
           <ErrorState title="Không tải được tin nhắn chờ" message={error} onRetry={() => loadRequests()} />
         ) : requests.length === 0 ? (
-          <EmptyState icon="✉" title="Chưa có tin nhắn chờ" description="Tin nhắn từ người chưa kết bạn sẽ xuất hiện ở đây." />
+          <EmptyState icon={<MailIcon size={28} />} title="Chưa có tin nhắn chờ" description="Tin nhắn từ người chưa kết bạn sẽ xuất hiện ở đây." />
         ) : requests.map((request) => (
           <div key={request.conversationId} className="friend-request-row">
             <Avatar src={request.avatar} name={request.name} size={42} />

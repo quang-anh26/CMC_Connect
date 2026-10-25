@@ -6,6 +6,7 @@ import { conversationApi } from '../api/conversationApi'
 import Avatar from '../components/Avatar'
 import ErrorState from '../components/ErrorState'
 import LoadingState from '../components/LoadingState'
+import { BellIcon, CheckIcon, FriendsIcon, GroupIcon } from '../components/Icons'
 import './NotificationsPage.styles.css'
 
 function formatNotificationDate(value) {
@@ -30,7 +31,7 @@ function getNotificationDateGroup(value) {
 }
 
 function NotificationMark({ type }) {
-  return <span className={`notifications-mark notifications-mark--${type}`} aria-hidden="true">{type === 'friend' ? '♙' : '◎'}</span>
+  return <span className={`notifications-mark notifications-mark--${type}`} aria-hidden="true">{type === 'friend' ? <FriendsIcon size="1em" /> : <GroupIcon size="1em" />}</span>
 }
 
 export default function NotificationsPage() {
@@ -83,9 +84,9 @@ export default function NotificationsPage() {
   const friendCount = items.filter((item) => item.type === 'friend' && item.unread).length
   const groupCount = items.filter((item) => item.type === 'group' && item.unread).length
   const categoryFilters = [
-    { id: 'all', label: 'Tất cả thông báo', icon: '♧', count: unreadCount },
-    { id: 'friend', label: 'Lời mời kết bạn', icon: '♙', count: friendCount },
-    { id: 'group', label: 'Hoạt động nhóm', icon: '◎', count: groupCount },
+    { id: 'all', label: 'Tất cả thông báo', icon: <BellIcon size="1em" />, count: unreadCount },
+    { id: 'friend', label: 'Lời mời kết bạn', icon: <FriendsIcon size="1em" />, count: friendCount },
+    { id: 'group', label: 'Hoạt động nhóm', icon: <GroupIcon size="1em" />, count: groupCount },
   ]
   const groupedItems = useMemo(() => {
     const groups = new Map()
@@ -174,7 +175,7 @@ export default function NotificationsPage() {
         <div className="notifications-layout">
           <aside className="notifications-sidebar">
             <header className="notifications-sidebar-heading">
-              <span className="notifications-sidebar-icon" aria-hidden="true">🔔</span>
+              <span className="notifications-sidebar-icon" aria-hidden="true"><BellIcon size="1em" /></span>
               <div><h1>Thông báo</h1><p>Theo dõi các hoạt động mới nhất trên CMC Talk.</p></div>
             </header>
             <nav aria-label="Lọc theo loại thông báo">
@@ -198,7 +199,7 @@ export default function NotificationsPage() {
                 <div className="notifications-list-header-actions">
                   <span className="notifications-count">{visibleItems.length}</span>
                   <button type="button" className="notifications-mark-all" disabled={busyId === 'mark-all' || !groupNotifications.some((item) => !item.read)} onClick={markAllRead}>
-                    <span aria-hidden="true">✓</span><span>Đánh dấu thông báo nhóm đã đọc</span>
+                    <CheckIcon size="1em" /><span>Đánh dấu thông báo nhóm đã đọc</span>
                   </button>
                   <div className="notifications-menu-wrap">
                     <button type="button" className="notifications-menu-trigger" aria-label="Tùy chọn thông báo" aria-expanded={menuOpen} onClick={() => setMenuOpen((open) => !open)}>···</button>
@@ -215,7 +216,7 @@ export default function NotificationsPage() {
               {!loading && error && <div className="notifications-state"><ErrorState title="Không tải được thông báo" message={error} onRetry={() => { setLoading(true); loadNotifications() }} /></div>}
               {!loading && !error && visibleItems.length === 0 && (
                 <div className="notifications-empty">
-                  <span aria-hidden="true">✓</span>
+                  <CheckIcon size="1em" />
                   <strong>{tab === 'unread' ? 'Bạn đã xem hết thông báo mới' : 'Chưa có thông báo nào'}</strong>
                   <p>Khi có lời mời kết bạn hoặc hoạt động mới trong nhóm, thông báo sẽ xuất hiện ở đây.</p>
                 </div>

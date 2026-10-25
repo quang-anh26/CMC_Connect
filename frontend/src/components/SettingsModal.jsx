@@ -7,6 +7,7 @@ import { userApi } from '../api/userApi'
 import { blockApi } from '../api/blockApi'
 import { readThemeMode, saveThemeMode } from '../utils/theme'
 import {
+  ArrowLeftIcon,
   SpeakerIcon,
   SpeakerMuteIcon,
   MoonIcon,
@@ -147,7 +148,7 @@ export default function SettingsModal({ isOpen, onClose }) {
         <div className="settings-modal-header">
           <h2>Cài đặt</h2>
           <button className="settings-close-btn" onClick={onClose} title="Đóng">
-            <CloseIcon size={20} color="#b0b3b8" />
+            <CloseIcon size={20} />
           </button>
         </div>
 
@@ -186,7 +187,7 @@ export default function SettingsModal({ isOpen, onClose }) {
                 {/* Active status row */}
                 <div className="settings-item" onClick={toggleActiveStatus}>
                   <div className="settings-item-icon">
-                    <HeadphoneStatusIcon size={22} color="#0084ff" />
+                    <span style={{ display: 'inline-flex', color: 'var(--color-brand)' }}><HeadphoneStatusIcon size={22} /></span>
                   </div>
                   <div className="settings-item-content">
                     <div className="settings-item-title">
@@ -210,7 +211,7 @@ export default function SettingsModal({ isOpen, onClose }) {
                 {/* Âm thanh thông báo */}
                 <div className="settings-item toggle-row" onClick={toggleSound}>
                   <div className="settings-item-icon">
-                    <SpeakerIcon size={22} color="#b0b3b8" />
+                    <SpeakerIcon size={22} />
                   </div>
                   <div className="settings-item-content">
                     <div className="settings-item-title">Âm thanh thông báo</div>
@@ -233,7 +234,7 @@ export default function SettingsModal({ isOpen, onClose }) {
                 {/* Không làm phiền */}
                 <div className="settings-item toggle-row" onClick={toggleDND}>
                   <div className="settings-item-icon">
-                    <SpeakerMuteIcon size={22} color="#b0b3b8" />
+                    <SpeakerMuteIcon size={22} />
                   </div>
                   <div className="settings-item-content">
                     <div className="settings-item-title">Không làm phiền</div>
@@ -258,7 +259,7 @@ export default function SettingsModal({ isOpen, onClose }) {
               <div className="settings-section">
                 <div className="settings-item no-hover" style={{ alignItems: 'flex-start', paddingBottom: 4 }}>
                   <div className="settings-item-icon" style={{ marginTop: 2 }}>
-                    <MoonIcon size={22} color="#b0b3b8" />
+                    <MoonIcon size={22} />
                   </div>
                   <div className="settings-item-content">
                     <div className="settings-item-title">Chế độ tối</div>
@@ -301,7 +302,7 @@ export default function SettingsModal({ isOpen, onClose }) {
                 {/* Quản lý khoản thanh toán */}
                 <div className="settings-item" onClick={() => setActiveSubView('payment')}>
                   <div className="settings-item-icon">
-                    <CreditCardIcon size={22} color="#b0b3b8" />
+                    <CreditCardIcon size={22} />
                   </div>
                   <div className="settings-item-content">
                     <div className="settings-item-title">Quản lý khoản thanh toán</div>
@@ -311,7 +312,7 @@ export default function SettingsModal({ isOpen, onClose }) {
                 {/* Quản lý hoạt động gửi tin nhắn */}
                 <div className="settings-item" onClick={() => setActiveSubView('activity')}>
                   <div className="settings-item-icon">
-                    <MessageActivityIcon size={22} color="#b0b3b8" />
+                    <MessageActivityIcon size={22} />
                   </div>
                   <div className="settings-item-content">
                     <div className="settings-item-title">Quản lý hoạt động gửi tin nhắn</div>
@@ -321,7 +322,7 @@ export default function SettingsModal({ isOpen, onClose }) {
                 {/* Quản lý phần Chặn */}
                 <div className="settings-item" onClick={() => setActiveSubView('block')}>
                   <div className="settings-item-icon">
-                    <BlockMinusIcon size={22} color="#b0b3b8" />
+                    <BlockMinusIcon size={22} />
                   </div>
                   <div className="settings-item-content">
                     <div className="settings-item-title">Quản lý phần Chặn</div>
@@ -336,7 +337,7 @@ export default function SettingsModal({ isOpen, onClose }) {
           {activeSubView === 'profile' && (
             <div className="settings-subview">
               <button className="subview-back-btn" onClick={() => setActiveSubView(null)}>
-                ← Quay lại Cài đặt
+                <ArrowLeftIcon size="1.1em" /> Quay lại Cài đặt
               </button>
 
               <h3 style={{ margin: '14px 0 16px', fontSize: 18 }}>Trang cá nhân của bạn</h3>
@@ -417,7 +418,7 @@ export default function SettingsModal({ isOpen, onClose }) {
           {activeSubView === 'block' && (
             <div className="settings-subview">
               <button className="subview-back-btn" onClick={() => setActiveSubView(null)}>
-                ← Quay lại Cài đặt
+                <ArrowLeftIcon size="1.1em" /> Quay lại Cài đặt
               </button>
               <h3 style={{ margin: '14px 0 8px', fontSize: 18 }}>Quản lý phần Chặn</h3>
               <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 18 }}>
@@ -435,14 +436,14 @@ export default function SettingsModal({ isOpen, onClose }) {
           {activeSubView === 'payment' && (
             <div className="settings-subview">
               <button className="subview-back-btn" onClick={() => setActiveSubView(null)}>
-                ← Quay lại Cài đặt
+                <ArrowLeftIcon size="1.1em" /> Quay lại Cài đặt
               </button>
               <h3 style={{ margin: '14px 0 8px', fontSize: 18 }}>Quản lý khoản thanh toán</h3>
               <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 18 }}>
                 Xem lịch sử giao dịch và phương thức thanh toán của bạn trên CMC Talk.
               </p>
               <EmptyState
-                icon="💳"
+                icon={<CreditCardIcon size={30} />}
                 title="Chưa có phương thức thanh toán"
                 description="Các khoản thanh toán an toàn và bảo mật thông qua hệ thống CMC Talk."
               />
@@ -453,7 +454,7 @@ export default function SettingsModal({ isOpen, onClose }) {
           {activeSubView === 'activity' && (
             <div className="settings-subview">
               <button className="subview-back-btn" onClick={() => setActiveSubView(null)}>
-                ← Quay lại Cài đặt
+                <ArrowLeftIcon size="1.1em" /> Quay lại Cài đặt
               </button>
               <h3 style={{ margin: '14px 0 8px', fontSize: 18 }}>Quản lý hoạt động gửi tin nhắn</h3>
               <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 18 }}>

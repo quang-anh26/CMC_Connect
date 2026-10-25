@@ -18,12 +18,15 @@ import {
 } from '../components/AuthIcons'
 import { getApiErrorMessage, getFieldErrors } from '../utils/apiError'
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
+const STUDENT_EMAIL_DOMAIN = 'st.cmcu.edu.vn'
+// Chỉ nhận email sinh viên CMC: tên@st.cmcu.edu.vn
+const STUDENT_EMAIL_RE = /^[a-z0-9._%+-]+@st\.cmcu\.edu\.vn$/i
+const STUDENT_EMAIL_MESSAGE = `Vui lòng dùng email sinh viên có đuôi @${STUDENT_EMAIL_DOMAIN}`
 const USERNAME_RE = /^[A-Za-z0-9_.]{3,50}$/
 const CODE_LENGTH = 6
 
 const STEP_META = {
-  1: { title: 'Đăng ký', sub: 'Nhập email để nhận mã xác thực', badge: <UserPlusIcon size={28} /> },
+  1: { title: 'Đăng ký', sub: 'Dùng email sinh viên @st.cmcu.edu.vn để nhận mã xác thực', badge: <UserPlusIcon size={28} /> },
   2: { title: 'Xác thực email', sub: 'Nhập mã gồm 6 chữ số đã được gửi về email', badge: <ShieldCheckIcon size={28} /> },
   3: { title: 'Tạo tài khoản', sub: 'Chỉ còn một bước nữa để hoàn tất', badge: <UserIcon size={28} /> },
 }
@@ -97,8 +100,8 @@ export default function RegisterPage() {
     e?.preventDefault()
     setFormError('')
     const normalized = email.trim().toLowerCase()
-    if (!normalized) { setFieldErrors({ email: 'Vui lòng nhập email' }); return }
-    if (!EMAIL_RE.test(normalized)) { setFieldErrors({ email: 'Email không hợp lệ' }); return }
+    if (!normalized) { setFieldErrors({ email: 'Vui lòng nhập email sinh viên' }); return }
+    if (!normalized.includes('@') || !STUDENT_EMAIL_RE.test(normalized)) { setFieldErrors({ email: STUDENT_EMAIL_MESSAGE }); return }
     setFieldErrors({})
 
     setSubmitting(true)
@@ -208,7 +211,7 @@ export default function RegisterPage() {
       hero={{
         lead: 'Tham gia',
         accent: 'CMC Talk',
-        text: 'Tạo tài khoản chỉ với 3 bước. Xác thực email giúp bảo vệ tài khoản và giúp bạn bè dễ tìm thấy bạn hơn.',
+        text: 'Tạo tài khoản chỉ với 3 bước. Email sinh viên @st.cmcu.edu.vn dùng để định danh tài khoản, giúp bảo vệ bạn và giúp bạn bè dễ tìm thấy bạn hơn.',
       }}
       activeStep={step}
     >
@@ -222,9 +225,9 @@ export default function RegisterPage() {
                 type="email"
                 value={email}
                 onChange={(e) => { setEmail(e.target.value); clearError('email') }}
-                placeholder="Nhập địa chỉ email"
+                placeholder={`Email sinh viên (tên@${STUDENT_EMAIL_DOMAIN})`}
                 autoComplete="email"
-                aria-label="Email"
+                aria-label="Email sinh viên"
                 aria-invalid={Boolean(fieldErrors.email)}
                 autoFocus
               />

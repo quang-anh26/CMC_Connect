@@ -7,6 +7,7 @@ import { conversationApi } from '../api/conversationApi'
 import { userApi } from '../api/userApi'
 import { useAuth } from '../context/AuthContext'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { ArrowLeftIcon, CheckIcon, ExternalLinkIcon, FriendsIcon, MailIcon, PlusIcon, SendIcon, UserPlusIcon } from '../components/Icons'
 import '../styles/friends-suggestions.css'
 
 function EmptyRequests({ icon, title, description }) {
@@ -141,14 +142,16 @@ export default function FriendsPage() {
     const requestSent = sentRequestIds.includes(candidateId)
     const sending = sendingRequestIds.includes(candidateId)
     const detail = candidate.bio || candidate.location
+    // Màu nền thẻ ổn định theo từng người dùng (cùng id luôn ra cùng màu)
+    const hue = (Array.from(String(candidate.userId)).reduce((sum, char) => sum * 31 + char.charCodeAt(0), 7) * 47) % 360
     return (
       <article className="friends-suggestion-card" key={candidate.userId}>
-        <div className="friends-suggestion-photo">
+        <div className="friends-suggestion-photo" style={{ '--card-hue': hue }}>
           <Avatar
             className="friends-suggestion-avatar"
             src={candidate.avatar}
             name={candidate.displayName || candidate.username}
-            size={176}
+            size={112}
           />
           <button
             type="button"
@@ -162,7 +165,7 @@ export default function FriendsPage() {
         </div>
         <div className="friends-suggestion-info">
           <strong>{candidate.displayName || candidate.username}</strong>
-          {candidate.username && <span>@{candidate.username}</span>}
+          {candidate.username && <span className="friends-suggestion-handle">@{candidate.username}</span>}
           {detail && <small title={detail}>{detail}</small>}
         </div>
         <button
@@ -171,6 +174,7 @@ export default function FriendsPage() {
           disabled={requestSent || sending}
           onClick={() => sendFriendRequest(candidate.userId)}
         >
+          <span className="friends-suggestion-button-icon" aria-hidden="true">{requestSent ? <CheckIcon size="1em" /> : <PlusIcon size="1em" />}</span>
           {sending ? 'Đang gửi...' : requestSent ? 'Đã gửi lời mời' : 'Thêm bạn bè'}
         </button>
       </article>
@@ -182,7 +186,7 @@ export default function FriendsPage() {
       <main className="chat-area friends-page friends-all-suggestions">
         <header className="friends-page-topbar">
           <button type="button" className="friends-suggestions-back" onClick={() => navigate('/friends')}>
-            ← <span>Quay lại</span>
+            <ArrowLeftIcon size="1.1em" /> <span>Quay lại</span>
           </button>
           <div className="friends-topbar-copy">
             <span className="friends-eyebrow">CMC TALK · KẾT NỐI BẠN BÈ</span>
@@ -206,7 +210,7 @@ export default function FriendsPage() {
             </div>
           ) : visibleSuggestions.length === 0 ? (
             <EmptyRequests
-              icon="✦"
+              icon={<FriendsIcon size={28} />}
               title="Chưa có gợi ý phù hợp"
               description="Hiện không còn tài khoản nào phù hợp để gợi ý."
             />
@@ -223,7 +227,7 @@ export default function FriendsPage() {
   return (
     <div className="chat-area friends-page">
       <header className="friends-page-topbar">
-        <div className="friends-brand-mark" aria-hidden="true">✦</div>
+        <div className="friends-brand-mark" aria-hidden="true"><FriendsIcon size={22} /></div>
         <div className="friends-topbar-copy">
           <span className="friends-eyebrow">CMC TALK · KẾT NỐI BẠN BÈ</span>
           <strong>Lời mời kết bạn</strong>
@@ -256,7 +260,7 @@ export default function FriendsPage() {
             </div>
           ) : visibleSuggestions.length === 0 ? (
             <EmptyRequests
-              icon="✦"
+              icon={<FriendsIcon size={28} />}
               title="Chưa có gợi ý phù hợp"
               description="Hiện không còn tài khoản nào phù hợp để gợi ý."
             />
@@ -298,11 +302,11 @@ export default function FriendsPage() {
         {!loading && !error && <div className="friends-requests-grid">
           <section className="friends-request-card ui-card">
             <div className="friends-section-heading">
-              <div className="friends-section-icon received-icon">↓</div>
+              <div className="friends-section-icon received-icon"><UserPlusIcon size={18} /></div>
               <div><h2>Đã nhận</h2><p>Những người muốn kết nối với ông</p></div>
               <span className="friends-count-pill">{received.length}</span>
             </div>
-            {received.length === 0 ? <EmptyRequests icon="✉" title="Chưa có lời mời nào" description="Khi có người gửi lời mời kết bạn, thông tin sẽ xuất hiện tại đây." /> : (
+            {received.length === 0 ? <EmptyRequests icon={<MailIcon size={28} />} title="Chưa có lời mời nào" description="Khi có người gửi lời mời kết bạn, thông tin sẽ xuất hiện tại đây." /> : (
               <div className="friends-request-list">
                 {received.map((r) => (
                   <div key={r.id} className="friends-request-item">
@@ -324,15 +328,15 @@ export default function FriendsPage() {
 
           <section className="friends-request-card ui-card">
             <div className="friends-section-heading">
-              <div className="friends-section-icon sent-icon">↗</div>
+              <div className="friends-section-icon sent-icon"><SendIcon size={17} /></div>
               <div><h2>Đã gửi</h2><p>Những lời mời đang chờ phản hồi</p></div>
               <span className="friends-count-pill">{sent.length}</span>
             </div>
-            {sent.length === 0 ? <EmptyRequests icon="➤" title="Chưa gửi lời mời nào" description="Các lời mời ông gửi đi sẽ được tổng hợp tại đây để tiện theo dõi." /> : (
+            {sent.length === 0 ? <EmptyRequests icon={<SendIcon size={28} />} title="Chưa gửi lời mời nào" description="Các lời mời ông gửi đi sẽ được tổng hợp tại đây để tiện theo dõi." /> : (
               <div className="friends-request-list">
                 {sent.map((r) => (
                   <div key={r.id} className="friends-request-item friends-sent-item">
-                    <div className="friends-sent-avatar" aria-hidden="true">↗</div>
+                    <div className="friends-sent-avatar" aria-hidden="true"><SendIcon size={18} /></div>
                     <div className="friends-person-info">
                       <strong>Người dùng #{r.receiverId}</strong>
                       <span>Lời mời kết bạn đã gửi</span>

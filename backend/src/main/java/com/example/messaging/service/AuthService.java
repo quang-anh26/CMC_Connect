@@ -2,6 +2,7 @@ package com.example.messaging.service;
 
 import com.example.messaging.dto.auth.*;
 import com.example.messaging.entity.EmailVerification;
+import com.example.messaging.util.StudentEmailPolicy;
 import com.example.messaging.entity.RefreshToken;
 import com.example.messaging.entity.User;
 import com.example.messaging.entity.enums.Role;
@@ -52,12 +53,16 @@ public class AuthService {
     @Transactional
     public AuthResponse register(RegisterRequest request) {
         String email = EmailVerificationService.normalizeEmail(request.getEmail());
+        if (!StudentEmailPolicy.isValid(email)) throw ApiException.badRequest(StudentEmailPolicy.MESSAGE);
 
         // Email phải đã được xác thực bằng mã trước khi tạo tài khoản
         EmailVerification verification = emailVerificationService.requireVerified(email, request.getVerificationToken());
 
         if (userRepository.existsByUsername(request.getUsername())) {
             throw ApiException.conflict("Username đã tồn tại");
+        }
+        if (userRepository.existsByEmail(email)) {
+            throw ApiException.conflict("Email này đã được dùng cho một tài khoản");
         }
 
         User user = User.builder()

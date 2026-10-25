@@ -278,3 +278,78 @@
     scroll-behavior: auto;
   }
 }
+
+/* ===== Thẻ gợi ý kết bạn - kiểu mềm mại, bo góc lớn ===== */
+.chat-area.friends-page .friends-suggestion-card {
+  border-radius: 22px;
+  padding: 8px 8px 10px;
+  text-align: center;
+  box-shadow: 0 6px 20px rgb(31 65 117 / 8%);
+}
+.chat-area.friends-page .friends-suggestion-card:hover { transform: translateY(-3px); }
+.friends-suggestion-photo {
+  display: grid;
+  place-items: center;
+  height: 148px;
+  flex: 0 0 148px;
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 20% 15%, hsl(var(--card-hue, 215) 90% 96% / 90%), transparent 55%),
+    linear-gradient(145deg, hsl(var(--card-hue, 215) 85% 88%), hsl(calc(var(--card-hue, 215) + 25) 80% 78%));
+}
+[data-theme="dark"] .friends-suggestion-photo {
+  background:
+    radial-gradient(circle at 20% 15%, hsl(var(--card-hue, 215) 60% 34% / 70%), transparent 55%),
+    linear-gradient(145deg, hsl(var(--card-hue, 215) 45% 26%), hsl(calc(var(--card-hue, 215) + 25) 45% 20%));
+}
+.chat-area.friends-page .friends-suggestion-avatar {
+  width: 96px !important;
+  height: 96px !important;
+  border-radius: 50% !important;
+  border: 4px solid #fff;
+  box-shadow: 0 8px 18px rgb(20 45 90 / 22%);
+  overflow: hidden;
+}
+[data-theme="dark"] .chat-area.friends-page .friends-suggestion-avatar { border-color: #1f3350; }
+.chat-area.friends-page .friends-suggestion-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+.friends-suggestion-hide { top: 10px; right: 10px; width: 28px; height: 28px; border: 0; background: rgb(255 255 255 / 70%); color: #3b4d66; font-size: 19px; backdrop-filter: blur(4px); }
+.friends-suggestion-hide:hover { background: #fff; }
+[data-theme="dark"] .friends-suggestion-hide { background: rgb(15 26 42 / 60%); color: #e5edf9; }
+[data-theme="dark"] .friends-suggestion-hide:hover { background: rgb(15 26 42 / 88%); }
+.chat-area.friends-page .friends-suggestion-info { min-height: 76px; justify-items: center; gap: 5px; padding: 12px 8px 6px; }
+.chat-area.friends-page .friends-suggestion-info strong { max-width: 100%; font-size: 15px; }
+.chat-area.friends-page .friends-suggestion-handle {
+  max-width: 100%;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: rgb(40 124 240 / 10%);
+  color: #2a6fd0 !important;
+  font-size: 11px;
+}
+[data-theme="dark"] .chat-area.friends-page .friends-suggestion-handle { background: rgb(120 176 255 / 16%); color: #9cc6ff !important; }
+.chat-area.friends-page .friends-suggestion-info small { max-width: 100%; }
+.chat-area.friends-page .friends-suggestion-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 40px;
+  margin: 4px 8px 2px;
+  border-radius: 14px;
+  font-size: 12.5px;
+  font-weight: 800;
+}
+.friends-suggestion-button-icon { font-size: 16px; line-height: 1; }
+@media (max-width: 520px) {
+  .friends-suggestion-photo { height: 132px; flex-basis: 132px; }
+  .chat-area.friends-page .friends-suggestion-avatar { width: 84px !important; height: 84px !important; }
+}
+
+/* shape-overrides.css ép mọi card/button về bo góc 4px bằng !important (specificity #root).
+   Ghi đè riêng cho thẻ gợi ý kết bạn bằng #root#root (2 id) để thắng các :not() làm tăng specificity của rule gốc. */
+#root#root .chat-area.friends-page .friends-suggestion-card { border-radius: 22px !important; }
+#root#root .chat-area.friends-page .friends-suggestion-photo { border-radius: 16px !important; }
+#root#root .chat-area.friends-page .friends-suggestion-hide { border-radius: 50% !important; }
+#root#root .chat-area.friends-page .friends-suggestion-button { border-radius: 14px !important; }
+#root#root .chat-area.friends-page .friends-suggestion-arrow { border-radius: 50% !important; }
+#root#root .chat-area.friends-page .friends-suggestions-view-all { border-radius: 999px !important; }

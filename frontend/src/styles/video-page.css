@@ -24,7 +24,6 @@
   display: flex;
   flex-direction: column;
   gap: 18px;
-  min-height: min(630px, calc(100vh - 120px));
   padding: 20px 16px;
   border: 1px solid #24354e;
   border-radius: 18px;
@@ -151,35 +150,6 @@
   color: #fff;
   background: #287ff0;
 }
-
-.video-trending-tags {
-  display: grid;
-  gap: 11px;
-  padding: 16px 4px 0;
-  border-top: 1px solid #2a3a51;
-}
-
-.video-trending-tags h2 {
-  color: #c3d2e8;
-  font-size: 14px;
-}
-
-.video-trending-tags > div {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.video-trending-tags button {
-  padding: 8px 11px;
-  border-radius: 999px;
-  color: #82b8ff;
-  background: #1c3555;
-  font-size: 12px;
-  font-weight: 650;
-}
-
-.video-trending-tags button:hover { background: #294a72; }
 
 .video-feed {
   display: grid;
@@ -543,10 +513,6 @@
 [data-theme="light"] .video-nav button:hover,
 [data-theme="light"] .video-nav button.active { color: #1677f8; background: #e8f2ff; }
 [data-theme="light"] .video-nav button.active > span { color: #fff; background: #3289f6; }
-[data-theme="light"] .video-trending-tags { border-color: #e3ebf5; }
-[data-theme="light"] .video-trending-tags h2 { color: #4e6585; }
-[data-theme="light"] .video-trending-tags button { color: #2379e8; background: #eaf3ff; }
-[data-theme="light"] .video-trending-tags button:hover { background: #dcecff; }
 [data-theme="light"] .video-author-copy > a,
 [data-theme="light"] .video-description { color: #294263; }
 [data-theme="light"] .video-follow-button { color: #2478df; background: #edf5ff; }
@@ -594,8 +560,7 @@
   .video-nav { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
   .video-nav button { min-height: 42px; gap: 7px; padding: 0 7px; font-size: 12px; }
   .video-nav button > span { flex-basis: 29px; width: 29px; height: 29px; }
-  .video-nav-category,
-  .video-trending-tags { display: none; }
+  .video-nav-category { display: none; }
   .video-feed { gap: 16px; }
   .video-hero { min-height: 220px; padding: 20px; border-radius: 14px; }
   .video-hero-copy { width: 72%; }
@@ -627,5 +592,3 @@
 .video-empty-art { display: block; width: 150px; height: 112px; }
 .video-empty .ui-state__action { display: inline-flex; align-items: center; justify-content: center; min-height: 42px; padding: 0 22px; border: 0; border-radius: 9px; background: #0b6bff; color: #fff; font-weight: 800; text-decoration: none; cursor: pointer; }
 .video-empty .ui-state__action:hover { background: #0057d9; }
-.video-trending-tags button.active { background: #0b6bff; color: #fff; }
-[data-theme="light"] .video-trending-tags button.active { background: #0b6bff; color: #fff; }
