@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { feedApi } from '../api/feedApi'
 import { conversationApi } from '../api/conversationApi'
 import { storyApi } from '../api/storyApi'
@@ -8,6 +8,7 @@ import { messageApi } from '../api/messageApi'
 import { eventApi } from '../api/eventApi'
 import { savedApi } from '../api/savedApi'
 import Avatar from '../components/Avatar'
+import PostMenu from '../components/PostMenu'
 import EmptyState from '../components/EmptyState'
 import LoadingState from '../components/LoadingState'
 import ErrorState from '../components/ErrorState'
@@ -67,11 +68,13 @@ function LikeOutlineIcon() {
 
 export default function FeedPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { user } = useAuth()
   const [posts, setPosts] = useState([])
   const [upcomingEvents, setUpcomingEvents] = useState([])
   const [stories, setStories] = useState([])
   const [content, setContent] = useState('')
+  const [postPrivacy, setPostPrivacy] = useState('PUBLIC')
   const [postFile, setPostFile] = useState(null)
   const [postPreview, setPostPreview] = useState('')
   const [loading, setLoading] = useState(true)
@@ -102,6 +105,7 @@ export default function FeedPage() {
   const [notice, setNotice] = useState('')
   const postMediaInputRef = useRef(null)
   const storyTouchStartX = useRef(null)
+  const lastNotificationTarget = useRef('')
 
   const loadPosts = () => {
     setLoading(true)
@@ -120,6 +124,18 @@ export default function FeedPage() {
   useEffect(() => {
     loadPosts()
   }, [])
+
+  useEffect(() => {
+    const postId = new URLSearchParams(location.search).get('postId')
+    if (!postId || loading || !posts.length || lastNotificationTarget.current === `${location.search}:${postId}`) return
+    const target = document.querySelector(`[data-post-id="${CSS.escape(postId)}"]`)
+    if (target) {
+      lastNotificationTarget.current = `${location.search}:${postId}`
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      target.classList.add('post-card--notification-target')
+      window.setTimeout(() => target.classList.remove('post-card--notification-target'), 2400)
+    }
+  }, [location.search, loading, posts])
 
   useEffect(() => {
     eventApi.list('UPCOMING')
@@ -320,9 +336,10 @@ export default function FeedPage() {
           mediaType = uploadResponse.data.mediaType
         }
       }
-      const response = await feedApi.create({ content: trimmedContent || null, imageUrl, mediaType })
+      const response = await feedApi.create({ content: trimmedContent || null, imageUrl, mediaType, privacy: postPrivacy })
       setPosts((current) => [response.data, ...current])
       setContent('')
+      setPostPrivacy('PUBLIC')
       setPostFile(null)
       setComposerMode('text')
       if (postMediaInputRef.current) postMediaInputRef.current.value = ''
@@ -598,6 +615,12 @@ export default function FeedPage() {
             onChange={(event) => setPostFile(event.target.files?.[0] || null)}
           />
           <div className="composer-actions">
+            <label className="post-privacy-picker" title="Ai có thể xem bài viết này?">
+              <span aria-hidden="true">{postPrivacy === 'PUBLIC' ? '🌐' : postPrivacy === 'FRIENDS' ? '👥' : '🔒'}</span>
+              <select aria-label="Quyền riêng tư bài viết" value={postPrivacy} onChange={(event) => setPostPrivacy(event.target.value)}>
+                <option value="PUBLIC">Công khai</option><option value="FRIENDS">Bạn bè</option><option value="PRIVATE">Chỉ mình tôi</option>
+              </select>
+            </label>
             <div className="composer-tools">
               <button type="button" className={composerMode === 'text' ? 'selected' : ''} onClick={() => setComposerMode('text')}><PencilIcon size="1.05em" /> <span>Đăng bài</span></button>
               <button type="button" className={composerMode === 'media' ? 'selected' : ''} onClick={() => { setComposerMode('media'); postMediaInputRef.current?.click() }}><ImageIcon size="1.05em" /> <span>Ảnh / Video</span></button>
@@ -642,16 +665,23 @@ export default function FeedPage() {
 
       <div className="feed-list">
         {posts.map((post) => (
-          <article className="post-card" key={post.postId}>
+          <article className="post-card" data-post-id={post.postId} key={post.postId}>
             <div className="post-heading">
               <button type="button" className="feed-user-profile-link" onClick={() => navigate(`/feed/profile/${post.authorId}`)} aria-label={`Xem trang cá nhân ${post.authorName}`}><Avatar src={post.authorAvatar} name={post.authorName} size={42} /></button>
               <div className="post-author">
                 <button type="button" className="feed-author-profile-link" onClick={() => navigate(`/feed/profile/${post.authorId}`)}>{post.authorName}</button>
-                <span>{post.sharedPost && 'Đã chia sẻ · '}{formatPostTime(post.createdAt)}</span>
+                <span>{post.sharedPost && 'Đã chia sẻ · '}{formatPostTime(post.createdAt)} · <span className="post-privacy-indicator" title={`Quyền riêng tư: ${post.privacy === 'FRIENDS' ? 'Bạn bè' : post.privacy === 'PRIVATE' ? 'Chỉ mình tôi' : 'Công khai'}`}>{post.privacy === 'FRIENDS' ? '👥 Bạn bè' : post.privacy === 'PRIVATE' ? '🔒 Chỉ mình tôi' : '🌐 Công khai'}</span></span>
               </div>
-              {String(post.authorId) === String(user?.userId) && (
-                <button className="post-delete" type="button" onClick={() => deletePost(post.postId)} title="Xóa bài viết">Xóa</button>
-              )}
+              <PostMenu
+                post={post}
+                currentUserId={user?.userId}
+                onPostUpdated={(updated) => { setPosts((current) => current.map((item) => item.postId === updated.postId ? updated : item)); setNotice('Đã cập nhật quyền riêng tư.') }}
+                onPostDeleted={(deleted) => {
+                  const originalPostId = deleted?.sharedPost?.postId
+                  setPosts((current) => current.filter((item) => item.postId !== deleted.postId && (originalPostId || item.sharedPost?.postId !== deleted.postId)).map((item) => originalPostId && (item.postId === originalPostId || item.sharedPost?.postId === originalPostId) ? { ...item, shareCount: Math.max(0, (item.shareCount || 0) - 1) } : item))
+                }}
+                onError={setError}
+              />
             </div>
             {post.content && <p className="post-content">{post.content}</p>}
             {post.sharedPost ? (

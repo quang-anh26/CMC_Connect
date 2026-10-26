@@ -286,8 +286,7 @@ export default function VideosPage() {
                     description="Nhấn “Theo dõi” trên video của một nhà sáng tạo để xem video mới của họ tại đây."
                     action={<button type="button" className="ui-state__action" onClick={() => setFilter('ALL')}>Khám phá video</button>} />
                 : <EmptyState icon={<VideoEmptyArt variant="none" />} title="Chưa có video nào"
-                    description="Hãy là người đầu tiên chia sẻ một khoảnh khắc. Video bạn đăng ở Trang chủ sẽ xuất hiện tại đây để mọi người cùng xem."
-                    action={<Link className="ui-state__action" to="/feed">Đăng video ở Trang chủ</Link>} />}
+                    description="Khi có video được chia sẻ trên CMC Talk, video sẽ xuất hiện tại đây để bạn khám phá." />}
           </div>}
 
           <div className="video-list">{videos.map((card) => {

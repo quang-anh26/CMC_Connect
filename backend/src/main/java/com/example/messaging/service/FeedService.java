@@ -46,6 +46,7 @@ public class FeedService {
     private final FriendRequestRepository friendRequestRepository;
     private final VideoMediaTokenService videoMediaTokenService;
     private final SavedItemRepository savedItemRepository;
+    private final NotificationService notificationService;
 
     @Transactional(readOnly = true)
     public List<FeedPostResponse> list(Long viewerId) {
@@ -120,7 +121,9 @@ public class FeedService {
             throw ApiException.badRequest("Loại cảm xúc không hợp lệ");
         }
 
-        reactionRepository.findByPostPostIdAndUserUserId(postId, userId).ifPresentOrElse(reaction -> {
+        var existingReaction = reactionRepository.findByPostPostIdAndUserUserId(postId, userId);
+        if (existingReaction.isPresent()) {
+            SocialPostReaction reaction = existingReaction.get();
             String currentType = reaction.getReactionType() == null ? "LIKE" : reaction.getReactionType();
             if (currentType.equals(normalizedType)) {
                 reactionRepository.delete(reaction);
@@ -128,11 +131,12 @@ public class FeedService {
                 reaction.setReactionType(normalizedType);
                 reactionRepository.save(reaction);
             }
-        }, () -> reactionRepository.save(SocialPostReaction.builder()
-                .post(post)
-                .user(user)
-                .reactionType(normalizedType)
-                .build()));
+        } else {
+            reactionRepository.save(SocialPostReaction.builder()
+                    .post(post).user(user).reactionType(normalizedType).build());
+            notificationService.create(post.getAuthor().getUserId(), userId, "POST_REACTION", "POST", postId,
+                    "đã bày tỏ cảm xúc với bài viết của bạn.");
+        }
         return toResponse(post, userId);
     }
 
@@ -143,12 +147,16 @@ public class FeedService {
         SocialPostComment parentComment = request.getParentCommentId() == null ? null :
             commentRepository.findByCommentIdAndPostPostId(request.getParentCommentId(), postId)
                 .orElseThrow(() -> ApiException.badRequest("Bình luận trả lời không thuộc bài viết này"));
-        commentRepository.save(SocialPostComment.builder()
+        SocialPostComment savedComment = commentRepository.save(SocialPostComment.builder()
                 .post(post)
                 .author(author)
-            .parentComment(parentComment)
+                .parentComment(parentComment)
                 .content(request.getContent().trim())
                 .build());
+        User recipient = parentComment == null ? post.getAuthor() : parentComment.getAuthor();
+        String notificationType = parentComment == null ? "POST_COMMENT" : "COMMENT_REPLY";
+        String message = parentComment == null ? "đã bình luận về bài viết của bạn." : "đã trả lời bình luận của bạn.";
+        notificationService.create(recipient.getUserId(), authorId, notificationType, "POST", postId, message);
         return toResponse(post, authorId);
     }
 
@@ -165,6 +173,8 @@ public class FeedService {
                 .sharedPost(original)
                 .privacy(original.getPrivacy() == null ? "PUBLIC" : original.getPrivacy())
                 .build());
+        notificationService.create(original.getAuthor().getUserId(), sharerId, "POST_SHARED", "POST", original.getPostId(),
+                "đã chia sẻ bài viết của bạn.");
         return toResponse(sharedPost, sharerId);
     }
 

@@ -570,3 +570,7 @@
   .friends-suggestion-grid { grid-template-columns: minmax(0, 1fr); gap: 10px; }
   .friends-suggestion-card { padding: 12px; }
 }
+
+/* Brief highlight when a notification opens a specific feed post. */
+.post-card--notification-target { outline: 2px solid #3289f6 !important; outline-offset: 3px; animation: notification-post-highlight 2.4s ease-out; }
+@keyframes notification-post-highlight { 0%, 35% { box-shadow: 0 0 0 5px rgb(50 137 246 / 18%); } 100% { box-shadow: 0 0 0 0 rgb(50 137 246 / 0%); } }

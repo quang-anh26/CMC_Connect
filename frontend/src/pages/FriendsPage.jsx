@@ -6,7 +6,7 @@ import { friendApi } from '../api/friendApi'
 import { conversationApi } from '../api/conversationApi'
 import { userApi } from '../api/userApi'
 import { useAuth } from '../context/AuthContext'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { ArrowLeftIcon, CheckIcon, ExternalLinkIcon, FriendsIcon, MailIcon, PlusIcon, SendIcon, UserPlusIcon } from '../components/Icons'
 import '../styles/friends-suggestions.css'
 
@@ -145,34 +145,68 @@ export default function FriendsPage() {
     // Màu nền thẻ ổn định theo từng người dùng (cùng id luôn ra cùng màu)
     const hue = (Array.from(String(candidate.userId)).reduce((sum, char) => sum * 31 + char.charCodeAt(0), 7) * 47) % 360
     return (
-      <article className="friends-suggestion-card" key={candidate.userId}>
+      <article
+        className="friends-suggestion-card"
+        key={candidate.userId}
+        role="link"
+        tabIndex={0}
+        aria-label={`Mở trang cá nhân của ${candidate.displayName || candidate.username}`}
+        onClick={(event) => {
+          if (event.target.closest('.friends-suggestion-button')) return
+          if (event.target.closest('a')) return
+          navigate(`/feed/profile/${candidate.userId}`)
+        }}
+        onKeyDown={(event) => {
+          if (event.target !== event.currentTarget) return
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault()
+            navigate(`/feed/profile/${candidate.userId}`)
+          }
+        }}
+      >
         <div className="friends-suggestion-photo" style={{ '--card-hue': hue }}>
-          <Avatar
-            className="friends-suggestion-avatar"
-            src={candidate.avatar}
-            name={candidate.displayName || candidate.username}
-            size={112}
-          />
+          <Link
+            to={`/feed/profile/${candidate.userId}`}
+            className="friends-suggestion-avatar-link"
+            aria-label={`Xem trang cá nhân của ${candidate.displayName || candidate.username}`}
+          >
+            <Avatar
+              className="friends-suggestion-avatar"
+              src={candidate.avatar}
+              name={candidate.displayName || candidate.username}
+              size={112}
+            />
+          </Link>
           <button
             type="button"
             className="friends-suggestion-hide"
-            onClick={() => hideSuggestion(candidate.userId)}
-            aria-label={`Ẩn gợi ý ${candidate.displayName || candidate.username}`}
-            title="Ẩn gợi ý"
+            onClick={(event) => {
+              event.stopPropagation()
+              navigate(`/feed/profile/${candidate.userId}`)
+            }}
+            aria-label={`Mở trang cá nhân của ${candidate.displayName || candidate.username}`}
+            title="Xem trang cá nhân"
           >
             ×
           </button>
         </div>
-        <div className="friends-suggestion-info">
+        <Link
+          to={`/feed/profile/${candidate.userId}`}
+          className="friends-suggestion-info friends-suggestion-info-link"
+          aria-label={`Xem trang cá nhân của ${candidate.displayName || candidate.username}`}
+        >
           <strong>{candidate.displayName || candidate.username}</strong>
           {candidate.username && <span className="friends-suggestion-handle">@{candidate.username}</span>}
           {detail && <small title={detail}>{detail}</small>}
-        </div>
+        </Link>
         <button
           type="button"
           className={`friends-suggestion-button ${requestSent ? 'is-sent' : ''}`}
           disabled={requestSent || sending}
-          onClick={() => sendFriendRequest(candidate.userId)}
+          onClick={(event) => {
+            event.stopPropagation()
+            sendFriendRequest(candidate.userId)
+          }}
         >
           <span className="friends-suggestion-button-icon" aria-hidden="true">{requestSent ? <CheckIcon size="1em" /> : <PlusIcon size="1em" />}</span>
           {sending ? 'Đang gửi...' : requestSent ? 'Đã gửi lời mời' : 'Thêm bạn bè'}

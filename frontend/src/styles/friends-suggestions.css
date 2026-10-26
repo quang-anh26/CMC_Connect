@@ -135,6 +135,12 @@
   box-shadow: 0 10px 22px rgb(31 65 117 / 12%);
 }
 
+.chat-area.friends-page .friends-suggestion-card[role="link"] { cursor: pointer; }
+.chat-area.friends-page .friends-suggestion-card[role="link"]:focus-visible {
+  outline: 3px solid rgb(45 126 247 / 55%);
+  outline-offset: 3px;
+}
+
 .friends-suggestion-photo {
   position: relative;
   width: 100%;
@@ -151,6 +157,40 @@
 
 .chat-area.friends-page .friends-suggestion-avatar img {
   object-fit: cover;
+}
+
+
+/* Profile links in suggestion cards */
+.chat-area.friends-page .friends-suggestion-avatar-link {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.chat-area.friends-page .friends-suggestion-avatar-link:focus-visible,
+.chat-area.friends-page .friends-suggestion-info-link:focus-visible {
+  outline: 2px solid #1877f2;
+  outline-offset: 3px;
+  border-radius: 8px;
+}
+
+.chat-area.friends-page .friends-suggestion-info-link {
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.chat-area.friends-page .friends-suggestion-info-link:hover strong {
+  color: #1877f2;
+}
+
+.chat-area.friends-page .friends-suggestion-hide {
+  z-index: 2;
 }
 
 .friends-suggestion-hide {

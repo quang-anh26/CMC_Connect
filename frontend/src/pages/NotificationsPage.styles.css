@@ -286,6 +286,11 @@
 }
 
 .notification-card:hover { border-color: #dce9f8; background: #fafdff; }
+.notification-card--clickable { cursor: pointer; }
+.notification-card--clickable:focus-visible { outline: 2px solid #3289f6; outline-offset: 2px; }
+.notification-remove { display: grid; flex: 0 0 28px; width: 28px; height: 28px; place-items: center; border: 0; border-radius: 50%; color: #6f829a; background: transparent; font-size: 20px; cursor: pointer; }
+.notification-remove:hover { color: #c33b4b; background: #fff0f1; }
+.notification-remove:disabled { opacity: .45; cursor: wait; }
 .notification-card.is-unread { border-color: #e3efff; background: #f7fbff; }
 .notification-card.is-unread:hover { background: #f0f7ff; }
 
@@ -327,6 +332,9 @@
 }
 
 .notifications-mark--group { background: #8b55e9; }
+.notifications-mark--message { background: #0f9d8a; }
+.notifications-mark--event { background: #df8a20; }
+.notifications-mark--post { background: #397fe7; }
 
 .notification-copy {
   flex: 1;
@@ -470,6 +478,8 @@
 [data-theme="dark"] .notifications-menu button:hover { background: #293d59; }
 [data-theme="dark"] .notification-card { border-color: #293b55; background: #1a2a40; }
 [data-theme="dark"] .notification-card:hover { border-color: #395577; background: #203550; }
+[data-theme="dark"] .notification-remove { color: #b7c7dd; }
+[data-theme="dark"] .notification-remove:hover { color: #ffabb5; background: #442b39; }
 [data-theme="dark"] .notification-card.is-unread { border-color: #31547c; background: #1b3452; }
 [data-theme="dark"] .notification-card.is-unread:hover { background: #203d60; }
 [data-theme="dark"] .notification-copy p { color: #c2d0e2; }

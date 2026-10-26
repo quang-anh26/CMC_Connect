@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import Avatar from '../components/Avatar'
+import PostMenu from '../components/PostMenu'
 import EmptyState from '../components/EmptyState'
 import LoadingState from '../components/LoadingState'
 import { conversationApi } from '../api/conversationApi'
@@ -69,6 +70,7 @@ export default function ProfilePage() {
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [composerText, setComposerText] = useState('')
+  const [composerPrivacy, setComposerPrivacy] = useState('PUBLIC')
   const [composerFile, setComposerFile] = useState(null)
   const [posting, setPosting] = useState(false)
   const [commentDrafts, setCommentDrafts] = useState({})
@@ -242,9 +244,10 @@ export default function ProfilePage() {
         imageUrl = upload.data.url
         mediaType = upload.data.mediaType
       }
-      const { data } = await feedApi.create({ content: composerText.trim() || null, imageUrl, mediaType })
+      const { data } = await feedApi.create({ content: composerText.trim() || null, imageUrl, mediaType, privacy: composerPrivacy })
       setPosts((current) => [data, ...current])
       setComposerText('')
+      setComposerPrivacy('PUBLIC')
       setComposerFile(null)
       if (mediaInputRef.current) mediaInputRef.current.value = ''
       setNotice('Bài viết đã được đăng.')
@@ -440,17 +443,25 @@ export default function ProfilePage() {
             {(activeTab === 'Bài viết' || activeTab === 'Ảnh' || activeTab === 'Video') && (
               <>
                 {activeTab === 'Bài viết' && isOwnProfile && (
-                  <form className="profile-composer" onSubmit={publishProfilePost}>
-                    <div className="profile-composer-top"><Avatar src={avatar} name={profileName} size={40} /><textarea value={composerText} onChange={(event) => setComposerText(event.target.value)} placeholder={`${profileName} ơi, bạn đang nghĩ gì?`} rows={2} /></div>
-                    {composerPreview && <div className="profile-composer-preview">{composerFile?.type.startsWith('video/') ? <video src={composerPreview} controls /> : <img src={composerPreview} alt="Ảnh xem trước" />}<button type="button" onClick={() => setComposerFile(null)}>×</button></div>}
-                    <div className="profile-composer-actions"><label><ImageIcon size="1.1em" /> Ảnh/Video<input ref={mediaInputRef} type="file" accept="image/*,video/*" onChange={(event) => setComposerFile(event.target.files?.[0] || null)} /></label><button type="submit" disabled={posting || (!composerText.trim() && !composerFile)}>{posting ? 'Đang đăng...' : 'Đăng bài'}</button></div>
+                  <form className="create-post-card profile-composer" onSubmit={publishProfilePost}>
+                    <Avatar src={avatar} name={profileName} size={42} />
+                    <div className="create-post-main">
+                      <textarea value={composerText} onChange={(event) => setComposerText(event.target.value)} placeholder={`${profileName} ơi, bạn đang nghĩ gì?`} rows={1} maxLength={10000} />
+                      {composerPreview && <div className="post-composer-preview profile-composer-preview">{composerFile?.type.startsWith('video/') ? <video src={composerPreview} controls /> : <img src={composerPreview} alt="Ảnh xem trước" />}<button type="button" onClick={() => { setComposerFile(null); if (mediaInputRef.current) mediaInputRef.current.value = '' }} aria-label="Bỏ tệp đã chọn">×</button></div>}
+                      <input ref={mediaInputRef} type="file" accept="image/*,video/*" hidden onChange={(event) => setComposerFile(event.target.files?.[0] || null)} />
+                      <div className="composer-actions profile-composer-actions">
+                        <label className="post-privacy-picker" title="Ai có thể xem bài viết này?"><span aria-hidden="true">{composerPrivacy === 'PUBLIC' ? '🌐' : composerPrivacy === 'FRIENDS' ? '👥' : '🔒'}</span><select aria-label="Quyền riêng tư bài viết" value={composerPrivacy} onChange={(event) => setComposerPrivacy(event.target.value)}><option value="PUBLIC">Công khai</option><option value="FRIENDS">Bạn bè</option><option value="PRIVATE">Chỉ mình tôi</option></select></label>
+                        <div className="composer-tools"><button type="button" onClick={() => mediaInputRef.current?.click()}><ImageIcon size="1.05em" /> <span>Ảnh / Video</span></button></div>
+                        <button className="publish-button" type="submit" disabled={posting || (!composerText.trim() && !composerFile)}>{posting ? 'Đang đăng...' : 'Đăng bài'}</button>
+                      </div>
+                    </div>
                   </form>
                 )}
                 {loading && <LoadingState variant="skeleton" lines={2} skeletonHeight={110} label="Đang tải bài viết..." />}
                 {!loading && tabPosts.length === 0 && <EmptyState title={activeTab === 'Ảnh' ? 'Chưa có ảnh' : activeTab === 'Video' ? 'Chưa có video' : 'Chưa có bài viết'} description={isOwnProfile ? 'Bài viết của bạn sẽ hiển thị tại đây.' : 'Bài viết của người dùng sẽ hiển thị tại đây.'} />}
                 {tabPosts.map((post) => (
-                  <article className="profile-post-card" key={post.postId}>
-                    <header><Avatar src={post.authorAvatar || avatar} name={post.authorName || profileName} size={42} /><div><strong>{post.authorName || profileName}</strong><small>{formatProfileTime(post.createdAt)}</small></div><button type="button" aria-label="Tùy chọn bài viết">···</button></header>
+                  <article className="profile-post-card post-card" key={post.postId}>
+                    <header><Avatar src={post.authorAvatar || avatar} name={post.authorName || profileName} size={42} /><div className="profile-post-author"><strong>{post.authorName || profileName}</strong><small>{formatProfileTime(post.createdAt)} · <span className="post-privacy-indicator">{post.privacy === 'FRIENDS' ? '👥 Bạn bè' : post.privacy === 'PRIVATE' ? '🔒 Chỉ mình tôi' : '🌐 Công khai'}</span></small></div><PostMenu post={post} currentUserId={user?.userId} onPostUpdated={(updated) => setPosts((current) => current.map((item) => item.postId === updated.postId ? updated : item))} onPostDeleted={(deleted) => setPosts((current) => current.filter((item) => item.postId !== deleted.postId))} onError={setError} /></header>
                     {post.content && <p className="profile-post-content">{post.content}</p>}
                     {post.sharedPost && <div className="shared-post-preview"><div className="shared-post-heading"><Avatar src={post.sharedPost.authorAvatar} name={post.sharedPost.authorName} size={32} /><div><strong>{post.sharedPost.authorName}</strong><small>{formatProfileTime(post.sharedPost.createdAt)}</small></div></div>{post.sharedPost.content && <p>{post.sharedPost.content}</p>}{post.sharedPost.mediaType === 'VIDEO' ? <video className="shared-post-media" src={post.sharedPost.imageUrl} controls /> : post.sharedPost.imageUrl && <img className="shared-post-media" src={post.sharedPost.imageUrl} alt="Shared post" />}</div>}
                     {post.mediaType === 'VIDEO' ? <video className="profile-post-media" src={post.imageUrl} controls /> : post.imageUrl && <img className="profile-post-media" src={post.imageUrl} alt="Ảnh trong bài viết" />}

@@ -21,6 +21,7 @@ import { groupApi } from '../api/groupApi'
 import { friendApi } from '../api/friendApi'
 import { conversationApi } from '../api/conversationApi'
 import { userApi } from '../api/userApi'
+import { notificationApi } from '../api/notificationApi'
 import { useAuth } from '../context/AuthContext'
 import SettingsModal from './SettingsModal'
 
@@ -50,18 +51,18 @@ export default function AppTopBar() {
   useEffect(() => {
     let active = true
     const loadNavigationCounts = async () => {
-      const [friends, groups, conversations, requests] = await Promise.allSettled([
+      const [friends, groups, conversations, requests, activities] = await Promise.allSettled([
         friendApi.received(),
         groupApi.notifications(),
         conversationApi.list(),
         conversationApi.requests(),
+        notificationApi.unreadCount(),
       ])
       if (!active) return
-      if (friends.status === 'fulfilled' && groups.status === 'fulfilled') {
-        const friendCount = (friends.value.data || []).length
-        const groupCount = (groups.value.data || []).filter((item) => !item.read).length
-        setNotificationCount(friendCount + groupCount)
-      }
+      const friendCount = friends.status === 'fulfilled' ? (friends.value.data || []).length : 0
+      const groupCount = groups.status === 'fulfilled' ? (groups.value.data || []).filter((item) => !item.read).length : 0
+      const activityCount = activities.status === 'fulfilled' ? Number(activities.value.data?.count || 0) : 0
+      setNotificationCount(friendCount + groupCount + activityCount)
       if (conversations.status === 'fulfilled') {
         setUnreadMessageCount((conversations.value.data || []).reduce(
           (total, conversation) => total + (Number(conversation.unreadCount) || 0),
@@ -77,11 +78,13 @@ export default function AppTopBar() {
     const intervalId = window.setInterval(loadNavigationCounts, 30000)
     window.addEventListener('focus', loadNavigationCounts)
     window.addEventListener('cmctalk-conversations-updated', loadNavigationCounts)
+    window.addEventListener('cmctalk-notifications-updated', loadNavigationCounts)
     return () => {
       active = false
       window.clearInterval(intervalId)
       window.removeEventListener('focus', loadNavigationCounts)
       window.removeEventListener('cmctalk-conversations-updated', loadNavigationCounts)
+      window.removeEventListener('cmctalk-notifications-updated', loadNavigationCounts)
     }
   }, [])
 
