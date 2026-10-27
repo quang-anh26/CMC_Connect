@@ -108,6 +108,16 @@ public class FeedService {
     }
 
     @Transactional
+    public FeedPostResponse updatePrivacy(Long postId, Long authorId, String requestedPrivacy) {
+        SocialPost post = getPost(postId);
+        if (!post.getAuthor().getUserId().equals(authorId)) {
+            throw ApiException.forbidden("Chỉ tác giả mới có thể thay đổi quyền riêng tư bài viết");
+        }
+        post.setPrivacy(normalizePrivacy(requestedPrivacy));
+        return toResponse(postRepository.save(post), authorId);
+    }
+
+    @Transactional
     public FeedPostResponse toggleLike(Long postId, Long userId) {
         return setReaction(postId, userId, "LIKE");
     }

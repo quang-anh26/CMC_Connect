@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { feedApi } from '../api/feedApi'
 import { conversationApi } from '../api/conversationApi'
@@ -24,6 +25,7 @@ const postReactions = [
   { type: 'ANGRY', label: 'Phẫn nộ', emoji: '😡' },
 ]
 const storyReactions = ['👍', '❤️', '😂', '😮', '😢', '😡']
+const postEmojis = ['😀', '😄', '😍', '🥰', '😂', '😊', '😎', '🤔', '😢', '😡', '🎉', '❤️']
 
 function PostReactionControl({ post, onSelect }) {
   const selectedReaction = postReactions.find((reaction) => reaction.type === post.viewerReaction)
@@ -101,9 +103,10 @@ export default function FeedPage() {
   const [shareError, setShareError] = useState('')
   const [commentDrafts, setCommentDrafts] = useState({})
   const [error, setError] = useState('')
-  const [composerMode, setComposerMode] = useState('text')
+  const [emojiPickerOpen, setEmojiPickerOpen] = useState(false)
   const [notice, setNotice] = useState('')
   const postMediaInputRef = useRef(null)
+  const postTextAreaRef = useRef(null)
   const storyTouchStartX = useRef(null)
   const lastNotificationTarget = useRef('')
 
@@ -341,13 +344,26 @@ export default function FeedPage() {
       setContent('')
       setPostPrivacy('PUBLIC')
       setPostFile(null)
-      setComposerMode('text')
+      setEmojiPickerOpen(false)
       if (postMediaInputRef.current) postMediaInputRef.current.value = ''
     } catch (err) {
       setError(err.response?.data?.message || 'Không thể đăng bài. Vui lòng thử lại.')
     } finally {
       setPosting(false)
     }
+  }
+
+  const insertPostEmoji = (emoji) => {
+    const textarea = postTextAreaRef.current
+    const selectionStart = textarea?.selectionStart ?? content.length
+    const selectionEnd = textarea?.selectionEnd ?? selectionStart
+    const nextContent = `${content.slice(0, selectionStart)}${emoji}${content.slice(selectionEnd)}`
+    setContent(nextContent)
+    setEmojiPickerOpen(false)
+    window.requestAnimationFrame(() => {
+      textarea?.focus()
+      textarea?.setSelectionRange(selectionStart + emoji.length, selectionStart + emoji.length)
+    })
   }
 
   const selectReaction = async (postId, reactionType) => {
@@ -439,7 +455,15 @@ export default function FeedPage() {
         <div className="story-panel-heading"><strong>Tin của bạn bè</strong>{storiesLoading && <span>Đang tải...</span>}</div>
         <div className="story-list">
           <button className="story-card create-story" type="button" onClick={() => setStoryModalOpen(true)} aria-label="Tạo tin mới">
-            <span className="story-create-icon" aria-hidden="true">+</span>
+            <span className="story-create-visual">
+              <Avatar
+                className="story-create-avatar"
+                src={user?.avatar}
+                name={user?.displayName || user?.username || 'Bạn'}
+                size={48}
+              />
+              <span className="story-create-icon" aria-hidden="true">+</span>
+            </span>
             <span className="story-create-label">Tạo tin</span>
           </button>
           {stories.map((story) => (
@@ -464,7 +488,7 @@ export default function FeedPage() {
                   aria-hidden="true"
                 />
               )}
-              <Avatar className="story-avatar" src={story.authorAvatar} name={story.authorName} size={26} />
+              <Avatar className="story-avatar" src={story.authorAvatar} name={story.authorName} size={30} />
               <span>{story.authorName}</span>
             </button>
           ))}
@@ -472,8 +496,8 @@ export default function FeedPage() {
         {storiesError && <div className="story-error">{storiesError}</div>}
       </section>
 
-      {storyModalOpen && (
-        <div className="story-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) closeStoryComposer() }}>
+      {storyModalOpen && createPortal(
+        <div className="story-modal-backdrop story-composer-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) closeStoryComposer() }}>
           <form className="story-create-dialog" onSubmit={publishStory}>
             <header className="story-dialog-header">
               <h2>Tạo tin</h2>
@@ -516,11 +540,47 @@ export default function FeedPage() {
               {storyPosting ? 'Đang đăng...' : 'Chia sẻ lên tin'}
             </button>
           </form>
-        </div>
+        </div>,
+        document.body,
       )}
 
-      {activeStory && (
-        <div className="story-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setActiveStory(null) }}>
+      {activeStory && createPortal(
+        <div className="story-modal-backdrop story-viewer-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setActiveStory(null) }}>
+          <aside className="story-viewer-sidebar" aria-label="Danh sách tin">
+            <header className="story-sidebar-heading">
+              <button type="button" className="story-dialog-close" onClick={() => setActiveStory(null)} aria-label="Đóng">×</button>
+              <h2>Tin</h2>
+            </header>
+            <section className="story-sidebar-section">
+              <h3>Tin của bạn</h3>
+              <button
+                type="button"
+                className="story-sidebar-create"
+                onClick={() => { setActiveStory(null); setStoryModalOpen(true) }}
+              >
+                <Avatar src={user?.avatar} name={user?.displayName || user?.username || 'Bạn'} size={42} />
+                <span><strong>Tạo tin</strong><small>Chia sẻ ảnh, video hoặc viết gì đó</small></span>
+                <span className="story-sidebar-plus" aria-hidden="true">+</span>
+              </button>
+            </section>
+            <section className="story-sidebar-section story-sidebar-all">
+              <h3>Tất cả tin</h3>
+              <div className="story-sidebar-list">
+                {stories.map((story) => (
+                  <button
+                    key={story.storyId}
+                    type="button"
+                    className={`story-sidebar-item ${String(story.storyId) === String(activeStory.storyId) ? 'active' : ''}`}
+                    onClick={() => setActiveStory(story)}
+                    aria-current={String(story.storyId) === String(activeStory.storyId) ? 'true' : undefined}
+                  >
+                    <Avatar src={story.authorAvatar} name={story.authorName} size={42} />
+                    <span><strong>{story.authorName}</strong><small>{formatPostTime(story.createdAt)}</small></span>
+                  </button>
+                ))}
+              </div>
+            </section>
+          </aside>
           <section
             className={`story-viewer ${activeStory.mediaType === 'TEXT' || !activeStory.mediaType ? 'text-story-viewer' : ''}`}
             aria-label="Tin"
@@ -572,7 +632,8 @@ export default function FeedPage() {
             )}
             {String(activeStory.authorId) === String(user?.userId) && storyViewerError && <div className="story-viewer-error">{storyViewerError}</div>}
           </section>
-        </div>
+        </div>,
+        document.body,
       )}
 
       {activePostImage && (
@@ -586,6 +647,7 @@ export default function FeedPage() {
         <Avatar src={user?.avatar} name={user?.displayName || user?.username} size={42} />
         <div className="create-post-main">
           <textarea
+            ref={postTextAreaRef}
             value={content}
             onChange={(event) => setContent(event.target.value)}
             placeholder="Bạn đang nghĩ gì?"
@@ -614,17 +676,32 @@ export default function FeedPage() {
             hidden
             onChange={(event) => setPostFile(event.target.files?.[0] || null)}
           />
-          <div className="composer-actions">
+          <div className="composer-actions post-composer-actions">
+            <div className="composer-tools">
+              <button
+                type="button"
+                className={emojiPickerOpen ? 'selected' : ''}
+                onClick={() => setEmojiPickerOpen((open) => !open)}
+                aria-label="Chọn cảm xúc"
+                aria-expanded={emojiPickerOpen}
+                aria-haspopup="true"
+                title="Chọn cảm xúc"
+              ><span aria-hidden="true">😊</span><span>Cảm xúc</span></button>
+              {emojiPickerOpen && (
+                <div className="post-emoji-picker" role="group" aria-label="Chèn biểu tượng cảm xúc">
+                  {postEmojis.map((emoji) => (
+                    <button key={emoji} type="button" onClick={() => insertPostEmoji(emoji)} aria-label={`Chèn ${emoji}`}>{emoji}</button>
+                  ))}
+                </div>
+              )}
+              <button type="button" onClick={() => postMediaInputRef.current?.click()}><ImageIcon size="1.05em" /> <span>Ảnh / Video</span></button>
+            </div>
             <label className="post-privacy-picker" title="Ai có thể xem bài viết này?">
               <span aria-hidden="true">{postPrivacy === 'PUBLIC' ? '🌐' : postPrivacy === 'FRIENDS' ? '👥' : '🔒'}</span>
               <select aria-label="Quyền riêng tư bài viết" value={postPrivacy} onChange={(event) => setPostPrivacy(event.target.value)}>
                 <option value="PUBLIC">Công khai</option><option value="FRIENDS">Bạn bè</option><option value="PRIVATE">Chỉ mình tôi</option>
               </select>
             </label>
-            <div className="composer-tools">
-              <button type="button" className={composerMode === 'text' ? 'selected' : ''} onClick={() => setComposerMode('text')}><PencilIcon size="1.05em" /> <span>Đăng bài</span></button>
-              <button type="button" className={composerMode === 'media' ? 'selected' : ''} onClick={() => { setComposerMode('media'); postMediaInputRef.current?.click() }}><ImageIcon size="1.05em" /> <span>Ảnh / Video</span></button>
-            </div>
             <button className="publish-button" type="submit" disabled={posting || (!content.trim() && !postFile)}>{posting ? 'Đang đăng...' : 'Đăng bài'}</button>
           </div>
         </div>
