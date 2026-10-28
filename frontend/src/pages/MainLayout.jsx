@@ -10,7 +10,9 @@ export default function MainLayout() {
   const location = useLocation()
   const { callRequest, clearCallRequest } = useSocket()
   const isSocialPage = location.pathname.startsWith('/feed') || location.pathname.startsWith('/events') || location.pathname.startsWith('/groups') || location.pathname.startsWith('/notifications') || location.pathname.startsWith('/video') || location.pathname.startsWith('/saved') || location.pathname.startsWith('/friends')
-  const shellClass = isSocialPage ? 'feed-shell' : 'nav-overlay-shell'
+  const shellClass = isSocialPage
+    ? 'feed-shell'
+    : `nav-overlay-shell${conversationId ? ' has-active-conversation' : ''}`
 
   useEffect(() => {
     const showServerError = (event) => window.alert(event.detail)

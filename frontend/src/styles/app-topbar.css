@@ -162,7 +162,9 @@
 
 @media (max-width: 600px) {
   .app-topbar { flex-basis: 100px; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: 56px 42px; height: 100px; gap: 0 6px; padding: 0 8px; }
-  .app-topbar-search { width: min(190px, 42vw); }
+  .app-topbar-left { min-width: 0; }
+  .app-topbar-brand { flex-basis: 34px; width: 34px; height: 34px; }
+  .app-topbar-search { width: min(190px, 42vw); height: 36px; padding: 0 10px; }
   .app-topbar-search input { font-size: 11px; }
   .app-topbar-navigation { grid-column: 1 / -1; grid-row: 2; display: flex; width: 100%; justify-content: space-around; }
   .app-topbar-link { width: auto; max-width: 62px; flex: 1 1 0; }
