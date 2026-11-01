@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react'
-import { useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import Avatar from '../components/Avatar'
 import EmptyState from '../components/EmptyState'
 import LoadingState from '../components/LoadingState'
@@ -21,6 +21,7 @@ import {
   ChevronUp,
   CloseIcon,
   ReplyIcon,
+  ChevronLeft,
 } from '../components/Icons'
 
 function formatMsgTime(dateStr) {
@@ -66,6 +67,7 @@ function getChatWallpaperTheme(backgroundImage) {
 
 export default function ChatWindow() {
   const { conversationId } = useParams()
+  const navigate = useNavigate()
   const { user } = useAuth()
   const { subscribe, publish, connected, startCall } = useSocket()
 
@@ -473,6 +475,15 @@ export default function ChatWindow() {
       <div className="chat-area" data-chat-wallpaper={chatWallpaperTheme}>
         {/* Chat Header */}
         <div className="chat-header">
+          <button
+            type="button"
+            className="chat-back-button"
+            onClick={() => navigate('/messages?list=1')}
+            aria-label="Quay lại danh sách trò chuyện"
+            title="Quay lại danh sách trò chuyện"
+          >
+            <ChevronLeft size={22} />
+          </button>
           <div className="chat-header-left" onClick={() => setShowInfoPanel((v) => !v)}>
             <div className="avatar-wrapper">
               <Avatar src={headerAvatar} name={headerName} size={42} />

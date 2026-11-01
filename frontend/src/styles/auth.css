@@ -495,17 +495,27 @@ ol.ap-bottom { grid-template-columns: repeat(3, 1fr); }
 
 /* ---- Responsive ---- */
 @media (max-width: 1020px) {
-  .ap-main { grid-template-columns: 1fr; gap: 36px; padding-top: 18px; }
-  .ap-card { order: -1; justify-self: center; }
+  .ap-main { grid-template-columns: 1fr; gap: 20px; padding-top: 18px; }
+  .ap-card {
+    order: -1;
+    justify-self: center;
+    margin-top: 10px;
+  }
+  .ap-hero { order: 1; text-align: center; }
   .ap-illustration { display: none; }
-  .ap-hero { text-align: center; }
-  .ap-hero > p { margin: 0 auto var(--space-6); }
+  .ap-hero > p { margin: 0 auto var(--space-6); max-width: 100%; }
   .ap-bottom { text-align: left; }
 }
 
 @media (max-width: 640px) {
   .ap-page { padding: 18px var(--space-4) 28px; }
-  .ap-card { padding: 28px var(--space-5) var(--space-6); border-radius: var(--radius-2xl); }
+  .ap-main { grid-template-columns: 1fr; gap: 18px; }
+  .ap-topbar { margin-bottom: 4px; }
+  .ap-brand-text strong { font-size: clamp(26px, 7vw, 34px); }
+  .ap-brand-text small { font-size: 12px; }
+  .ap-hero h1 { font-size: clamp(30px, 10vw, 52px); line-height: 1.05; }
+  .ap-card { width: 100%; max-width: 100%; padding: 24px var(--space-4) var(--space-5); border-radius: var(--radius-2xl); }
+  .ap-card-head { gap: 12px; margin-bottom: 20px; }
   .ap-card-head h2 { font-size: 25px; }
   .ap-badge { width: 52px; height: 52px; border-radius: var(--radius-xl); }
   .ap-bottom, ol.ap-bottom { grid-template-columns: 1fr 1fr; row-gap: 22px; }
