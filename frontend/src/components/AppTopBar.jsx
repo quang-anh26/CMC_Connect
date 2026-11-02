@@ -3,6 +3,7 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import Avatar from './Avatar'
 import {
   BellIcon,
+  BookOpenIcon,
   CalendarIcon,
   BookmarkIcon,
   ChatIcon,
@@ -226,6 +227,9 @@ export default function AppTopBar() {
       <nav className="app-topbar-navigation" aria-label="Điều hướng chính">
         <NavLink to="/feed" end className={({ isActive }) => `app-topbar-link ${isActive ? 'active' : ''}`} aria-label="Trang chủ" title="Trang chủ">
           <HomeIcon size={20} />
+        </NavLink>
+        <NavLink to="/forum" className={({ isActive }) => `app-topbar-link ${isActive ? 'active' : ''}`} aria-label="Diễn đàn học tập" title="Diễn đàn học tập">
+          <BookOpenIcon size={20} />
         </NavLink>
         <NavLink to="/video" className={({ isActive }) => `app-topbar-link ${isActive ? 'active' : ''}`} aria-label="Video" title="Video">
           <FeedVideoIcon size={20} />

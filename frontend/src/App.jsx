@@ -18,6 +18,7 @@ import AdminDashboardPage from './pages/admin/AdminDashboardPage'
 import GroupsPage from './pages/GroupsPage'
 import GroupDetailPage from './pages/GroupDetailPage'
 import NotificationsPage from './pages/NotificationsPage'
+import ForumPage from './pages/ForumPage'
 
 const VideosPage = React.lazy(() => import('./pages/VideosPage'))
 const SavedPage = React.lazy(() => import('./pages/SavedPage'))
@@ -58,6 +59,16 @@ export default function App() {
               <Route path="groups" element={<GroupsPage />} />
               <Route path="groups/:groupId" element={<GroupDetailPage />} />
               <Route path="notifications" element={<NotificationsPage />} />
+              <Route path="forum" element={<ForumPage />} />
+              <Route path="forum/categories" element={<ForumPage />} />
+              <Route path="forum/categories/:categoryId" element={<ForumPage />} />
+              <Route path="forum/courses" element={<ForumPage />} />
+              <Route path="forum/courses/:courseId" element={<ForumPage />} />
+              <Route path="forum/topics/:topicId" element={<ForumPage />} />
+              <Route path="forum/new" element={<ForumPage />} />
+              <Route path="forum/search" element={<ForumPage />} />
+              <Route path="forum/admin" element={<ForumPage />} />
+              <Route path="forum/moderation" element={<ForumPage />} />
               <Route path="feed/profile" element={<ProfilePage />} />
               <Route path="feed/profile/:profileUserId" element={<ProfilePage />} />
               <Route path="chat/:conversationId" element={<ChatWindow />} />

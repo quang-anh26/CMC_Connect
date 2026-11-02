@@ -65,6 +65,15 @@ export function FeedIcon({ size = 20, color = 'currentColor' }) {
   )
 }
 
+export function BookOpenIcon({ size = 20, color = 'currentColor' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 7v14" />
+      <path d="M3 18V5a1 1 0 0 1 1-1h4a4 4 0 0 1 4 4 4 4 0 0 1 4-4h4a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-4a4 4 0 0 0-4 2 4 4 0 0 0-4-2H4a1 1 0 0 1-1-1Z" />
+    </svg>
+  )
+}
+
 export function FriendsIcon({ size = 20, color = 'currentColor' }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -444,6 +453,10 @@ export function CheckIcon(props) {
 
 export function ArrowLeftIcon(props) {
   return <Svg {...props}><path d="M19 12H5M12 19l-7-7 7-7" /></Svg>
+}
+
+export function ArrowRightIcon(props) {
+  return <Svg {...props}><path d="M5 12h14M12 5l7 7-7 7" /></Svg>
 }
 
 export function ExternalLinkIcon(props) {

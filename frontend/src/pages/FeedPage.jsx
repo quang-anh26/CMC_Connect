@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { feedApi } from '../api/feedApi'
 import { conversationApi } from '../api/conversationApi'
 import { storyApi } from '../api/storyApi'
@@ -13,7 +13,8 @@ import PostMenu from '../components/PostMenu'
 import EmptyState from '../components/EmptyState'
 import LoadingState from '../components/LoadingState'
 import ErrorState from '../components/ErrorState'
-import { BellIcon, BookmarkIcon, CalendarIcon, ChatIcon, CommentIcon, FeedVideoIcon, FriendsIcon, GroupIcon, HomeIcon, ImageIcon, PencilIcon, PlayIcon, ShareIcon } from '../components/Icons'
+import PrimarySidebar from '../components/PrimarySidebar'
+import { BookmarkIcon, CalendarIcon, CommentIcon, ImageIcon, PencilIcon, PlayIcon, ShareIcon } from '../components/Icons'
 import { useAuth } from '../context/AuthContext'
 
 const storyImage = 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=500&q=80'
@@ -810,23 +811,7 @@ export default function FeedPage() {
       </div>
       </main>
       <aside className="feed-aside">
-        <nav className="feed-side-menu" aria-label="Lối tắt">
-          <NavLink to="/feed/profile" className="feed-side-profile">
-            <Avatar src={user?.avatar} name={user?.displayName || user?.username} size={40} />
-            <span>{user?.displayName || user?.username || 'Trang cá nhân'}</span>
-          </NavLink>
-          <div className="feed-side-menu-items">
-            <NavLink to="/friends" className="feed-side-link"><FriendsIcon size={23} /><span>Bạn bè</span></NavLink>
-            <NavLink to="/events" className="feed-side-link"><CalendarIcon size={23} /><span>Sự kiện</span></NavLink>
-            <NavLink to="/saved" className="feed-side-link"><BookmarkIcon size={23} /><span>Đã lưu</span></NavLink>
-            <NavLink to="/groups" className="feed-side-link"><GroupIcon size={23} /><span>Nhóm</span></NavLink>
-            <NavLink to="/video" className="feed-side-link"><FeedVideoIcon size={23} /><span>Video</span></NavLink>
-            <NavLink to="/feed" end className="feed-side-link"><HomeIcon size={23} /><span>Trang chủ</span></NavLink>
-            <NavLink to="/messages" className="feed-side-link"><ChatIcon size={23} /><span>Trò chuyện</span></NavLink>
-            <NavLink to="/notifications" className="feed-side-link"><BellIcon size={23} /><span>Thông báo</span></NavLink>
-          </div>
-          <footer className="feed-side-footer">CMC Talk · Kết nối và chia sẻ</footer>
-        </nav>
+        <PrimarySidebar />
       </aside>
       <aside className="feed-right-rail">
         <section className="aside-card preview-events-card">
