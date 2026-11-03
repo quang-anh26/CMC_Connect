@@ -1,174 +1,149 @@
-# Real-Time Messaging System — Core Scaffold (Phần lõi bắt buộc)
+# CMC Talk
 
-Đây là bản triển khai **phần lõi bắt buộc** theo `Project_Plan_Real_Time_Messaging_System_v4.docx`:
+CMC Talk là ứng dụng mạng xã hội và nhắn tin realtime dành cho sinh viên. Dự án gồm
+backend Spring Boot, frontend React và cơ sở dữ liệu Microsoft SQL Server.
 
-- **Backend**: Spring Boot 3 + Spring Security (JWT + Refresh Token, BCrypt) + Spring Data JPA
-  + SQL Server + WebSocket/STOMP.
-- **Frontend**: React 18 + Vite + React Router + @stomp/stompjs (SockJS).
+## Tính năng
 
-Đã có: đăng ký/đăng nhập, duy trì phiên (refresh token), hồ sơ cá nhân, kết bạn,
-chat 1-1 realtime (gửi/nhận, Sent/Seen, Reply, Thu hồi, lazy-load lịch sử 20 tin/lần,
-typing indicator, online/offline), tạo & quản lý group chat cơ bản, gửi ảnh/tệp,
-chặn người dùng, và khu vực Admin (dashboard + khóa/mở khóa tài khoản).
+- Đăng ký bằng email sinh viên `@st.cmcu.edu.vn`, xác thực mã email, đăng nhập bằng
+  username hoặc email, đổi mật khẩu và duy trì phiên bằng access/refresh token.
+- Hồ sơ cá nhân, tìm kiếm người dùng, kết bạn, chặn người dùng và tin nhắn chờ.
+- Chat cá nhân và nhóm: nhắn tin realtime, trạng thái đã xem, typing indicator, chỉnh
+  sửa/thu hồi tin nhắn, reaction, tệp đính kèm và gọi thoại/video.
+- Bảng tin: bài viết, reaction, bình luận, chia sẻ và story.
+- Nhóm cộng đồng: thành viên, bài viết/media, kiểm duyệt, báo cáo, poll, sự kiện và lời mời.
+- Sự kiện, video, nội dung đã lưu và thông báo trong ứng dụng.
+- Khu vực Admin để xem dashboard và khóa/mở khóa tài khoản.
+- Forum hiện mới là giao diện minh họa; API, dữ liệu và lưu trữ Forum chưa được kết nối.
 
-Các mục "Nên có" / "Nếu còn thời gian" trong bản kế hoạch (emoji reaction, notification
-đẩy, group chat nâng cao, v.v.) **chưa** được triển khai ở bản này — nhắn để mình làm
-tiếp khi cần.
+## Công nghệ và yêu cầu
 
+- Java 17+, Maven 3.9+
+- Node.js 18+, npm
+- Microsoft SQL Server 2019+
+- (Tùy chọn) Docker và Docker Compose để chạy SQL Server cục bộ
 
----
+Backend dùng Spring Boot 3.3, Spring Security, Spring Data JPA, JWT, WebSocket/STOMP
+và SQL Server. Frontend dùng React 18, Vite, React Router, Axios và STOMP/SockJS.
 
-## 1. Yêu cầu môi trường
+## Chạy ứng dụng tại máy
 
-- JDK 17+
-- Maven 3.9+ (hoặc dùng `./mvnw` nếu bạn thêm wrapper)
-- Node.js 18+ và npm
-- Microsoft SQL Server (2019+) — cài trực tiếp, hoặc chạy nhanh qua Docker (xem mục 2)
-- (Tùy chọn) Docker + Docker Compose, nếu muốn dựng SQL Server bằng 1 lệnh thay vì cài thủ công
+### 1. Khởi tạo cơ sở dữ liệu
 
-> Kiểm tra gần nhất: frontend build bằng `npm run build`; backend compile và test bằng
-> Maven. Vite hiện cảnh báo bundle JavaScript chính lớn hơn 500 kB.
+Có thể dùng SQL Server đã cài sẵn hoặc chạy bản SQL Server 2022 dành cho phát triển:
 
-## 2. Cơ sở dữ liệu (SQL Server)
-
-**Cách A — Có sẵn SQL Server:** chỉ cần tạo 1 database rỗng (ví dụ `messaging_db`) rồi
-chạy `backend/database/schema.sql` để tạo các bảng nền.
-Muốn có dữ liệu mẫu để test ngay, chạy tiếp `backend/database/seed-data.sql` — script
-này tạo sẵn 3 tài khoản (`admin` / `alice` / `bob`, mật khẩu đều là `Password123`),
-1 quan hệ bạn bè đã accepted, và 1 cuộc trò chuyện có sẵn 2 tin nhắn giữa alice & bob.
-
-**Cách B — Chưa có SQL Server:** dùng Docker để dựng nhanh:
-
-```bash
+```powershell
 cd backend
-docker compose up -d              # chạy SQL Server 2022 ở localhost:1433, sa/YourPassword123
-# đợi container healthy (vài chục giây), rồi chạy 2 script trên bằng sqlcmd, Azure Data
-# Studio, DBeaver, hoặc bất kỳ client SQL Server nào bạn quen dùng, ví dụ:
-docker exec -it messaging-sqlserver /opt/mssql-tools/bin/sqlcmd \
-  -S localhost -U sa -P YourPassword123 -i /dev/stdin < database/schema.sql
-docker exec -it messaging-sqlserver /opt/mssql-tools/bin/sqlcmd \
-  -S localhost -U sa -P YourPassword123 -i /dev/stdin < database/seed-data.sql
+docker compose up -d
 ```
 
-**Lưu ý về `ddl-auto=update`:** `application.yml` hiện để Hibernate tự tạo/cập nhật
-bảng khi backend khởi động, nên kể cả khi bạn *không* chạy `schema.sql` tay, backend
-vẫn tự dựng đủ bảng ở lần chạy đầu. Nếu bạn đã chạy `schema.sql` tay và muốn Hibernate
-không đụng vào cấu trúc bảng nữa, đổi `ddl-auto` thành `validate` (kiểm tra khớp, không
-sửa) hoặc `none` trong `application.yml`.
+Kết nối tới SQL Server tại `localhost:1433` bằng Azure Data Studio, SQL Server
+Management Studio hoặc công cụ tương đương. Thông tin mặc định của container trong
+`docker-compose.yml` là user `sa` và password `YourPassword123`.
 
-## 3. Chạy Backend
+Chạy `backend/database/schema.sql` trên một cơ sở dữ liệu mới. **Script này xóa và tạo
+lại các bảng được khai báo trong file; chỉ chạy trên database rỗng hoặc khi đã sao lưu
+và chủ động chấp nhận mất dữ liệu.** Backend dùng `ddl-auto=update` để cập nhật/tạo các
+bảng còn thiếu khi khởi động.
 
-```bash
+Để nạp dữ liệu demo, chạy `backend/database/seed-data.sql` sau khi tạo schema. Tài khoản
+mẫu đều dùng mật khẩu `Password123`:
+
+| Username | Vai trò |
+|---|---|
+| `admin` | ADMIN |
+| `alice` | USER |
+| `bob` | USER |
+
+Đây chỉ là tài khoản thử nghiệm; không dùng các thông tin này trong môi trường thật.
+
+### 2. Cấu hình và chạy backend
+
+Trong PowerShell:
+
+```powershell
 cd backend
-
-# Cấu hình kết nối SQL Server qua biến môi trường (hoặc sửa trực tiếp application.yml)
-export DB_HOST=localhost
-export DB_PORT=1433
-export DB_NAME=messaging_db
-export DB_USERNAME=sa
-export DB_PASSWORD=YourPassword123
-export JWT_SECRET=$(openssl rand -base64 48)     # secret dài, ngẫu nhiên cho JWT
-export CORS_ORIGINS=http://localhost:5173
-
+$env:DB_HOST = "localhost"
+$env:DB_PORT = "1433"
+$env:DB_NAME = "messaging_db"
+$env:DB_USERNAME = "sa"
+$env:DB_PASSWORD = "YourPassword123"
+$env:JWT_SECRET = "<chuỗi bí mật ngẫu nhiên, tối thiểu 32 ký tự>"
 mvn spring-boot:run
 ```
 
-- `spring.jpa.hibernate.ddl-auto=update` → Hibernate sẽ tự tạo bảng trong `messaging_db`
-  khi chạy lần đầu (các bảng lõi và bảng mạng xã hội/nhóm).
-- Backend chạy ở `http://localhost:8080`.
-- Khi cần tài khoản Admin đầu tiên: đăng ký một user bình thường qua `/api/auth/register`,
-  sau đó vào SQL Server đổi cột `role` của user đó thành `ADMIN` (chưa có endpoint tạo
-  admin, vì đây không nên public).
+Backend chạy tại `http://localhost:8080`. Có thể cấu hình các biến môi trường trong
+`backend/application-local.yml` thay vì đặt trong terminal; file này được Git bỏ qua.
+Xem `backend/application-local.example.yml` để cấu hình SMTP.
 
-## 4. Chạy Frontend
+Mặc định, nếu chưa cấu hình `MAIL_USERNAME` và `MAIL_PASSWORD`, mã xác thực đăng ký
+được ghi vào log backend để thử nghiệm tại máy. Muốn gửi email thật, cấu hình tài khoản
+SMTP (với Gmail cần App Password) rồi khởi động lại backend. Access token mặc định có
+hiệu lực 24 giờ, refresh token 30 ngày.
 
-```bash
+### 3. Cài và chạy frontend
+
+Mở terminal thứ hai:
+
+```powershell
 cd frontend
-npm install
-cp .env.example .env      # chỉnh VITE_API_BASE_URL nếu backend không ở localhost:8080
+npm ci
+Copy-Item .env.example .env
 npm run dev
 ```
 
-- Mở `http://localhost:5173`.
-- `vite.config.js` đã có sẵn proxy `/api` và `/ws` sang `http://localhost:8080` khi chạy
-  dev, nên bạn cũng có thể để `VITE_API_BASE_URL` trống nếu chạy đúng 2 cổng mặc định.
-- Để gọi thoại/video giữa hai thiết bị cùng mạng Wi-Fi/LAN:
-  1. Trong `frontend/.env`, bật `VITE_HTTPS=true`, rồi khởi động lại Vite bằng `npm run dev`.
-     HTTPS cần thiết vì trình duyệt chỉ cấp quyền camera/microphone trên secure context.
-  2. Trên máy chạy ứng dụng, lấy địa chỉ IPv4 bằng `ipconfig`; trên thiết bị còn lại mở
-     `https://<IPv4-của-máy-chạy-app>:5173`. Chấp nhận cảnh báo chứng chỉ tự ký của môi
-     trường phát triển nếu trình duyệt hiển thị.
-  3. Cho phép Node.js/Vite qua Windows Firewall trên mạng Private nếu được hỏi, và đảm
-     bảo hai thiết bị cùng mạng. Đăng nhập hai tài khoản riêng rồi bắt đầu gọi.
-  4. Khi chạy HTTPS, mở frontend bằng `https://localhost:5173` trên máy chủ thay vì HTTP.
+Mở `http://localhost:5173`. Khi chạy với cấu hình mặc định, Vite chuyển tiếp `/api`,
+`/ws` và `/uploads` tới backend tại `localhost:8080`. Chỉ đặt `VITE_API_BASE_URL` trong
+`.env` nếu backend chạy ở địa chỉ khác.
 
-  Backend và SQL Server vẫn chạy trên máy chủ; Vite chuyển tiếp `/api`, `/ws` và `/uploads`
-  nội bộ nên không cần mở cổng backend/database ra mạng. Tính năng gọi đang dùng STUN;
-  mạng nội bộ thông thường không cần TURN, nhưng mạng Wi-Fi bị cô lập thiết bị hoặc
-  firewall chặn lưu lượng ngang hàng có thể vẫn không kết nối được.
+Để thử gọi thoại/video trên thiết bị khác trong cùng mạng LAN, đặt `VITE_HTTPS=true`
+trong `frontend/.env`, khởi động lại Vite và mở ứng dụng bằng HTTPS. Trình duyệt yêu cầu
+secure context để cấp quyền camera/microphone; kết nối ngang hàng còn phụ thuộc vào
+firewall và cấu hình mạng.
 
-## 5. Cấu trúc thư mục chính
+## Cấu trúc dự án
 
-```
+```text
 backend/
-  src/main/java/com/example/messaging/
-    entity/          JPA entities theo các bảng nghiệp vụ
-    repository/      Spring Data JPA repositories
-    security/        JwtUtil, JwtAuthenticationFilter, @CurrentUser, UserDetailsService
-    dto/             request/response DTO theo từng module (auth/user/friend/chat/admin)
-    service/         nghiệp vụ chính (Auth, User, Friend, Conversation, Message, Admin...)
-    controller/      REST endpoints
-    websocket/       cấu hình STOMP + xác thực JWT khi CONNECT + xử lý realtime
-    exception/       xử lý lỗi tập trung
-    config/          Spring Security, CORS, static file serving cho /uploads
-
+  database/                 Schema, dữ liệu mẫu và migration SQL
+  src/main/java/.../
+    controller/             REST API
+    service/                Nghiệp vụ ứng dụng
+    entity/, repository/    Mô hình và truy cập dữ liệu
+    security/               JWT và xác thực người dùng
+    websocket/              STOMP chat và signaling cuộc gọi
+  src/main/resources/       Cấu hình Spring và SQL khởi tạo/cập nhật
 frontend/
-  src/
-    api/             axios client (tự refresh token khi 401) + các module gọi API
-    context/         AuthContext, SocketContext (kết nối STOMP dùng chung toàn app)
-    components/      Sidebar, Avatar, ProtectedRoute
-    pages/           Login, Register, ChatWindow, FriendsPage, ProfilePage, AdminDashboard
+  src/api/                  Các module gọi REST API
+  src/context/              Trạng thái đăng nhập và kết nối realtime
+  src/components/           Thành phần giao diện dùng chung
+  src/pages/                Các trang ứng dụng
 ```
 
-## 6. Luồng nghiệp vụ chính đã triển khai (đối chiếu bản kế hoạch mục 7)
+## Realtime chat
 
-1. Đăng ký/Đăng nhập → nhận Access Token (JWT, 15p) + Refresh Token (7 ngày, lưu DB,
-   thu hồi được).
-2. Tìm bạn → gửi lời mời kết bạn → bên kia chấp nhận → tự động tạo cuộc trò chuyện
-   PRIVATE dùng chung cho 2 người (không tạo trùng).
-3. Gửi tin nhắn qua WebSocket (`/app/chat.send`) → lưu SQL Server → broadcast realtime
-   tới `/topic/conversation/{id}` cho mọi client đang mở cuộc trò chuyện đó.
-4. Trạng thái Sent/Seen theo từng người nhận (bảng MESSAGE_STATUS); khi người nhận mở
-   cuộc trò chuyện, client gọi `/app/chat.seen` → server cập nhật + báo lại cho người
-   gửi để đổi UI "Đã gửi" → "Đã xem".
-5. Lịch sử tin nhắn tải dần (lazy loading) 20 tin/lần qua REST
-   `GET /api/messages/conversation/{id}?page=n`.
-6. Admin: đăng nhập cùng cơ chế JWT nhưng chỉ tài khoản `role=ADMIN` mới gọi được
-   `/api/admin/**` (chặn ở `SecurityConfig`), xem dashboard tổng quan + khóa/mở khóa
-   tài khoản.
+Frontend kết nối SockJS/STOMP tới `/ws` và xác thực bằng access token. Client gửi các
+thao tác chat tới `/app` (ví dụ `/app/chat.send`) và nhận sự kiện theo hội thoại tại
+`/topic/conversation/{conversationId}`. Lịch sử được tải qua REST
+`GET /api/messages/conversation/{conversationId}?page=0`; mỗi trang gồm 20 tin nhắn,
+trong đó `page=0` là trang mới nhất.
 
-## 7. Groups
+## Lệnh kiểm tra
 
-Nhóm mạng xã hội dùng chung `USERS`, JWT, bạn bè và bộ lưu tệp hiện có; dữ liệu bài viết
-được tách khỏi `SOCIAL_POST` để kiểm soát riêng tư. Route giao diện: `/groups` và
-`/groups/{groupId}`. Backend đặt dưới `controller/GroupController`, `service/GroupService`,
-`entity/Group*` và `repository/Group*`.
+```powershell
+# Từ thư mục backend
+mvn test
 
-- Chủ nhóm được cấp role `OWNER`; các role hỗ trợ: `ADMIN`, `MODERATOR`, `MEMBER`.
-- Có nhóm công khai/riêng tư, join request, invitation cho bạn bè đã kết nối, quản lý
-  thành viên, bài viết/media, reaction, comment/reply, ghim, tìm kiếm/sắp xếp, poll và event.
-- Khu vực quản trị gồm duyệt thành viên/bài viết, báo cáo, cảnh cáo, xóa/cấm/bỏ cấm,
-  phân quyền, bộ lọc từ khóa và cài đặt ảnh nhóm.
-- Các endpoint Groups yêu cầu JWT; backend kiểm tra membership/role cho nội dung riêng tư
-  và hành động quản trị. Giới hạn mặc định là 5 bài hoặc poll và 20 bình luận/phút/người/nhóm.
-- `ddl-auto=update` tự tạo các bảng khi chạy ứng dụng. Nếu quản lý schema thủ công, chạy
-  `backend/database/migrations/20261004_add_social_groups.sql` rồi
-  `backend/database/migrations/20261005_add_group_events_polls.sql` trên `messaging_db`.
+# Từ thư mục frontend
+npm run build
+```
 
-## 8. Việc cần làm tiếp (theo đúng bảng ưu tiên trong bản kế hoạch)
+## Lưu ý triển khai
 
-- **Nên có**: group chat nâng cao (đổi vai trò thành viên, xóa nhóm), push notification khi offline,
-  push notification khi offline, tìm kiếm tin nhắn trong hội thoại.
-- **Nếu còn thời gian**: giao diện dark mode, thống kê chi tiết hơn cho Admin, i18n.
-- Viết test (JUnit cho service layer, React Testing Library cho frontend) — hiện chưa có.
-- Thêm CI (GitHub Actions) build + test tự động.
+- Thay `JWT_SECRET`, thông tin SQL Server và SMTP bằng giá trị riêng, an toàn; không
+  dùng mật khẩu mặc định của Docker hoặc tài khoản demo trong production.
+- Cấu hình CORS, HTTPS, lưu trữ upload và các giới hạn truy cập phù hợp trước khi
+  công khai ứng dụng. Cấu hình CORS hiện tại trong backend cho phép origin rộng rãi,
+  phù hợp phát triển nhưng không nên giữ nguyên khi triển khai thật.
+- Tệp tải lên được lưu cục bộ theo `app.upload.dir` (mặc định `./uploads`); hãy cấu hình
+  backup và quyền truy cập cho thư mục này nếu cần giữ dữ liệu.
