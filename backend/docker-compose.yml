@@ -1,27 +1,22 @@
-version: "3.8"
-
-# Spin up a local Microsoft SQL Server for development/testing in one command:
+# Spin up a local PostgreSQL database for development/testing in one command:
 #   docker compose up -d
-# Then run backend/database/schema.sql and (optionally) seed-data.sql against it
-# (e.g. with Azure Data Studio, DBeaver, or `sqlcmd`), and point the backend's
-# DB_HOST/DB_PORT/DB_USERNAME/DB_PASSWORD env vars at this container.
 services:
-  sqlserver:
-    image: mcr.microsoft.com/mssql/server:2022-latest
-    container_name: messaging-sqlserver
+  postgres:
+    image: postgres:16
+    container_name: messaging-postgres
     environment:
-      ACCEPT_EULA: "Y"
-      MSSQL_SA_PASSWORD: "YourPassword123"
-      MSSQL_PID: "Developer"
+      POSTGRES_DB: messaging_db
+      POSTGRES_USER: messaging_app
+      POSTGRES_PASSWORD: messaging_dev_password
     ports:
-      - "1433:1433"
+      - "5432:5432"
     volumes:
-      - sqlserver-data:/var/opt/mssql
+      - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -Q 'SELECT 1' || exit 1"]
+      test: ["CMD-SHELL", "pg_isready -U messaging_app -d messaging_db"]
       interval: 10s
       timeout: 5s
       retries: 10
 
 volumes:
-  sqlserver-data:
+  postgres-data:

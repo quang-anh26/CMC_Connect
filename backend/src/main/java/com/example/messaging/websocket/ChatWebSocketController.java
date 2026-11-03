@@ -22,7 +22,7 @@ import java.util.Map;
  *   client sends to /app/chat.send -> here we persist via MessageService -> broadcast the saved
  *   message to /topic/conversation/{conversationId} so every open client in that conversation
  *   (including the sender's other tabs) receives it instantly, whether the recipient is online or not
- *   -- if offline, it's already safely in SQL Server and will be fetched via REST history on reconnect.
+ *   -- if offline, it's already safely in PostgreSQL and will be fetched via REST history on reconnect.
  */
 @Controller
 @RequiredArgsConstructor

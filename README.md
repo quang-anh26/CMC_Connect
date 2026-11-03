@@ -1,7 +1,7 @@
 # CMC Talk
 
 CMC Talk là ứng dụng mạng xã hội và nhắn tin realtime dành cho sinh viên. Dự án gồm
-backend Spring Boot, frontend React và cơ sở dữ liệu Microsoft SQL Server.
+backend Spring Boot, frontend React và cơ sở dữ liệu PostgreSQL.
 
 ## Tính năng
 
@@ -20,42 +20,29 @@ backend Spring Boot, frontend React và cơ sở dữ liệu Microsoft SQL Serve
 
 - Java 17+, Maven 3.9+
 - Node.js 18+, npm
-- Microsoft SQL Server 2019+
-- (Tùy chọn) Docker và Docker Compose để chạy SQL Server cục bộ
+- PostgreSQL 16+
+- (Tùy chọn) Docker và Docker Compose để chạy PostgreSQL cục bộ
 
 Backend dùng Spring Boot 3.3, Spring Security, Spring Data JPA, JWT, WebSocket/STOMP
-và SQL Server. Frontend dùng React 18, Vite, React Router, Axios và STOMP/SockJS.
+và PostgreSQL. Frontend dùng React 18, Vite, React Router, Axios và STOMP/SockJS.
 
 ## Chạy ứng dụng tại máy
 
-### 1. Khởi tạo cơ sở dữ liệu
+### 1. Khởi tạo PostgreSQL
 
-Có thể dùng SQL Server đã cài sẵn hoặc chạy bản SQL Server 2022 dành cho phát triển:
+Chạy PostgreSQL 16 dành cho phát triển:
 
 ```powershell
 cd backend
 docker compose up -d
 ```
 
-Kết nối tới SQL Server tại `localhost:1433` bằng Azure Data Studio, SQL Server
-Management Studio hoặc công cụ tương đương. Thông tin mặc định của container trong
-`docker-compose.yml` là user `sa` và password `YourPassword123`.
-
-Chạy `backend/database/schema.sql` trên một cơ sở dữ liệu mới. **Script này xóa và tạo
-lại các bảng được khai báo trong file; chỉ chạy trên database rỗng hoặc khi đã sao lưu
-và chủ động chấp nhận mất dữ liệu.** Backend dùng `ddl-auto=update` để cập nhật/tạo các
-bảng còn thiếu khi khởi động.
-
-Để nạp dữ liệu demo, chạy `backend/database/seed-data.sql` sau khi tạo schema. Tài khoản
-mẫu đều dùng mật khẩu `Password123`:
-
-| Username | Vai trò |
-|---|---|
-| `admin` | ADMIN |
-| `alice` | USER |
-| `bob` | USER |
-
-Đây chỉ là tài khoản thử nghiệm; không dùng các thông tin này trong môi trường thật.
+Container mở PostgreSQL tại `localhost:5432` với database `messaging_db`, user
+`messaging_app` và mật khẩu dành riêng cho phát triển `messaging_dev_password`.
+Hibernate tự tạo/cập nhật bảng khi backend khởi động. Các file SQL trong
+`backend/database/` và `src/main/resources/db/migration/` là script T-SQL cũ cho SQL
+Server; không chạy chúng với PostgreSQL. Database mới không có tài khoản demo cho tới
+khi người dùng đăng ký hoặc dữ liệu được nạp riêng.
 
 ### 2. Cấu hình và chạy backend
 
@@ -64,17 +51,18 @@ Trong PowerShell:
 ```powershell
 cd backend
 $env:DB_HOST = "localhost"
-$env:DB_PORT = "1433"
+$env:DB_PORT = "5432"
 $env:DB_NAME = "messaging_db"
-$env:DB_USERNAME = "sa"
-$env:DB_PASSWORD = "YourPassword123"
+$env:DB_USERNAME = "messaging_app"
+$env:DB_PASSWORD = "messaging_dev_password"
+$env:DB_SSL_MODE = "disable"
 $env:JWT_SECRET = "<chuỗi bí mật ngẫu nhiên, tối thiểu 32 ký tự>"
 mvn spring-boot:run
 ```
 
 Backend chạy tại `http://localhost:8080`. Có thể cấu hình các biến môi trường trong
 `backend/application-local.yml` thay vì đặt trong terminal; file này được Git bỏ qua.
-Xem `backend/application-local.example.yml` để cấu hình SMTP.
+SMTP được cấu hình bằng các biến `MAIL_USERNAME`, `MAIL_PASSWORD` và `MAIL_FROM`.
 
 Mặc định, nếu chưa cấu hình `MAIL_USERNAME` và `MAIL_PASSWORD`, mã xác thực đăng ký
 được ghi vào log backend để thử nghiệm tại máy. Muốn gửi email thật, cấu hình tài khoản
@@ -105,7 +93,7 @@ firewall và cấu hình mạng.
 
 ```text
 backend/
-  database/                 Schema, dữ liệu mẫu và migration SQL
+  database/                 Script SQL Server cũ (không dùng cho PostgreSQL)
   src/main/java/.../
     controller/             REST API
     service/                Nghiệp vụ ứng dụng
@@ -140,10 +128,32 @@ npm run build
 
 ## Lưu ý triển khai
 
-- Thay `JWT_SECRET`, thông tin SQL Server và SMTP bằng giá trị riêng, an toàn; không
-  dùng mật khẩu mặc định của Docker hoặc tài khoản demo trong production.
-- Cấu hình CORS, HTTPS, lưu trữ upload và các giới hạn truy cập phù hợp trước khi
-  công khai ứng dụng. Cấu hình CORS hiện tại trong backend cho phép origin rộng rãi,
-  phù hợp phát triển nhưng không nên giữ nguyên khi triển khai thật.
+- Thay `JWT_SECRET`, thông tin PostgreSQL và SMTP bằng giá trị riêng, an toàn; không
+  dùng mật khẩu mặc định của Docker trong production.
+- Đặt `CORS_ORIGINS` bằng origin frontend production. Cả REST API lẫn WebSocket đều
+  dùng danh sách này; không đặt wildcard khi công khai ứng dụng.
 - Tệp tải lên được lưu cục bộ theo `app.upload.dir` (mặc định `./uploads`); hãy cấu hình
-  backup và quyền truy cập cho thư mục này nếu cần giữ dữ liệu.
+  ổ đĩa bền vững hoặc object storage và backup nếu cần giữ dữ liệu.
+
+## Đóng gói backend để triển khai cloud
+
+`backend/Dockerfile` đóng gói Spring Boot bằng Java 17. Khi chạy container, cấu hình
+các biến môi trường sau trong dịch vụ host (không commit thông tin bí mật):
+
+| Biến | Giá trị |
+|---|---|
+| `DB_HOST`, `DB_PORT`, `DB_NAME` | Địa chỉ và tên database PostgreSQL trên cloud |
+| `DB_USERNAME`, `DB_PASSWORD` | Tài khoản database |
+| `DB_SSL_MODE` | Đặt `require` cho database cloud có TLS |
+| `JWT_SECRET` | Chuỗi ngẫu nhiên bí mật, tối thiểu 32 ký tự |
+| `CORS_ORIGINS` | Origin frontend, ví dụ `https://frontend-bay-one-75.vercel.app` |
+| `UPLOAD_DIR` | Thư mục upload tạm của backend; không bền vững trên Render Free |
+| `MAIL_USERNAME`, `MAIL_PASSWORD` | SMTP credentials để gửi mã xác thực email |
+| `MAIL_FROM` | Địa chỉ gửi email (tùy chọn) |
+
+Backend cần PostgreSQL tương thích và hỗ trợ WebSocket/STOMP. Render Free dùng ổ đĩa
+tạm thời nên ảnh, video và file tải lên có thể mất sau khi service restart hoặc deploy.
+Supabase Storage chưa được nối vào backend; trước khi dùng app lâu dài cần triển khai phần
+lưu file này. Nếu không cấu hình SMTP, mã xác thực chỉ xuất hiện trong log backend và
+người dùng không thể tự nhận mã qua email. Gói miễn phí có thể ngủ, tạm dừng project ít
+hoạt động và giới hạn tài nguyên.

@@ -30,7 +30,7 @@ public class GroupComment {
     @JoinColumn(name = "parent_comment_id")
     private GroupComment parentComment;
 
-    @Column(nullable = false, columnDefinition = "NVARCHAR(2000)")
+    @Column(nullable = false, length = 2000)
     private String content;
 
     @Column(name = "created_at", updatable = false)

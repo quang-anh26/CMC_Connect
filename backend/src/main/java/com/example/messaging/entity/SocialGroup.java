@@ -27,7 +27,7 @@ public class SocialGroup {
     @Column(nullable = false, length = 100)
     private String name;
 
-    @Column(columnDefinition = "NVARCHAR(2000)")
+    @Column(length = 2000)
     private String description;
 
     @Column(length = 500)
@@ -48,7 +48,7 @@ public class SocialGroup {
     @Builder.Default
     private boolean postApprovalRequired = false;
 
-    @Column(name = "spam_keywords", columnDefinition = "NVARCHAR(2000)")
+    @Column(name = "spam_keywords", length = 2000)
     private String spamKeywords;
 
     @Column(name = "created_at", updatable = false)
