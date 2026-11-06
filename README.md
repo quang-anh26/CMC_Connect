@@ -34,11 +34,13 @@ Chạy PostgreSQL 16 dành cho phát triển:
 
 ```powershell
 cd backend
-docker compose up -d
+docker compose up -d postgres
 ```
 
 Container mở PostgreSQL tại `localhost:5432` với database `messaging_db`, user
 `messaging_app` và mật khẩu dành riêng cho phát triển `messaging_dev_password`.
+Nếu `backend/.env` đặt `POSTGRES_HOST_PORT`, PostgreSQL sẽ dùng cổng đó trên máy host
+(backend trong Docker Compose vẫn kết nối qua cổng nội bộ `5432`).
 Hibernate tự tạo/cập nhật bảng khi backend khởi động. Các file SQL trong
 `backend/database/` và `src/main/resources/db/migration/` là script T-SQL cũ cho SQL
 Server; không chạy chúng với PostgreSQL. Database mới không có tài khoản demo cho tới
@@ -83,6 +85,21 @@ npm run dev
 Mở `http://localhost:5173`. Khi chạy với cấu hình mặc định, Vite chuyển tiếp `/api`,
 `/ws` và `/uploads` tới backend tại `localhost:8080`. Chỉ đặt `VITE_API_BASE_URL` trong
 `.env` nếu backend chạy ở địa chỉ khác.
+
+### Chạy cả hệ thống bằng Docker Compose
+
+Thay cho các bước chạy backend và frontend riêng lẻ ở trên:
+
+```powershell
+cd backend
+docker compose up --build -d
+```
+
+Mở `http://localhost:5173`. Compose khởi chạy PostgreSQL, Spring Boot và Vite; dữ liệu
+PostgreSQL được giữ trong volume `postgres-data`. Các biến SMTP cho container có thể đặt
+trong `backend/.env` (`MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM`); file này bị Git bỏ
+qua, không commit thông tin bí mật. `application-local.yml` chỉ được tự nạp khi chạy
+backend trực tiếp trên máy, không được đóng gói vào container.
 
 Để thử gọi thoại/video trên thiết bị khác trong cùng mạng LAN, đặt `VITE_HTTPS=true`
 trong `frontend/.env`, khởi động lại Vite và mở ứng dụng bằng HTTPS. Trình duyệt yêu cầu

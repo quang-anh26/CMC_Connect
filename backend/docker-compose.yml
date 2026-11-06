@@ -1,5 +1,5 @@
-# Spin up a local PostgreSQL database for development/testing in one command:
-#   docker compose up -d
+# Run the database, backend, and frontend for local development:
+#   docker compose up --build
 services:
   postgres:
     image: postgres:16
@@ -9,7 +9,7 @@ services:
       POSTGRES_USER: messaging_app
       POSTGRES_PASSWORD: messaging_dev_password
     ports:
-      - "5432:5432"
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-5432}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
@@ -17,6 +17,42 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: messaging-backend
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: messaging_db
+      DB_USERNAME: messaging_app
+      DB_PASSWORD: messaging_dev_password
+      DB_SSL_MODE: disable
+      JWT_SECRET: ${JWT_SECRET:-local-docker-secret-key-change-before-deploy-123456}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    container_name: messaging-frontend
+    environment:
+      VITE_BACKEND_URL: http://backend:8080
+      VITE_ALLOWED_HOST: ${VITE_ALLOWED_HOST:-}
+    ports:
+      - "127.0.0.1:5173:5173"
+    depends_on:
+      - backend
 
 volumes:
   postgres-data:
