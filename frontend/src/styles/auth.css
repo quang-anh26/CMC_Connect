@@ -193,6 +193,7 @@
   list-style: none;
 }
 ol.ap-bottom { grid-template-columns: repeat(3, 1fr); }
+ol.ap-bottom.steps-4 { grid-template-columns: repeat(4, 1fr); }
 
 .ap-feature {
   display: flex;
@@ -417,6 +418,51 @@ ol.ap-bottom { grid-template-columns: repeat(3, 1fr); }
 }
 @keyframes ap-spin { to { transform: rotate(360deg); } }
 
+/* ---- Quên mật khẩu ---- */
+.ap-forgot { font-size: 14.5px; font-weight: 600; color: var(--ap-link); text-decoration: none; }
+.ap-forgot:hover { text-decoration: underline; }
+.ap-field-hint { margin: 6px var(--space-1) 0; font-size: 13.5px; }
+.ap-field-hint a { color: var(--ap-link); font-weight: 600; text-decoration: none; }
+.ap-field-hint a:hover { text-decoration: underline; }
+a.ap-btn { text-decoration: none; margin-top: var(--space-4); }
+
+.ap-hint { margin: 0 0 12px; font-size: 14.5px; color: var(--ap-muted); }
+.ap-accounts { display: flex; flex-direction: column; gap: 12px; margin: 0; padding: 0; list-style: none; }
+.ap-account {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid var(--ap-line);
+  border-radius: var(--radius-xl);
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--color-white);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, transform 0.15s;
+}
+button.ap-account:hover { border-color: #4aa8ff; background: rgba(74, 168, 255, 0.16); transform: translateY(-1px); }
+button.ap-account:focus-visible { outline: 3px solid rgba(134, 204, 255, 0.8); outline-offset: 2px; }
+.ap-account.is-static { margin-bottom: var(--space-4); cursor: default; }
+.ap-account > svg { flex: none; margin-left: auto; color: var(--ap-link); }
+.ap-account-avatar {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #1d6bff, #3b9bff);
+  color: var(--color-white);
+  font-size: 18px;
+  font-weight: 700;
+}
+.ap-account-info { display: flex; flex-direction: column; min-width: 0; }
+.ap-account-info strong { font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ap-account-info small { font-size: 13.5px; color: var(--ap-muted); overflow: hidden; text-overflow: ellipsis; }
+
 /* ---- Liên kết ---- */
 .ap-row-links { display: flex; align-items: center; justify-content: space-between; margin-top: var(--space-4); }
 
@@ -519,7 +565,7 @@ ol.ap-bottom { grid-template-columns: repeat(3, 1fr); }
   .ap-card-head h2 { font-size: 25px; }
   .ap-badge { width: 52px; height: 52px; border-radius: var(--radius-xl); }
   .ap-bottom, ol.ap-bottom { grid-template-columns: 1fr 1fr; row-gap: 22px; }
-  ol.ap-bottom { grid-template-columns: 1fr; }
+  ol.ap-bottom, ol.ap-bottom.steps-4 { grid-template-columns: 1fr; }
   .ap-feature { padding: 0 var(--space-3); }
   .ap-feature:nth-child(odd) { padding-left: 0; border-left: 0; }
   ol.ap-bottom .ap-feature { padding: 0; border-left: 0; }
@@ -585,3 +631,5 @@ ol.ap-bottom { grid-template-columns: repeat(3, 1fr); }
 [data-theme="light"] .ap-otp input.has-error { border-color: #d9364f; background: rgba(255, 80, 110, 0.08); }
 [data-theme="light"] .ap-strength.level-3 .on { background: #5fb83a; }
 [data-theme="light"] .ap-verified-chip { color: #12683a; background: rgba(34, 197, 94, 0.14); border-color: rgba(22, 163, 74, 0.45); }
+[data-theme="light"] .ap-account { background: var(--color-white); color: #14284a; border-color: rgba(40, 100, 200, 0.32); }
+[data-theme="light"] button.ap-account:hover { background: rgba(47, 140, 255, 0.08); border-color: #1a63d8; }

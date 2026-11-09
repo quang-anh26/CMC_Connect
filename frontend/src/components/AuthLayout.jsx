@@ -51,9 +51,10 @@ function Illustration() {
  *
  *  - hero:       { lead, accent, text } - tiêu đề lớn bên trái (accent được tô màu)
  *  - title/subtitle/badge: phần đầu thẻ biểu mẫu bên phải
- *  - activeStep: 1..3 cho trang đăng ký (hiện thanh tiến trình + 3 bước), null cho đăng nhập (hiện 4 tính năng)
+ *  - steps:      danh sách bước (mặc định là 3 bước đăng ký)
+ *  - activeStep: 1..n cho trang đăng ký / quên mật khẩu (hiện thanh tiến trình + 3 bước), null cho đăng nhập (hiện 4 tính năng)
  */
-export default function AuthLayout({ badge, title, subtitle, hero, activeStep = null, children }) {
+export default function AuthLayout({ badge, title, subtitle, hero, activeStep = null, steps = REGISTER_STEPS, children }) {
   const isRegister = activeStep != null
 
   return (
@@ -76,8 +77,8 @@ export default function AuthLayout({ badge, title, subtitle, hero, activeStep = 
           <Illustration />
 
           {isRegister ? (
-            <ol className="ap-bottom">
-              {REGISTER_STEPS.map((step, index) => {
+            <ol className={`ap-bottom steps-${steps.length}`}>
+              {steps.map((step, index) => {
                 const number = index + 1
                 const state = number < activeStep ? 'is-done' : number === activeStep ? 'is-active' : ''
                 const Icon = step.icon
@@ -114,12 +115,12 @@ export default function AuthLayout({ badge, title, subtitle, hero, activeStep = 
             <div
               className="ap-progress"
               role="progressbar"
-              aria-label="Tiến trình đăng ký"
+              aria-label="Tiến trình"
               aria-valuemin={1}
-              aria-valuemax={3}
+              aria-valuemax={steps.length}
               aria-valuenow={activeStep}
             >
-              {[1, 2, 3].map((n) => <span key={n} className={n <= activeStep ? 'on' : ''} />)}
+              {steps.map((_, i) => <span key={i} className={i + 1 <= activeStep ? 'on' : ''} />)}
             </div>
           )}
 
