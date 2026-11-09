@@ -1,6 +1,7 @@
 package com.example.messaging.entity;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.Nationalized;
 import lombok.*;
 
 import java.time.LocalDateTime;
@@ -35,6 +36,7 @@ public class GroupNotification {
     @Column(name = "reference_id")
     private Long referenceId;
 
+    @Nationalized
     @Column(nullable = false, length = 500)
     private String message;
 

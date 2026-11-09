@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react'
-import { useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import Avatar from '../components/Avatar'
 import EmptyState from '../components/EmptyState'
 import LoadingState from '../components/LoadingState'
@@ -18,6 +18,10 @@ import {
   EmojiIcon,
   SendPaperPlane,
   DoubleCheckIcon,
+  ChevronUp,
+  CloseIcon,
+  ReplyIcon,
+  ChevronLeft,
 } from '../components/Icons'
 
 function formatMsgTime(dateStr) {
@@ -54,8 +58,16 @@ function isImageMessage(message) {
   )
 }
 
+const CHAT_WALLPAPER_THEMES = ['mountain-meadow', 'sunset', 'alpine-lake', 'moonlight']
+
+function getChatWallpaperTheme(backgroundImage) {
+  if (!backgroundImage) return undefined
+  return CHAT_WALLPAPER_THEMES.find((theme) => backgroundImage.includes(`/chat-themes/${theme}.`))
+}
+
 export default function ChatWindow() {
   const { conversationId } = useParams()
+  const navigate = useNavigate()
   const { user } = useAuth()
   const { subscribe, publish, connected, startCall } = useSocket()
 
@@ -456,12 +468,22 @@ export default function ChatWindow() {
   const headerAvatar = conversationInfo?.avatar
   const headerName = conversationInfo?.name || 'Cuộc trò chuyện'
   const isOnline = conversationInfo?.otherUserOnline
+  const chatWallpaperTheme = getChatWallpaperTheme(conversationInfo?.backgroundImage)
 
   return (
     <div className="chat-layout-wrapper">
-      <div className="chat-area">
+      <div className="chat-area" data-chat-wallpaper={chatWallpaperTheme}>
         {/* Chat Header */}
         <div className="chat-header">
+          <button
+            type="button"
+            className="chat-back-button"
+            onClick={() => navigate('/messages?list=1')}
+            aria-label="Quay lại danh sách trò chuyện"
+            title="Quay lại danh sách trò chuyện"
+          >
+            <ChevronLeft size={22} />
+          </button>
           <div className="chat-header-left" onClick={() => setShowInfoPanel((v) => !v)}>
             <div className="avatar-wrapper">
               <Avatar src={headerAvatar} name={headerName} size={42} />
@@ -483,10 +505,10 @@ export default function ChatWindow() {
 
           <div className="chat-header-actions">
             <button className="header-action-btn" title="Gọi video" onClick={() => startCall(conversationInfo, 'video')} disabled={conversationInfo?.type === 'GROUP'}>
-              <VideoCallIcon size={20} color="#8da2b5" />
+              <VideoCallIcon size={20} />
             </button>
             <button className="header-action-btn" title="Gọi thoại" onClick={() => startCall(conversationInfo, 'audio')} disabled={conversationInfo?.type === 'GROUP'}>
-              <PhoneCallIcon size={19} color="#8da2b5" />
+              <PhoneCallIcon size={19} />
             </button>
             <button
               className="header-action-btn"
@@ -496,7 +518,7 @@ export default function ChatWindow() {
               aria-expanded={showInfoPanel}
               aria-controls="chat-contact-info"
             >
-              <InfoIcon size={20} color="#8da2b5" />
+              <InfoIcon size={20} />
             </button>
           </div>
         </div>
@@ -514,7 +536,7 @@ export default function ChatWindow() {
         >
           {hasMore && !loadingHistory && (
             <div className="load-more" onClick={loadMore}>
-              ⌃ Tải thêm tin nhắn cũ hơn
+              <ChevronUp size="1em" /> Tải thêm tin nhắn cũ hơn
             </div>
           )}
 
@@ -568,7 +590,7 @@ export default function ChatWindow() {
                   <div className={`msg-bubble ${mine ? 'bubble-mine' : 'bubble-theirs'} ${m.deleted ? 'deleted' : ''} ${isImageBubble ? 'image-message' : ''}`}>
                     {m.replyToMessageId && !m.deleted && (
                       <div className="msg-reply-quote">
-                        ↩ {m.replyToContentPreview || 'tin nhắn'}
+                        <ReplyIcon size="1em" /> {m.replyToContentPreview || 'tin nhắn'}
                       </div>
                     )}
 
@@ -592,7 +614,7 @@ export default function ChatWindow() {
                           rel="noreferrer"
                           className="msg-file-content"
                         >
-                          📎 Tệp đính kèm
+                          <PaperclipIcon size="1.1em" /> Tệp đính kèm
                         </a>
                       ) : (
                         <span className="msg-text-content">{m.content}</span>
@@ -717,7 +739,7 @@ export default function ChatWindow() {
                 : (replyTo.content || '').slice(0, 50)}
             </span>
             <button className="icon-btn" onClick={() => setReplyTo(null)}>
-              ✕
+              <CloseIcon size={16} />
             </button>
           </div>
         )}
@@ -769,7 +791,7 @@ export default function ChatWindow() {
             disabled={uploading || cannotMessage}
             title="Đính kèm tệp/ảnh"
           >
-            <PaperclipIcon size={20} color="#8da2b5" />
+            <PaperclipIcon size={20} />
           </button>
 
           <button
@@ -778,7 +800,7 @@ export default function ChatWindow() {
             onClick={() => setShowEmojiPicker((v) => !v)}
             title="Biểu tượng cảm xúc"
           >
-            <EmojiIcon size={20} color="#8da2b5" />
+            <EmojiIcon size={20} />
           </button>
 
           <button

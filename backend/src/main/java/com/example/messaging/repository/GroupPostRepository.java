@@ -12,5 +12,6 @@ public interface GroupPostRepository extends JpaRepository<GroupPost, Long> {
     List<GroupPost> findByGroupGroupIdAndStatusAndContentContainingIgnoreCaseOrderByPinnedDescCreatedAtDesc(
             Long groupId, String status, String content);
     Optional<GroupPost> findByPostIdAndGroupGroupId(Long postId, Long groupId);
+    List<GroupPost> findAllByMediaUrl(String mediaUrl);
     long countByGroupGroupIdAndAuthorUserIdAndCreatedAtAfter(Long groupId, Long authorId, LocalDateTime after);
 }

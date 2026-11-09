@@ -3,37 +3,28 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import Avatar from './Avatar'
 import {
   BellIcon,
+  BookOpenIcon,
   CalendarIcon,
+  BookmarkIcon,
   ChatIcon,
+  ChevronDown,
   FeedVideoIcon,
   FriendsIcon,
   GroupIcon,
+  HomeIcon,
+  LogoutIcon,
   MessengerLogo,
   SearchIcon,
+  SettingsIcon,
+  UserIcon,
 } from './Icons'
 import { groupApi } from '../api/groupApi'
 import { friendApi } from '../api/friendApi'
 import { conversationApi } from '../api/conversationApi'
 import { userApi } from '../api/userApi'
+import { notificationApi } from '../api/notificationApi'
 import { useAuth } from '../context/AuthContext'
 import SettingsModal from './SettingsModal'
-
-function HomeIcon({ size = 20 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="m3 10 9-7 9 7" />
-      <path d="M5 9v11h14V9M9 20v-6h6v6" />
-    </svg>
-  )
-}
-
-function SavedIcon({ size = 20 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M6 4.75A1.75 1.75 0 0 1 7.75 3h8.5A1.75 1.75 0 0 1 18 4.75V21l-6-4-6 4V4.75Z" />
-    </svg>
-  )
-}
 
 export default function AppTopBar() {
   const { user, logout } = useAuth()
@@ -61,18 +52,18 @@ export default function AppTopBar() {
   useEffect(() => {
     let active = true
     const loadNavigationCounts = async () => {
-      const [friends, groups, conversations, requests] = await Promise.allSettled([
+      const [friends, groups, conversations, requests, activities] = await Promise.allSettled([
         friendApi.received(),
         groupApi.notifications(),
         conversationApi.list(),
         conversationApi.requests(),
+        notificationApi.unreadCount(),
       ])
       if (!active) return
-      if (friends.status === 'fulfilled' && groups.status === 'fulfilled') {
-        const friendCount = (friends.value.data || []).length
-        const groupCount = (groups.value.data || []).filter((item) => !item.read).length
-        setNotificationCount(friendCount + groupCount)
-      }
+      const friendCount = friends.status === 'fulfilled' ? (friends.value.data || []).length : 0
+      const groupCount = groups.status === 'fulfilled' ? (groups.value.data || []).filter((item) => !item.read).length : 0
+      const activityCount = activities.status === 'fulfilled' ? Number(activities.value.data?.count || 0) : 0
+      setNotificationCount(friendCount + groupCount + activityCount)
       if (conversations.status === 'fulfilled') {
         setUnreadMessageCount((conversations.value.data || []).reduce(
           (total, conversation) => total + (Number(conversation.unreadCount) || 0),
@@ -88,11 +79,13 @@ export default function AppTopBar() {
     const intervalId = window.setInterval(loadNavigationCounts, 30000)
     window.addEventListener('focus', loadNavigationCounts)
     window.addEventListener('cmctalk-conversations-updated', loadNavigationCounts)
+    window.addEventListener('cmctalk-notifications-updated', loadNavigationCounts)
     return () => {
       active = false
       window.clearInterval(intervalId)
       window.removeEventListener('focus', loadNavigationCounts)
       window.removeEventListener('cmctalk-conversations-updated', loadNavigationCounts)
+      window.removeEventListener('cmctalk-notifications-updated', loadNavigationCounts)
     }
   }, [])
 
@@ -184,7 +177,7 @@ export default function AppTopBar() {
     <>
       <header className="app-topbar">
       <div className="app-topbar-left">
-        <button className="app-topbar-brand" type="button" aria-label="Bảng tin" onClick={() => navigate('/feed')}>
+        <button className="app-topbar-brand" type="button" aria-label="Trang chủ" onClick={() => navigate('/feed')}>
           <MessengerLogo size={38} />
         </button>
         <div className="app-topbar-search" ref={searchRef}>
@@ -232,8 +225,11 @@ export default function AppTopBar() {
       </div>
 
       <nav className="app-topbar-navigation" aria-label="Điều hướng chính">
-        <NavLink to="/feed" end className={({ isActive }) => `app-topbar-link ${isActive ? 'active' : ''}`} aria-label="Bảng tin" title="Bảng tin">
-          <HomeIcon />
+        <NavLink to="/feed" end className={({ isActive }) => `app-topbar-link ${isActive ? 'active' : ''}`} aria-label="Trang chủ" title="Trang chủ">
+          <HomeIcon size={20} />
+        </NavLink>
+        <NavLink to="/forum" className={({ isActive }) => `app-topbar-link ${isActive ? 'active' : ''}`} aria-label="Diễn đàn học tập" title="Diễn đàn học tập">
+          <BookOpenIcon size={20} />
         </NavLink>
         <NavLink to="/video" className={({ isActive }) => `app-topbar-link ${isActive ? 'active' : ''}`} aria-label="Video" title="Video">
           <FeedVideoIcon size={20} />
@@ -248,7 +244,7 @@ export default function AppTopBar() {
           <CalendarIcon size={20} />
         </NavLink>
         <NavLink to="/saved" className={({ isActive }) => `app-topbar-link ${isActive ? 'active' : ''}`} aria-label="Đã lưu" title="Đã lưu">
-          <SavedIcon size={20} />
+          <BookmarkIcon size={20} />
         </NavLink>
       </nav>
 
@@ -272,7 +268,7 @@ export default function AppTopBar() {
             onClick={() => setAccountMenuOpen((open) => !open)}
           >
             <Avatar src={user?.avatar} name={profileName} size={36} />
-            <span className="app-account-menu-caret" aria-hidden="true">⌄</span>
+            <span className="app-account-menu-caret" aria-hidden="true"><ChevronDown size={14} /></span>
           </button>
           {accountMenuOpen && (
             <div className="app-account-menu" role="menu" aria-label="Menu tài khoản">
@@ -281,16 +277,16 @@ export default function AppTopBar() {
                 <div><strong>{profileName}</strong><span>@{user?.username || ''}</span></div>
               </div>
               <button type="button" role="menuitem" onClick={() => { setAccountMenuOpen(false); navigate('/feed/profile') }}>
-                <span className="app-account-menu-icon">◉</span>
+                <span className="app-account-menu-icon"><UserIcon size={18} /></span>
                 Xem trang cá nhân
               </button>
               <button type="button" role="menuitem" onClick={openSettings}>
-                <span className="app-account-menu-icon">⚙</span>
+                <span className="app-account-menu-icon"><SettingsIcon size={18} /></span>
                 Cài đặt và quyền riêng tư
               </button>
               <div className="app-account-menu-divider" />
               <button type="button" role="menuitem" className="app-account-logout" onClick={() => { setAccountMenuOpen(false); logout() }}>
-                <span className="app-account-menu-icon">⇥</span>
+                <span className="app-account-menu-icon"><LogoutIcon size={18} /></span>
                 Đăng xuất
               </button>
             </div>

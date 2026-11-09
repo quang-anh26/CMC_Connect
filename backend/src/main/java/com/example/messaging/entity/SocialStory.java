@@ -25,7 +25,7 @@ public class SocialStory {
     @JoinColumn(name = "author_id", nullable = false)
     private User author;
 
-    @Column(columnDefinition = "NVARCHAR(500)")
+    @Column(length = 500)
     private String content;
 
     @Column(name = "media_url", length = 1000)

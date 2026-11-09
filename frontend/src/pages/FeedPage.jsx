@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { NavLink, useNavigate } from 'react-router-dom'
+import { createPortal } from 'react-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { feedApi } from '../api/feedApi'
 import { conversationApi } from '../api/conversationApi'
 import { storyApi } from '../api/storyApi'
@@ -8,10 +9,12 @@ import { messageApi } from '../api/messageApi'
 import { eventApi } from '../api/eventApi'
 import { savedApi } from '../api/savedApi'
 import Avatar from '../components/Avatar'
+import PostMenu from '../components/PostMenu'
 import EmptyState from '../components/EmptyState'
 import LoadingState from '../components/LoadingState'
 import ErrorState from '../components/ErrorState'
-import { BellIcon, CalendarIcon, ChatIcon, CommentIcon, FeedIcon, FeedVideoIcon, FriendsIcon, GroupIcon, ShareIcon } from '../components/Icons'
+import PrimarySidebar from '../components/PrimarySidebar'
+import { BookmarkIcon, CalendarIcon, CommentIcon, ImageIcon, PencilIcon, PlayIcon, ShareIcon } from '../components/Icons'
 import { useAuth } from '../context/AuthContext'
 
 const storyImage = 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=500&q=80'
@@ -23,10 +26,7 @@ const postReactions = [
   { type: 'ANGRY', label: 'Phẫn nộ', emoji: '😡' },
 ]
 const storyReactions = ['👍', '❤️', '😂', '😮', '😢', '😡']
-
-function SavedMenuIcon() {
-  return <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 4.75A1.75 1.75 0 0 1 7.75 3h8.5A1.75 1.75 0 0 1 18 4.75V21l-6-4-6 4V4.75Z" /></svg>
-}
+const postEmojis = ['😀', '😄', '😍', '🥰', '😂', '😊', '😎', '🤔', '😢', '😡', '🎉', '❤️']
 
 function PostReactionControl({ post, onSelect }) {
   const selectedReaction = postReactions.find((reaction) => reaction.type === post.viewerReaction)
@@ -71,11 +71,13 @@ function LikeOutlineIcon() {
 
 export default function FeedPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { user } = useAuth()
   const [posts, setPosts] = useState([])
   const [upcomingEvents, setUpcomingEvents] = useState([])
   const [stories, setStories] = useState([])
   const [content, setContent] = useState('')
+  const [postPrivacy, setPostPrivacy] = useState('PUBLIC')
   const [postFile, setPostFile] = useState(null)
   const [postPreview, setPostPreview] = useState('')
   const [loading, setLoading] = useState(true)
@@ -102,10 +104,12 @@ export default function FeedPage() {
   const [shareError, setShareError] = useState('')
   const [commentDrafts, setCommentDrafts] = useState({})
   const [error, setError] = useState('')
-  const [composerMode, setComposerMode] = useState('text')
+  const [emojiPickerOpen, setEmojiPickerOpen] = useState(false)
   const [notice, setNotice] = useState('')
   const postMediaInputRef = useRef(null)
+  const postTextAreaRef = useRef(null)
   const storyTouchStartX = useRef(null)
+  const lastNotificationTarget = useRef('')
 
   const loadPosts = () => {
     setLoading(true)
@@ -124,6 +128,18 @@ export default function FeedPage() {
   useEffect(() => {
     loadPosts()
   }, [])
+
+  useEffect(() => {
+    const postId = new URLSearchParams(location.search).get('postId')
+    if (!postId || loading || !posts.length || lastNotificationTarget.current === `${location.search}:${postId}`) return
+    const target = document.querySelector(`[data-post-id="${CSS.escape(postId)}"]`)
+    if (target) {
+      lastNotificationTarget.current = `${location.search}:${postId}`
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      target.classList.add('post-card--notification-target')
+      window.setTimeout(() => target.classList.remove('post-card--notification-target'), 2400)
+    }
+  }, [location.search, loading, posts])
 
   useEffect(() => {
     eventApi.list('UPCOMING')
@@ -324,17 +340,31 @@ export default function FeedPage() {
           mediaType = uploadResponse.data.mediaType
         }
       }
-      const response = await feedApi.create({ content: trimmedContent || null, imageUrl, mediaType })
+      const response = await feedApi.create({ content: trimmedContent || null, imageUrl, mediaType, privacy: postPrivacy })
       setPosts((current) => [response.data, ...current])
       setContent('')
+      setPostPrivacy('PUBLIC')
       setPostFile(null)
-      setComposerMode('text')
+      setEmojiPickerOpen(false)
       if (postMediaInputRef.current) postMediaInputRef.current.value = ''
     } catch (err) {
       setError(err.response?.data?.message || 'Không thể đăng bài. Vui lòng thử lại.')
     } finally {
       setPosting(false)
     }
+  }
+
+  const insertPostEmoji = (emoji) => {
+    const textarea = postTextAreaRef.current
+    const selectionStart = textarea?.selectionStart ?? content.length
+    const selectionEnd = textarea?.selectionEnd ?? selectionStart
+    const nextContent = `${content.slice(0, selectionStart)}${emoji}${content.slice(selectionEnd)}`
+    setContent(nextContent)
+    setEmojiPickerOpen(false)
+    window.requestAnimationFrame(() => {
+      textarea?.focus()
+      textarea?.setSelectionRange(selectionStart + emoji.length, selectionStart + emoji.length)
+    })
   }
 
   const selectReaction = async (postId, reactionType) => {
@@ -344,18 +374,18 @@ export default function FeedPage() {
     } catch (err) {
       setError(err.response?.data?.message || 'Không thể cập nhật cảm xúc. Vui lòng thử lại.')
     }
+  }
 
-    const togglePostSaved = async (post) => {
-      const contentType = post.mediaType === 'VIDEO' ? 'VIDEO'
-        : /https?:\/\/[^\s<>()]+/i.test(post.content || '') ? 'LINK' : 'POST'
-      try {
-        const { data } = await savedApi.toggle(contentType, post.postId)
-        setPosts((current) => current.map((entry) => entry.postId === post.postId
-          ? { ...entry, savedByViewer: data.saved } : entry))
-        setNotice(data.saved ? 'Đã lưu nội dung.' : 'Đã bỏ lưu nội dung.')
-      } catch (err) {
-        setError(err.response?.data?.message || 'Không thể cập nhật nội dung đã lưu.')
-      }
+  const togglePostSaved = async (post) => {
+    const contentType = post.mediaType === 'VIDEO' ? 'VIDEO'
+      : /https?:\/\/[^\s<>()]+/i.test(post.content || '') ? 'LINK' : 'POST'
+    try {
+      const { data } = await savedApi.toggle(contentType, post.postId)
+      setPosts((current) => current.map((entry) => entry.postId === post.postId
+        ? { ...entry, savedByViewer: data.saved } : entry))
+      setNotice(data.saved ? 'Đã lưu nội dung.' : 'Đã bỏ lưu nội dung.')
+    } catch (err) {
+      setError(err.response?.data?.message || 'Không thể cập nhật nội dung đã lưu.')
     }
   }
 
@@ -397,7 +427,7 @@ export default function FeedPage() {
         )).filter((post) => post.postId !== sharedPost.postId),
       ])
       closeShareDialog()
-      setNotice('Bài viết đã được chia sẻ lên bảng tin của bạn.')
+      setNotice('Bài viết đã được chia sẻ lên trang chủ của bạn.')
     } catch (err) {
       setShareError(err.response?.data?.message || 'Không thể chia sẻ bài viết. Vui lòng thử lại.')
     } finally {
@@ -426,7 +456,15 @@ export default function FeedPage() {
         <div className="story-panel-heading"><strong>Tin của bạn bè</strong>{storiesLoading && <span>Đang tải...</span>}</div>
         <div className="story-list">
           <button className="story-card create-story" type="button" onClick={() => setStoryModalOpen(true)} aria-label="Tạo tin mới">
-            <span className="story-create-icon" aria-hidden="true">+</span>
+            <span className="story-create-visual">
+              <Avatar
+                className="story-create-avatar"
+                src={user?.avatar}
+                name={user?.displayName || user?.username || 'Bạn'}
+                size={48}
+              />
+              <span className="story-create-icon" aria-hidden="true">+</span>
+            </span>
             <span className="story-create-label">Tạo tin</span>
           </button>
           {stories.map((story) => (
@@ -451,7 +489,7 @@ export default function FeedPage() {
                   aria-hidden="true"
                 />
               )}
-              <Avatar className="story-avatar" src={story.authorAvatar} name={story.authorName} size={26} />
+              <Avatar className="story-avatar" src={story.authorAvatar} name={story.authorName} size={30} />
               <span>{story.authorName}</span>
             </button>
           ))}
@@ -459,8 +497,8 @@ export default function FeedPage() {
         {storiesError && <div className="story-error">{storiesError}</div>}
       </section>
 
-      {storyModalOpen && (
-        <div className="story-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) closeStoryComposer() }}>
+      {storyModalOpen && createPortal(
+        <div className="story-modal-backdrop story-composer-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) closeStoryComposer() }}>
           <form className="story-create-dialog" onSubmit={publishStory}>
             <header className="story-dialog-header">
               <h2>Tạo tin</h2>
@@ -503,11 +541,47 @@ export default function FeedPage() {
               {storyPosting ? 'Đang đăng...' : 'Chia sẻ lên tin'}
             </button>
           </form>
-        </div>
+        </div>,
+        document.body,
       )}
 
-      {activeStory && (
-        <div className="story-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setActiveStory(null) }}>
+      {activeStory && createPortal(
+        <div className="story-modal-backdrop story-viewer-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setActiveStory(null) }}>
+          <aside className="story-viewer-sidebar" aria-label="Danh sách tin">
+            <header className="story-sidebar-heading">
+              <button type="button" className="story-dialog-close" onClick={() => setActiveStory(null)} aria-label="Đóng">×</button>
+              <h2>Tin</h2>
+            </header>
+            <section className="story-sidebar-section">
+              <h3>Tin của bạn</h3>
+              <button
+                type="button"
+                className="story-sidebar-create"
+                onClick={() => { setActiveStory(null); setStoryModalOpen(true) }}
+              >
+                <Avatar src={user?.avatar} name={user?.displayName || user?.username || 'Bạn'} size={42} />
+                <span><strong>Tạo tin</strong><small>Chia sẻ ảnh, video hoặc viết gì đó</small></span>
+                <span className="story-sidebar-plus" aria-hidden="true">+</span>
+              </button>
+            </section>
+            <section className="story-sidebar-section story-sidebar-all">
+              <h3>Tất cả tin</h3>
+              <div className="story-sidebar-list">
+                {stories.map((story) => (
+                  <button
+                    key={story.storyId}
+                    type="button"
+                    className={`story-sidebar-item ${String(story.storyId) === String(activeStory.storyId) ? 'active' : ''}`}
+                    onClick={() => setActiveStory(story)}
+                    aria-current={String(story.storyId) === String(activeStory.storyId) ? 'true' : undefined}
+                  >
+                    <Avatar src={story.authorAvatar} name={story.authorName} size={42} />
+                    <span><strong>{story.authorName}</strong><small>{formatPostTime(story.createdAt)}</small></span>
+                  </button>
+                ))}
+              </div>
+            </section>
+          </aside>
           <section
             className={`story-viewer ${activeStory.mediaType === 'TEXT' || !activeStory.mediaType ? 'text-story-viewer' : ''}`}
             aria-label="Tin"
@@ -559,7 +633,8 @@ export default function FeedPage() {
             )}
             {String(activeStory.authorId) === String(user?.userId) && storyViewerError && <div className="story-viewer-error">{storyViewerError}</div>}
           </section>
-        </div>
+        </div>,
+        document.body,
       )}
 
       {activePostImage && (
@@ -573,6 +648,7 @@ export default function FeedPage() {
         <Avatar src={user?.avatar} name={user?.displayName || user?.username} size={42} />
         <div className="create-post-main">
           <textarea
+            ref={postTextAreaRef}
             value={content}
             onChange={(event) => setContent(event.target.value)}
             placeholder="Bạn đang nghĩ gì?"
@@ -601,18 +677,39 @@ export default function FeedPage() {
             hidden
             onChange={(event) => setPostFile(event.target.files?.[0] || null)}
           />
-          <div className="composer-actions">
+          <div className="composer-actions post-composer-actions">
             <div className="composer-tools">
-              <button type="button" className={composerMode === 'text' ? 'selected' : ''} onClick={() => setComposerMode('text')}>✎ <span>Đăng bài</span></button>
-              <button type="button" className={composerMode === 'media' ? 'selected' : ''} onClick={() => { setComposerMode('media'); postMediaInputRef.current?.click() }}>▣ <span>Ảnh / Video</span></button>
+              <button
+                type="button"
+                className={emojiPickerOpen ? 'selected' : ''}
+                onClick={() => setEmojiPickerOpen((open) => !open)}
+                aria-label="Chọn cảm xúc"
+                aria-expanded={emojiPickerOpen}
+                aria-haspopup="true"
+                title="Chọn cảm xúc"
+              ><span aria-hidden="true">😊</span><span>Cảm xúc</span></button>
+              {emojiPickerOpen && (
+                <div className="post-emoji-picker" role="group" aria-label="Chèn biểu tượng cảm xúc">
+                  {postEmojis.map((emoji) => (
+                    <button key={emoji} type="button" onClick={() => insertPostEmoji(emoji)} aria-label={`Chèn ${emoji}`}>{emoji}</button>
+                  ))}
+                </div>
+              )}
+              <button type="button" onClick={() => postMediaInputRef.current?.click()}><ImageIcon size="1.05em" /> <span>Ảnh / Video</span></button>
             </div>
+            <label className="post-privacy-picker" title="Ai có thể xem bài viết này?">
+              <span aria-hidden="true">{postPrivacy === 'PUBLIC' ? '🌐' : postPrivacy === 'FRIENDS' ? '👥' : '🔒'}</span>
+              <select aria-label="Quyền riêng tư bài viết" value={postPrivacy} onChange={(event) => setPostPrivacy(event.target.value)}>
+                <option value="PUBLIC">Công khai</option><option value="FRIENDS">Bạn bè</option><option value="PRIVATE">Chỉ mình tôi</option>
+              </select>
+            </label>
             <button className="publish-button" type="submit" disabled={posting || (!content.trim() && !postFile)}>{posting ? 'Đang đăng...' : 'Đăng bài'}</button>
           </div>
         </div>
       </form>
 
       {error && <div className="feed-error">{error}</div>}
-      {feedLoadError && !loading && <ErrorState title="Không tải được bảng tin" message={feedLoadError} onRetry={loadPosts} />}
+      {feedLoadError && !loading && <ErrorState title="Không tải được trang chủ" message={feedLoadError} onRetry={loadPosts} />}
       {notice && <button className="feed-notice" type="button" onClick={() => setNotice('')}>{notice} ×</button>}
       {shareTarget && (
         <div className="share-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) closeShareDialog() }}>
@@ -623,7 +720,7 @@ export default function FeedPage() {
             </header>
             <div className="share-dialog-author">
               <Avatar src={user?.avatar} name={user?.displayName || user?.username || 'Bạn'} size={38} />
-              <div><strong>{user?.displayName || user?.username || 'Bạn'}</strong><small>Chia sẻ lên bảng tin</small></div>
+              <div><strong>{user?.displayName || user?.username || 'Bạn'}</strong><small>Chia sẻ lên trang chủ</small></div>
             </div>
             <textarea className="share-caption-input" value={shareCaption} onChange={(event) => setShareCaption(event.target.value)} placeholder="Viết điều gì đó về bài viết này..." maxLength={10000} rows={3} />
             {(() => {
@@ -641,21 +738,28 @@ export default function FeedPage() {
           </form>
         </div>
       )}
-      {loading && <LoadingState variant="skeleton" lines={3} skeletonHeight={150} label="Đang tải bảng tin..." />}
-      {!loading && !feedLoadError && posts.length === 0 && <EmptyState icon="✎" title="Chưa có bài viết nào" description="Hãy là người đầu tiên chia sẻ điều gì đó với mọi người." />}
+      {loading && <LoadingState variant="skeleton" lines={3} skeletonHeight={150} label="Đang tải trang chủ..." />}
+      {!loading && !feedLoadError && posts.length === 0 && <EmptyState icon={<PencilIcon size={28} />} title="Chưa có bài viết nào" description="Hãy là người đầu tiên chia sẻ điều gì đó với mọi người." />}
 
       <div className="feed-list">
         {posts.map((post) => (
-          <article className="post-card" key={post.postId}>
+          <article className="post-card" data-post-id={post.postId} key={post.postId}>
             <div className="post-heading">
               <button type="button" className="feed-user-profile-link" onClick={() => navigate(`/feed/profile/${post.authorId}`)} aria-label={`Xem trang cá nhân ${post.authorName}`}><Avatar src={post.authorAvatar} name={post.authorName} size={42} /></button>
               <div className="post-author">
                 <button type="button" className="feed-author-profile-link" onClick={() => navigate(`/feed/profile/${post.authorId}`)}>{post.authorName}</button>
-                <span>{post.sharedPost && 'Đã chia sẻ · '}{formatPostTime(post.createdAt)}</span>
+                <span>{post.sharedPost && 'Đã chia sẻ · '}{formatPostTime(post.createdAt)} · <span className="post-privacy-indicator" title={`Quyền riêng tư: ${post.privacy === 'FRIENDS' ? 'Bạn bè' : post.privacy === 'PRIVATE' ? 'Chỉ mình tôi' : 'Công khai'}`}>{post.privacy === 'FRIENDS' ? '👥 Bạn bè' : post.privacy === 'PRIVATE' ? '🔒 Chỉ mình tôi' : '🌐 Công khai'}</span></span>
               </div>
-              {String(post.authorId) === String(user?.userId) && (
-                <button className="post-delete" type="button" onClick={() => deletePost(post.postId)} title="Xóa bài viết">Xóa</button>
-              )}
+              <PostMenu
+                post={post}
+                currentUserId={user?.userId}
+                onPostUpdated={(updated) => { setPosts((current) => current.map((item) => item.postId === updated.postId ? updated : item)); setNotice('Đã cập nhật quyền riêng tư.') }}
+                onPostDeleted={(deleted) => {
+                  const originalPostId = deleted?.sharedPost?.postId
+                  setPosts((current) => current.filter((item) => item.postId !== deleted.postId && (originalPostId || item.sharedPost?.postId !== deleted.postId)).map((item) => originalPostId && (item.postId === originalPostId || item.sharedPost?.postId === originalPostId) ? { ...item, shareCount: Math.max(0, (item.shareCount || 0) - 1) } : item))
+                }}
+                onError={setError}
+              />
             </div>
             {post.content && <p className="post-content">{post.content}</p>}
             {post.sharedPost ? (
@@ -681,7 +785,7 @@ export default function FeedPage() {
               <PostReactionControl post={post} onSelect={selectReaction} />
               <button type="button" onClick={() => document.getElementById(`comment-${post.postId}`)?.focus()}><CommentIcon size={17} /> {post.comments.length > 0 && <span className="action-count">{post.comments.length}</span>} Bình luận </button>
               <button type="button" onClick={() => { setShareTarget(post); setShareCaption('') }}><ShareIcon size={17} /> {post.shareCount > 0 && <span className="action-count">{post.shareCount}</span>} Chia sẻ </button>
-              <button type="button" className={post.savedByViewer ? 'saved-action-active' : ''} onClick={() => togglePostSaved(post)}>{post.savedByViewer ? '▣ Đã lưu' : '▣ Lưu'}</button>
+              <button type="button" className={post.savedByViewer ? 'saved-action-active' : ''} onClick={() => togglePostSaved(post)}><BookmarkIcon size="1.05em" filled={!!post.savedByViewer} /> {post.savedByViewer ? 'Đã lưu' : 'Lưu'}</button>
             </div>
             <div className="post-comments">
               {post.comments.map((comment) => (
@@ -707,38 +811,18 @@ export default function FeedPage() {
       </div>
       </main>
       <aside className="feed-aside">
-        <nav className="feed-side-menu" aria-label="Lối tắt">
-          <NavLink to="/feed/profile" className="feed-side-profile">
-            <Avatar src={user?.avatar} name={user?.displayName || user?.username} size={40} />
-            <span>{user?.displayName || user?.username || 'Trang cá nhân'}</span>
-          </NavLink>
-          <div className="feed-side-menu-items">
-            <NavLink to="/friends" className="feed-side-link"><FriendsIcon size={23} /><span>Bạn bè</span></NavLink>
-            <NavLink to="/events" className="feed-side-link"><CalendarIcon size={23} /><span>Sự kiện</span></NavLink>
-            <NavLink to="/saved" className="feed-side-link"><SavedMenuIcon /><span>Đã lưu</span></NavLink>
-            <NavLink to="/groups" className="feed-side-link"><GroupIcon size={23} /><span>Nhóm</span></NavLink>
-            <NavLink to="/video" className="feed-side-link"><FeedVideoIcon size={23} /><span>Video</span></NavLink>
-            <NavLink to="/feed" end className="feed-side-link"><FeedIcon size={23} /><span>Bảng tin</span></NavLink>
-            <NavLink to="/messages" className="feed-side-link"><ChatIcon size={23} /><span>Trò chuyện</span></NavLink>
-            <NavLink to="/notifications" className="feed-side-link"><BellIcon size={23} /><span>Thông báo</span></NavLink>
-          </div>
-          <footer className="feed-side-footer">CMC Talk · Kết nối và chia sẻ</footer>
-        </nav>
+        <PrimarySidebar />
       </aside>
       <aside className="feed-right-rail">
         <section className="aside-card preview-events-card">
           <div className="aside-heading"><strong>Sự kiện sắp tới</strong><span className="preview-label">Xem trước</span></div>
-          {upcomingEvents.length ? upcomingEvents.map((item) => <div className="preview-event" key={item.eventId}><span className="preview-event-icon">▦</span><div><strong>{item.title}</strong><small>{new Intl.DateTimeFormat('vi-VN', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(item.startsAt))}<br />{item.location}</small></div><button type="button" onClick={() => navigate(`/events/${item.eventId}`)}>Chi tiết</button></div>) : <EmptyState compact description="Chưa có sự kiện sắp tới." action={<button type="button" className="ui-state__action" onClick={() => navigate('/events')}>Xem sự kiện</button>} />}
+          {upcomingEvents.length ? upcomingEvents.map((item) => <div className="preview-event" key={item.eventId}><span className="preview-event-icon"><CalendarIcon size="1em" /></span><div><strong>{item.title}</strong><small>{new Intl.DateTimeFormat('vi-VN', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(item.startsAt))}<br />{item.location}</small></div><button type="button" onClick={() => navigate(`/events/${item.eventId}`)}>Chi tiết</button></div>) : <EmptyState compact description="Chưa có sự kiện sắp tới." action={<button type="button" className="ui-state__action" onClick={() => navigate('/events')}>Xem sự kiện</button>} />}
         </section>
         <section className="aside-card preview-video-card">
           <div className="aside-heading"><strong>Video gợi ý</strong><span className="preview-label">Xem trước</span></div>
-          <div className="preview-video-thumb" style={{ backgroundImage: `linear-gradient(0deg, rgba(8, 18, 38, .5), transparent), url(${storyImage})` }}><span>▶</span><small>3:45</small></div>
+          <div className="preview-video-thumb" style={{ backgroundImage: `linear-gradient(0deg, rgba(8, 18, 38, .5), transparent), url(${storyImage})` }}><span><PlayIcon size="1em" /></span><small>3:45</small></div>
           <strong className="preview-video-title">Hà Nội · Những khoảnh khắc bình yên</strong>
           <small className="preview-video-meta">Du lịch Việt Nam · 12K lượt xem</small>
-        </section>
-        <section className="aside-card preview-topics-card">
-          <div className="aside-heading"><strong>Chủ đề đang hot</strong><span className="preview-label">Xem trước</span></div>
-          <div className="preview-topic-list">{['#CNTT', '#LậpTrình', '#DuLịch', '#ÂmNhạc', '#Anime', '#CuộcSống'].map((topic) => <span key={topic}>{topic}</span>)}</div>
         </section>
       </aside>
       </div>

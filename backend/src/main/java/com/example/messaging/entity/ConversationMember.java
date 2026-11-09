@@ -39,7 +39,7 @@ public class ConversationMember {
     @Builder.Default
     private boolean archived = false;
 
-    @Column(name = "nickname", columnDefinition = "NVARCHAR(50)")
+    @Column(name = "nickname", length = 50)
     private String nickname;
 
     @Column(name = "message_request_pending", nullable = false)

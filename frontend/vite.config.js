@@ -5,6 +5,8 @@ import react from '@vitejs/plugin-react'
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), 'VITE_')
   const useHttps = env.VITE_HTTPS === 'true'
+  const backendUrl = env.VITE_BACKEND_URL || 'http://localhost:8080'
+  const allowedHost = env.VITE_ALLOWED_HOST
 
   return {
     plugins: [react(), ...(useHttps ? [basicSsl()] : [])],
@@ -20,17 +22,18 @@ export default defineConfig(({ mode }) => {
       global: 'globalThis',
     },
     server: {
+      ...(allowedHost ? { allowedHosts: [allowedHost] } : {}),
       // Allow other devices on the same LAN to open the development server.
       host: '0.0.0.0',
       https: useHttps,
       port: 5173,
       proxy: {
-        '/api': 'http://localhost:8080',
+        '/api': backendUrl,
         '/ws': {
-          target: 'http://localhost:8080',
+          target: backendUrl,
           ws: true
         },
-        '/uploads': 'http://localhost:8080'
+        '/uploads': backendUrl
       }
     }
   }

@@ -1,0 +1,11 @@
+.git
+.idea
+.vscode
+target
+uploads
+private-group-files
+application-local.yml
+application-local.example.yml
+.env
+docker-compose.yml
+database

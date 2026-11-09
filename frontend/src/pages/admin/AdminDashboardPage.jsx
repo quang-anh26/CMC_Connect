@@ -5,6 +5,7 @@ import EmptyState from '../../components/EmptyState'
 import LoadingState from '../../components/LoadingState'
 import ErrorState from '../../components/ErrorState'
 import { getApiErrorMessage } from '../../utils/apiError'
+import { UserIcon } from '../../components/Icons'
 
 export default function AdminDashboardPage() {
   const { logout } = useAuth()
@@ -79,14 +80,14 @@ export default function AdminDashboardPage() {
               placeholder="Tìm theo username / tên..."
               value={q}
               onChange={(e) => { setQ(e.target.value); loadUsers(e.target.value) }}
-              style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #ddd', width: 280 }}
+              className="admin-search"
             />
           </div>
 
           {listError ? (
             <ErrorState compact message={listError} onRetry={() => loadUsers(q)} />
           ) : users.length === 0 ? (
-            <EmptyState icon="👤" title="Không tìm thấy người dùng" description="Thử từ khóa khác." />
+            <EmptyState icon={<UserIcon size={28} />} title="Không tìm thấy người dùng" description="Thử từ khóa khác." />
           ) : (
             <table className="admin-table">
               <thead>

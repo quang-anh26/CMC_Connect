@@ -6,6 +6,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 
 public interface SocialGroupRepository extends JpaRepository<SocialGroup, Long> {
-    List<SocialGroup> findTop50ByNameContainingIgnoreCaseOrderByCreatedAtDesc(String name);
-    List<SocialGroup> findTop50ByOrderByCreatedAtDesc();
+    List<SocialGroup> findAllByNameContainingIgnoreCaseOrderByCreatedAtDesc(String name);
+    List<SocialGroup> findAllByOrderByCreatedAtDesc();
 }

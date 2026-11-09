@@ -1,6 +1,7 @@
 package com.example.messaging.entity;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.Nationalized;
 import lombok.*;
 
 import java.time.LocalDateTime;
@@ -29,6 +30,7 @@ public class GroupBan {
     @JoinColumn(name = "banned_by", nullable = false)
     private User bannedBy;
 
+    @Nationalized
     @Column(length = 500)
     private String reason;
 
