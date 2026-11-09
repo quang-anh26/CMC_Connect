@@ -6,10 +6,24 @@
   + SQL Server + WebSocket/STOMP.
 - **Frontend**: React 18 + Vite + React Router + @stomp/stompjs (SockJS).
 
+<<<<<<< Updated upstream
 Đã có: đăng ký/đăng nhập, duy trì phiên (refresh token), hồ sơ cá nhân, kết bạn,
 chat 1-1 realtime (gửi/nhận, Sent/Seen, Reply, Thu hồi, lazy-load lịch sử 20 tin/lần,
 typing indicator, online/offline), tạo & quản lý group chat cơ bản, gửi ảnh/tệp,
 chặn người dùng, và khu vực Admin (dashboard + khóa/mở khóa tài khoản).
+=======
+- Đăng ký bằng email sinh viên `@st.cmcu.edu.vn`, xác thực mã email, đăng nhập bằng
+  username hoặc email, đổi mật khẩu và duy trì phiên bằng access/refresh token.
+- Hồ sơ cá nhân, tìm kiếm người dùng, kết bạn, chặn người dùng và tin nhắn chờ.
+- Chat cá nhân và nhóm: nhắn tin realtime, trạng thái đã xem, typing indicator, chỉnh
+  sửa/thu hồi tin nhắn, reaction, tệp đính kèm và gọi thoại/video.
+- Bảng tin: bài viết, reaction, bình luận, chia sẻ và story.
+- Nhóm cộng đồng: thành viên, bài viết/media, kiểm duyệt, báo cáo, poll, sự kiện và lời mời.
+- Sự kiện, video, nội dung đã lưu và thông báo trong ứng dụng.
+- Khu vực Admin để xem dashboard và khóa/mở khóa tài khoản.
+- Diễn đàn học tập: danh mục, tìm kiếm/lọc chủ đề, đăng bài trực tiếp, đính kèm tài liệu,
+  thảo luận và quản lý bài viết của chính người đăng.
+>>>>>>> Stashed changes
 
 Các mục "Nên có" / "Nếu còn thời gian" trong bản kế hoạch (emoji reaction, notification
 đẩy, group chat nâng cao, v.v.) **chưa** được triển khai ở bản này — nhắn để mình làm
@@ -50,11 +64,23 @@ docker exec -it messaging-sqlserver /opt/mssql-tools/bin/sqlcmd \
   -S localhost -U sa -P YourPassword123 -i /dev/stdin < database/seed-data.sql
 ```
 
+<<<<<<< Updated upstream
 **Lưu ý về `ddl-auto=update`:** `application.yml` hiện để Hibernate tự tạo/cập nhật
 bảng khi backend khởi động, nên kể cả khi bạn *không* chạy `schema.sql` tay, backend
 vẫn tự dựng đủ bảng ở lần chạy đầu. Nếu bạn đã chạy `schema.sql` tay và muốn Hibernate
 không đụng vào cấu trúc bảng nữa, đổi `ddl-auto` thành `validate` (kiểm tra khớp, không
 sửa) hoặc `none` trong `application.yml`.
+=======
+Container mở PostgreSQL tại `localhost:5432` với database `messaging_db`, user
+`messaging_app` và mật khẩu dành riêng cho phát triển `messaging_dev_password`.
+Nếu `backend/.env` đặt `POSTGRES_HOST_PORT`, PostgreSQL sẽ dùng cổng đó trên máy host
+(backend trong Docker Compose vẫn kết nối qua cổng nội bộ `5432`).
+Hibernate tự tạo/cập nhật bảng khi backend khởi động, gồm các bảng bổ sung của Forum;
+danh mục Forum mặc định chỉ được thêm nếu chưa tồn tại. Các file SQL trong
+`backend/database/` và `src/main/resources/db/migration/` là script T-SQL cũ cho SQL
+Server; không chạy chúng với PostgreSQL. Database mới không có tài khoản demo cho tới
+khi người dùng đăng ký hoặc dữ liệu được nạp riêng.
+>>>>>>> Stashed changes
 
 ## 3. Chạy Backend
 
