@@ -66,6 +66,10 @@ public class MailService {
      * @return true nếu email thật đã được gửi đi; false nếu đang ở chế độ DEV (chỉ in mã ra console).
      */
     public boolean sendVerificationCode(String to, String code, long ttlMinutes) {
+        return sendVerificationCode(to, code, ttlMinutes, false);
+    }
+
+    public boolean sendVerificationCode(String to, String code, long ttlMinutes, boolean resetPassword) {
         if (!isMailActive()) {
             log.warn("""
                     =====================================================================
@@ -91,8 +95,10 @@ public class MailService {
                 helper.setFrom(fromAddress, "CMC Talk");
             }
             helper.setTo(to);
-            helper.setSubject("CMC Talk - Mã xác thực của bạn là " + code);
-            helper.setText(buildHtml(code, ttlMinutes), true);
+            helper.setSubject(resetPassword
+                    ? "CMC Talk - Mã đặt lại mật khẩu của bạn là " + code
+                    : "CMC Talk - Mã xác thực của bạn là " + code);
+            helper.setText(buildHtml(code, ttlMinutes, resetPassword), true);
             sender.send(message);
             log.info("Đã gửi email xác thực tới {}", to);
             return true;
@@ -114,15 +120,19 @@ public class MailService {
         return root.getClass().getSimpleName() + ": " + root.getMessage();
     }
 
-    private String buildHtml(String code, long ttlMinutes) {
+    private String buildHtml(String code, long ttlMinutes, boolean resetPassword) {
         return "<div style=\"font-family:Arial,Helvetica,sans-serif;max-width:480px;margin:0 auto;padding:24px;"
                 + "border:1px solid #e4e6eb;border-radius:12px\">"
                 + "<h2 style=\"margin:0 0 8px;color:#0b5fd6\">CMC Talk</h2>"
-                + "<p style=\"color:#333;font-size:15px\">Mã xác thực email đăng ký tài khoản của bạn:</p>"
+                + "<p style=\"color:#333;font-size:15px\">"
+                + (resetPassword ? "Mã xác thực để đặt lại mật khẩu tài khoản của bạn:"
+                                 : "Mã xác thực email đăng ký tài khoản của bạn:") + "</p>"
                 + "<p style=\"font-size:34px;font-weight:700;letter-spacing:8px;margin:18px 0;color:#111\">" + code + "</p>"
                 + "<p style=\"color:#555;font-size:14px\">Mã có hiệu lực trong " + ttlMinutes + " phút. "
                 + "Tuyệt đối không chia sẻ mã này cho bất kỳ ai.</p>"
-                + "<p style=\"color:#888;font-size:12px\">Nếu bạn không yêu cầu đăng ký, hãy bỏ qua email này.</p>"
+                + "<p style=\"color:#888;font-size:12px\">"
+                + (resetPassword ? "Nếu bạn không yêu cầu đặt lại mật khẩu, hãy bỏ qua email này."
+                                 : "Nếu bạn không yêu cầu đăng ký, hãy bỏ qua email này.") + "</p>"
                 + "</div>";
     }
 }

@@ -10,7 +10,9 @@ import java.time.LocalDate;
 
 @Entity
 @Table(name = "USERS", uniqueConstraints = {
-        @UniqueConstraint(columnNames = "username")
+        @UniqueConstraint(columnNames = "username"),
+        // Mỗi sinh viên (email @st.cmcu.edu.vn) chỉ có đúng một tài khoản
+        @UniqueConstraint(name = "uk_users_email", columnNames = "email")
 })
 @Getter
 @Setter
@@ -28,7 +30,7 @@ public class User {
     private String username;
 
     @Column(length = 255)
-    private String email; // chữ thường; null với tài khoản tạo trước khi có xác thực email
+    private String email; // chữ thường, duy nhất (xem uk_users_email); null với tài khoản tạo trước khi có xác thực email
 
     @Column(nullable = false)
     private String password; // BCrypt hash

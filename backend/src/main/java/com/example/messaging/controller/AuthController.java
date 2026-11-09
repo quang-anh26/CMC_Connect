@@ -33,6 +33,27 @@ public class AuthController {
         return ResponseEntity.ok(authService.register(request));
     }
 
+    /** Quên mật khẩu - bước 1: gửi mã 6 số tới email sinh viên đã đăng ký. */
+    @PostMapping("/forgot-password/send-code")
+    public ResponseEntity<SendCodeResponse> sendForgotPasswordCode(
+            @Valid @RequestBody ForgotPasswordSendCodeRequest request) {
+        return ResponseEntity.ok(authService.sendForgotPasswordCode(request));
+    }
+
+    /** Quên mật khẩu - bước 2: nhập mã, nhận resetToken + danh sách tài khoản của email. */
+    @PostMapping("/forgot-password/verify-code")
+    public ResponseEntity<ForgotPasswordVerifyResponse> verifyForgotPasswordCode(
+            @Valid @RequestBody ForgotPasswordVerifyRequest request) {
+        return ResponseEntity.ok(authService.verifyForgotPasswordCode(request));
+    }
+
+    /** Quên mật khẩu - bước 3: chọn tài khoản và đặt mật khẩu mới. */
+    @PostMapping("/forgot-password/reset")
+    public ResponseEntity<Void> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        authService.resetPassword(request);
+        return ResponseEntity.noContent().build();
+    }
+
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
         return ResponseEntity.ok(authService.login(request));
