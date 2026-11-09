@@ -71,6 +71,7 @@ export default function RegisterPage() {
   const [notice, setNotice] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [cooldown, setCooldown] = useState(0)
+  const [emailTaken, setEmailTaken] = useState(false)
 
   // Đếm ngược thời gian được phép gửi lại mã
   useEffect(() => {
@@ -99,6 +100,7 @@ export default function RegisterPage() {
   const sendCode = async (e) => {
     e?.preventDefault()
     setFormError('')
+    setEmailTaken(false)
     const normalized = email.trim().toLowerCase()
     if (!normalized) { setFieldErrors({ email: 'Vui lòng nhập email sinh viên' }); return }
     if (!normalized.includes('@') || !STUDENT_EMAIL_RE.test(normalized)) { setFieldErrors({ email: STUDENT_EMAIL_MESSAGE }); return }
@@ -114,7 +116,11 @@ export default function RegisterPage() {
       goToStep(2)
     } catch (err) {
       const errors = getFieldErrors(err)
-      if (errors.email) setFieldErrors({ email: errors.email })
+      if (err.response?.status === 409) {
+        // Email sinh viên này đã có tài khoản (mỗi sinh viên chỉ 1 tài khoản)
+        setEmailTaken(true)
+        setFieldErrors({ email: getApiErrorMessage(err) })
+      } else if (errors.email) setFieldErrors({ email: errors.email })
       else setFormError(getApiErrorMessage(err, 'Không thể gửi mã xác thực. Vui lòng thử lại.'))
     } finally {
       setSubmitting(false)
@@ -224,7 +230,7 @@ export default function RegisterPage() {
               <input
                 type="email"
                 value={email}
-                onChange={(e) => { setEmail(e.target.value); clearError('email') }}
+                onChange={(e) => { setEmail(e.target.value); setEmailTaken(false); clearError('email') }}
                 placeholder={`Email sinh viên (tên@${STUDENT_EMAIL_DOMAIN})`}
                 autoComplete="email"
                 aria-label="Email sinh viên"
@@ -233,6 +239,11 @@ export default function RegisterPage() {
               />
             </div>
             {fieldErrors.email && <p className="ap-field-error">{fieldErrors.email}</p>}
+            {emailTaken && (
+              <p className="ap-field-hint">
+                <Link to="/forgot-password">Quên mật khẩu? Đặt lại ngay</Link>
+              </p>
+            )}
           </div>
 
           {formError && (

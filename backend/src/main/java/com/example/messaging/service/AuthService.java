@@ -10,6 +10,7 @@ import com.example.messaging.entity.enums.UserStatus;
 import com.example.messaging.exception.ApiException;
 import com.example.messaging.repository.UserRepository;
 import com.example.messaging.security.JwtUtil;
+import org.springframework.dao.DataIntegrityViolationException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -36,7 +37,15 @@ public class AuthService {
     private final RefreshTokenService refreshTokenService;
     private final EmailVerificationService emailVerificationService;
 
+    private static final String EMAIL_TAKEN_MESSAGE =
+            "Email sinh viên này đã có tài khoản. Mỗi sinh viên chỉ được tạo một tài khoản - "
+                    + "nếu quên mật khẩu, hãy dùng chức năng Quên mật khẩu";
+
     public SendCodeResponse sendRegisterCode(SendCodeRequest request) {
+        // Mỗi sinh viên chỉ có 1 tài khoản: email đã đăng ký thì không gửi mã tạo tài khoản mới nữa
+        String email = EmailVerificationService.normalizeEmail(request.getEmail());
+        if (userRepository.existsByEmail(email)) throw ApiException.conflict(EMAIL_TAKEN_MESSAGE);
+
         boolean emailSent = emailVerificationService.requestCode(request.getEmail());
         return SendCodeResponse.builder()
                 .emailSent(emailSent)
@@ -62,7 +71,7 @@ public class AuthService {
             throw ApiException.conflict("Username đã tồn tại");
         }
         if (userRepository.existsByEmail(email)) {
-            throw ApiException.conflict("Email này đã được dùng cho một tài khoản");
+            throw ApiException.conflict(EMAIL_TAKEN_MESSAGE);
         }
 
         User user = User.builder()
@@ -74,9 +83,72 @@ public class AuthService {
                 .status(UserStatus.ACTIVE)
                 .build();
 
-        user = userRepository.save(user);
+        try {
+            // saveAndFlush để ràng buộc UNIQUE(email)/UNIQUE(username) báo lỗi ngay, kể cả khi 2 request trùng nhau cùng lúc
+            user = userRepository.saveAndFlush(user);
+        } catch (DataIntegrityViolationException e) {
+            if (userRepository.existsByEmail(email)) throw ApiException.conflict(EMAIL_TAKEN_MESSAGE);
+            throw ApiException.conflict("Username đã tồn tại");
+        }
         emailVerificationService.discard(verification); // token chỉ dùng một lần
         return issueTokens(user);
+    }
+
+    // ------------------------------------------------------------------
+    // Quên mật khẩu: nhập email sinh viên -> nhập mã -> chọn tài khoản -> đặt mật khẩu mới
+    // ------------------------------------------------------------------
+
+    public SendCodeResponse sendForgotPasswordCode(ForgotPasswordSendCodeRequest request) {
+        String email = EmailVerificationService.normalizeEmail(request.getEmail());
+        if (!userRepository.existsByEmail(email)) {
+            throw ApiException.notFound("Email sinh viên này chưa đăng ký tài khoản");
+        }
+        boolean emailSent = emailVerificationService.requestCode(email, EmailVerificationService.Purpose.RESET_PASSWORD);
+        return SendCodeResponse.builder()
+                .emailSent(emailSent)
+                .resendCooldownSeconds(emailVerificationService.getResendCooldownSeconds())
+                .codeExpiresInSeconds(emailVerificationService.getCodeTtlSeconds())
+                .build();
+    }
+
+    public ForgotPasswordVerifyResponse verifyForgotPasswordCode(ForgotPasswordVerifyRequest request) {
+        String email = EmailVerificationService.normalizeEmail(request.getEmail());
+        String token = emailVerificationService.verifyCode(
+                email, request.getCode(), EmailVerificationService.Purpose.RESET_PASSWORD);
+
+        List<ForgotPasswordVerifyResponse.AccountSummary> accounts = userRepository.findAllByEmail(email).stream()
+                .map(u -> ForgotPasswordVerifyResponse.AccountSummary.builder()
+                        .userId(u.getUserId())
+                        .username(u.getUsername())
+                        .displayName(u.getDisplayName())
+                        .avatar(u.getAvatar())
+                        .build())
+                .toList();
+        if (accounts.isEmpty()) throw ApiException.notFound("Email sinh viên này chưa đăng ký tài khoản");
+
+        return ForgotPasswordVerifyResponse.builder().resetToken(token).accounts(accounts).build();
+    }
+
+    @Transactional
+    public void resetPassword(ResetPasswordRequest request) {
+        String email = EmailVerificationService.normalizeEmail(request.getEmail());
+        EmailVerification verification = emailVerificationService.requireVerified(
+                email, request.getResetToken(), EmailVerificationService.Purpose.RESET_PASSWORD);
+
+        // Chỉ được đổi mật khẩu của tài khoản thuộc đúng email đã xác thực
+        User user = userRepository.findAllByEmail(email).stream()
+                .filter(u -> u.getUserId().equals(request.getUserId()))
+                .findFirst()
+                .orElseThrow(() -> ApiException.badRequest("Tài khoản không thuộc email đã xác thực"));
+
+        if (user.getStatus() == UserStatus.LOCKED) {
+            throw ApiException.forbidden("Tài khoản đã bị khóa");
+        }
+
+        user.setPassword(passwordEncoder.encode(request.getNewPassword())); // BCrypt
+        userRepository.save(user);
+        refreshTokenService.revokeAllForUser(user.getUserId()); // đăng xuất mọi thiết bị đang dùng mật khẩu cũ
+        emailVerificationService.discard(verification);         // token chỉ dùng một lần
     }
 
     @Transactional

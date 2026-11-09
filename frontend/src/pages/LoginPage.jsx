@@ -127,6 +127,7 @@ export default function LoginPage() {
             <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
             <span>Nhớ tài khoản</span>
           </label>
+          <Link to="/forgot-password" className="ap-forgot">Quên mật khẩu?</Link>
         </div>
 
         {formError && (

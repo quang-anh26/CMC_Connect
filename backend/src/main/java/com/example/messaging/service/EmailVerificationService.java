@@ -63,6 +63,20 @@ public class EmailVerificationService {
         return resendCooldownSeconds;
     }
 
+    /** Mục đích của mã: gắn vào hash để mã/token của luồng này không dùng được cho luồng kia. */
+    public enum Purpose {
+        REGISTER("code", "token"),
+        RESET_PASSWORD("reset-code", "reset-token");
+
+        private final String codeKey;
+        private final String tokenKey;
+
+        Purpose(String codeKey, String tokenKey) {
+            this.codeKey = codeKey;
+            this.tokenKey = tokenKey;
+        }
+    }
+
     public static String normalizeEmail(String email) {
         return email == null ? "" : email.trim().toLowerCase(Locale.ROOT);
     }
@@ -70,9 +84,14 @@ public class EmailVerificationService {
     /** Bước 1: tạo và gửi mã xác thực. Nếu gửi mail lỗi thì rollback để người dùng thử lại ngay. */
     @Transactional
     public boolean requestCode(String rawEmail) {
+        return requestCode(rawEmail, Purpose.REGISTER);
+    }
+
+    @Transactional
+    public boolean requestCode(String rawEmail, Purpose purpose) {
         String email = normalizeEmail(rawEmail);
 
-        // Cho phép một email tạo nhiều tài khoản nên không kiểm tra email đã tồn tại ở đây.
+        // Việc email đã có/chưa có tài khoản do AuthService kiểm tra trước khi gọi vào đây.
 
         LocalDateTime now = LocalDateTime.now();
         EmailVerification verification = verificationRepository.findByEmail(email)
@@ -100,7 +119,7 @@ public class EmailVerificationService {
         }
 
         String code = String.format("%06d", RANDOM.nextInt(1_000_000));
-        verification.setCodeHash(hash("code", email, code));
+        verification.setCodeHash(hash(purpose.codeKey, email, code));
         verification.setExpiresAt(now.plusMinutes(codeTtlMinutes));
         verification.setAttempts(0);
         verification.setLastSentAt(now);
@@ -109,7 +128,7 @@ public class EmailVerificationService {
         verification.setVerifiedExpiresAt(null);
         verificationRepository.save(verification);
 
-        return mailService.sendVerificationCode(email, code, codeTtlMinutes);
+        return mailService.sendVerificationCode(email, code, codeTtlMinutes, purpose == Purpose.RESET_PASSWORD);
     }
 
     /**
@@ -118,6 +137,11 @@ public class EmailVerificationService {
      */
     @Transactional(noRollbackFor = ApiException.class)
     public String verifyCode(String rawEmail, String rawCode) {
+        return verifyCode(rawEmail, rawCode, Purpose.REGISTER);
+    }
+
+    @Transactional(noRollbackFor = ApiException.class)
+    public String verifyCode(String rawEmail, String rawCode, Purpose purpose) {
         String email = normalizeEmail(rawEmail);
         String code = rawCode == null ? "" : rawCode.trim();
         LocalDateTime now = LocalDateTime.now();
@@ -133,7 +157,7 @@ public class EmailVerificationService {
                     HttpStatus.TOO_MANY_REQUESTS);
         }
 
-        if (!constantTimeEquals(verification.getCodeHash(), hash("code", email, code))) {
+        if (!constantTimeEquals(verification.getCodeHash(), hash(purpose.codeKey, email, code))) {
             verification.setAttempts(verification.getAttempts() + 1);
             verificationRepository.save(verification);
             int remaining = maxAttempts - verification.getAttempts();
@@ -149,7 +173,7 @@ public class EmailVerificationService {
         String token = Base64.getUrlEncoder().withoutPadding().encodeToString(raw);
 
         verification.setCodeHash(null); // mã chỉ dùng được một lần
-        verification.setVerifiedTokenHash(hash("token", email, token));
+        verification.setVerifiedTokenHash(hash(purpose.tokenKey, email, token));
         verification.setVerifiedExpiresAt(now.plusMinutes(verifiedTokenTtlMinutes));
         verificationRepository.save(verification);
         return token;
@@ -157,6 +181,10 @@ public class EmailVerificationService {
 
     /** Bước 3 (trong register): kiểm tra token hợp lệ cho email. Trả về bản ghi để xóa sau khi tạo user. */
     public EmailVerification requireVerified(String rawEmail, String token) {
+        return requireVerified(rawEmail, token, Purpose.REGISTER);
+    }
+
+    public EmailVerification requireVerified(String rawEmail, String token, Purpose purpose) {
         String email = normalizeEmail(rawEmail);
         EmailVerification verification = verificationRepository.findByEmail(email)
                 .orElseThrow(() -> ApiException.badRequest("Email chưa được xác thực"));
@@ -166,7 +194,7 @@ public class EmailVerificationService {
                 || verification.getVerifiedExpiresAt().isBefore(LocalDateTime.now())) {
             throw ApiException.badRequest("Phiên xác thực email đã hết hạn. Vui lòng xác thực lại");
         }
-        if (token == null || !constantTimeEquals(verification.getVerifiedTokenHash(), hash("token", email, token))) {
+        if (token == null || !constantTimeEquals(verification.getVerifiedTokenHash(), hash(purpose.tokenKey, email, token))) {
             throw ApiException.badRequest("Phiên xác thực email không hợp lệ. Vui lòng xác thực lại");
         }
         return verification;

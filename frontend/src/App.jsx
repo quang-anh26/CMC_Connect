@@ -7,6 +7,7 @@ import LoadingState from './components/LoadingState'
 
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
+import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import MainLayout from './pages/MainLayout'
 import EmptyChatPage from './pages/EmptyChatPage'
 import ChatWindow from './pages/ChatWindow'
@@ -31,6 +32,7 @@ export default function App() {
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
             <Route
               path="/admin"
