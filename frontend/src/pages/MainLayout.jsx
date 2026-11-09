@@ -4,11 +4,13 @@ import AppTopBar from '../components/AppTopBar'
 import Sidebar from '../components/Sidebar'
 import CallOverlay from '../components/CallOverlay'
 import { useSocket } from '../context/SocketContext'
+import usePresenceHeartbeat from '../hooks/usePresenceHeartbeat'
 
 export default function MainLayout() {
   const { conversationId } = useParams()
   const location = useLocation()
   const { callRequest, clearCallRequest } = useSocket()
+  usePresenceHeartbeat()
   const isSocialPage = location.pathname.startsWith('/feed') || location.pathname.startsWith('/events') || location.pathname.startsWith('/groups') || location.pathname.startsWith('/notifications') || location.pathname.startsWith('/video') || location.pathname.startsWith('/saved') || location.pathname.startsWith('/friends') || location.pathname.startsWith('/forum')
   const shellClass = isSocialPage
     ? 'feed-shell'

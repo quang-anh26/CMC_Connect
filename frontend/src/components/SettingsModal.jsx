@@ -99,6 +99,7 @@ export default function SettingsModal({ isOpen, onClose }) {
     const next = activeStatus === 'ON' ? 'OFF' : 'ON'
     setActiveStatus(next)
     localStorage.setItem('messenger-active-status', next)
+    window.dispatchEvent(new Event('cmctalk-active-status-changed'))
   }
 
   // Profile save handlers
