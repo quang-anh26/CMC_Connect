@@ -28,7 +28,7 @@ public class SocialPost {
     @JoinColumn(name = "shared_post_id")
     private SocialPost sharedPost;
 
-    @Column(nullable = false, columnDefinition = "NVARCHAR(MAX)")
+    @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
 
     @Column(name = "image_url", length = 1000)

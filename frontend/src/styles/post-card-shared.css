@@ -1,0 +1,63 @@
+/* Shared PostCard design system: imported by FeedPage and ProfilePage. */
+.post-card-shared {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  margin: 0 0 16px;
+  padding: 16px;
+  overflow: visible;
+  color: #202124;
+  background: #fff;
+  border: 1px solid #d8e2f1;
+  border-radius: 6px;
+  box-shadow: 0 5px 18px rgba(35, 73, 128, .055);
+  font-family: inherit;
+}
+.post-card-shared *, .post-card-shared *::before, .post-card-shared *::after { box-sizing: border-box; }
+.post-card-shared .post-shared-header { display:flex; align-items:center; gap:12px; min-width:0; margin:0; padding:0; border:0; }
+.post-card-shared .post-avatar-link { flex:0 0 auto; padding:0; border:0; background:transparent; cursor:pointer; }
+.post-card-shared .post-author { display:flex; flex:1 1 auto; flex-direction:column; min-width:0; gap:3px; }
+.post-card-shared .post-author .feed-author-profile-link { width:fit-content; padding:0; border:0; background:none; color:#202124; font-size:15px; font-weight:700; text-align:left; cursor:pointer; }
+.post-card-shared .post-author > span { color:#737780; font-size:12px; line-height:1.4; }
+.post-card-shared .post-menu-wrap { position:relative; flex:0 0 auto; margin-left:auto; }
+.post-card-shared .post-menu-trigger { display:inline-flex; flex:0 0 30px; align-items:center; justify-content:center; width:30px; height:30px; padding:0; border:0; border-radius:50%; background:transparent; color:#65676b; font-size:16px; font-weight:600; line-height:1; cursor:pointer; transition:background-color .15s ease,color .15s ease; }
+.post-card-shared .post-menu-trigger > span { display:block; font-size:16px; line-height:1; letter-spacing:1px; transform:translateY(-2px); }
+.post-card-shared .post-menu-trigger:hover, .post-card-shared .post-menu-trigger[aria-expanded="true"] { background:#f0f2f5; color:#3b4657; }
+.post-card-shared .post-menu-popover { position:absolute; z-index:20; top:38px; right:0; width:min(290px, calc(100vw - 48px)); padding:8px; border:1px solid #e0e3e8; border-radius:10px; background:#fff; box-shadow:0 8px 28px rgba(0,0,0,.16); }
+.post-card-shared .post-menu-popover button { display:flex; align-items:center; gap:10px; width:100%; padding:11px 12px; border:0; border-radius:6px; background:transparent; color:#242526; text-align:left; font:inherit; cursor:pointer; }
+.post-card-shared .post-menu-popover button:hover { background:#f2f4f7; }
+.post-card-shared > .post-content { margin:16px 0; color:#242526; font-size:15px; line-height:1.55; white-space:pre-wrap; overflow-wrap:anywhere; }
+.post-card-shared .post-image, .post-card-shared .shared-post-media { display:block; width:100%; max-width:100%; max-height:680px; object-fit:contain; background:#f5f6f7; border-radius:4px; }
+.post-card-shared .post-image-open { display:block; width:100%; padding:0; border:0; background:transparent; cursor:zoom-in; }
+.post-card-shared .shared-post-preview { margin:12px 0; padding:12px; border:1px solid #d6d9de; border-radius:10px; background:#f7f7f8; overflow:hidden; }
+.post-card-shared .shared-post-heading { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+.post-card-shared .shared-post-heading > div { display:flex; flex-direction:column; gap:2px; }
+.post-card-shared .shared-post-heading strong { font-size:14px; }
+.post-card-shared .shared-post-heading small { color:#737780; font-size:11px; }
+.post-card-shared .shared-post-preview > p { margin:8px 0 12px; white-space:pre-wrap; overflow-wrap:anywhere; }
+.post-card-shared .post-stats-shared { display:flex; align-items:center; gap:14px; min-height:36px; padding:7px 2px; border-bottom:1px solid #e2e5e9; color:#70757c; font-size:13px; }
+.post-card-shared .post-stats-shared > span:first-child { display:flex; align-items:center; gap:5px; }
+.post-card-shared .post-stats-shared > button { margin-left:auto; padding:0; border:0; background:transparent; color:inherit; cursor:pointer; }
+.post-card-shared .post-actions-shared { display:flex; align-items:stretch; justify-content:space-around; gap:4px; padding:7px 0; border-bottom:1px solid #e2e5e9; }
+.post-card-shared .post-actions-shared > button { display:flex; align-items:center; justify-content:center; flex:1 1 0; gap:7px; min-width:0; min-height:38px; padding:6px 4px; border:0; border-radius:5px; background:transparent; color:#65676b; font-family:inherit; font-size:14px; font-weight:600; line-height:1.2; cursor:pointer; }
+.post-card-shared .post-actions-shared > button:hover { background:#f2f4f7; }
+.post-card-shared .post-actions-shared > button.liked { color:#1877f2; }
+.post-card-shared .post-actions-shared > button.saved-action-active { color:#1877f2; }
+.post-card-shared .post-comments-shared { padding-top:10px; }
+.post-card-shared .post-comment { display:flex; align-items:flex-start; gap:9px; margin:8px 0; }
+.post-card-shared .post-comment > div { min-width:0; padding:8px 11px; border-radius:14px; background:#f0f2f5; overflow-wrap:anywhere; }
+.post-card-shared .post-comment strong { display:block; margin-bottom:3px; font-size:12px; }
+.post-card-shared .post-comment p { margin:0; font-size:14px; white-space:pre-wrap; }
+.post-card-shared .comment-compose-shared { display:flex; align-items:center; gap:9px; margin-top:8px; padding:0; }
+.post-card-shared .comment-compose-shared input { flex:1 1 auto; min-width:0; height:40px; padding:0 12px; border:1px solid #d8dce2; border-radius:5px; background:#f0f2f5; color:#242526; font:inherit; }
+.post-card-shared .comment-compose-shared input:focus { outline:2px solid #c9defe; border-color:#1877f2; }
+.post-card-shared .comment-compose-shared button { flex:0 0 auto; min-height:38px; padding:0 14px; border:0; border-radius:5px; background:#087ff5; color:#fff; font-weight:700; cursor:pointer; }
+.post-card-shared .comment-compose-shared button:disabled { opacity:.55; cursor:not-allowed; }
+@media (max-width: 600px) {
+  .post-card-shared { margin-bottom:12px; padding:12px; border-radius:5px; }
+  .post-card-shared .post-actions-shared { gap:0; }
+  .post-card-shared .post-actions-shared > button { gap:4px; padding:6px 2px; font-size:12px; }
+  .post-card-shared .post-stats-shared { font-size:12px; }
+  .post-card-shared .comment-compose-shared { gap:6px; }
+  .post-card-shared .comment-compose-shared button { padding:0 10px; }
+}

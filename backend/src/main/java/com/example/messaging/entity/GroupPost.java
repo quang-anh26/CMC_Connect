@@ -26,7 +26,7 @@ public class GroupPost {
     @JoinColumn(name = "author_id", nullable = false)
     private User author;
 
-    @Column(nullable = false, columnDefinition = "NVARCHAR(MAX)")
+    @Column(nullable = false, columnDefinition = "TEXT")
     @Builder.Default
     private String content = "";
 

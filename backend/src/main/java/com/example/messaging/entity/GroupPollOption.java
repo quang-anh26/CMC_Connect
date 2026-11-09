@@ -1,6 +1,7 @@
 package com.example.messaging.entity;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.Nationalized;
 import lombok.*;
 
 @Entity
@@ -19,6 +20,7 @@ public class GroupPollOption {
     @JoinColumn(name = "poll_id", nullable = false)
     private GroupPoll poll;
 
+    @Nationalized
     @Column(nullable = false, length = 120)
     private String label;
 }

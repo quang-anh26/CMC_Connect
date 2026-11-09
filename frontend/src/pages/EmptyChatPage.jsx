@@ -1,12 +1,16 @@
 import React, { useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { conversationApi } from '../api/conversationApi'
 import { MessengerLogo } from '../components/Icons'
 
 export default function EmptyChatPage() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const keepListOpen = new URLSearchParams(location.search).get('list') === '1'
 
   useEffect(() => {
+    if (keepListOpen) return
+
     conversationApi
       .list()
       .then((res) => {
@@ -16,7 +20,7 @@ export default function EmptyChatPage() {
         }
       })
       .catch(() => {})
-  }, [navigate])
+  }, [keepListOpen, navigate])
 
   return (
     <div className="chat-layout-wrapper">

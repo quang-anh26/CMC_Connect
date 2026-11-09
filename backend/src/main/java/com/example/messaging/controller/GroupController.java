@@ -8,9 +8,15 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.CacheControl;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 import java.util.Set;
 
@@ -75,6 +81,18 @@ public class GroupController {
                                    @RequestParam(defaultValue = "NEWEST") String sort,
                                    @RequestParam(defaultValue = "false") boolean mediaOnly) {
         return ResponseEntity.ok(groupService.listPosts(groupId, userId, search, sort, mediaOnly));
+    }
+
+    @GetMapping("/{groupId}/posts/{postId}/media")
+    public ResponseEntity<Resource> postMedia(@PathVariable Long groupId, @PathVariable Long postId,
+                                              @CurrentUser Long userId) throws IOException {
+        Path file = groupService.groupPostMedia(groupId, postId, userId);
+        Resource resource = new FileSystemResource(file);
+        String contentType = Files.probeContentType(file);
+        MediaType mediaType = contentType == null
+                ? MediaType.APPLICATION_OCTET_STREAM
+                : MediaType.parseMediaType(contentType);
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).contentType(mediaType).body(resource);
     }
 
     @PostMapping("/{groupId}/posts")
@@ -256,7 +274,10 @@ public class GroupController {
             return ResponseEntity.badRequest().body(Map.of("message", "MIME type không được hỗ trợ"));
         }
         String mediaType = contentType.startsWith("image/") ? "IMAGE" : contentType.startsWith("video/") ? "VIDEO" : "FILE";
-        return ResponseEntity.ok(Map.of("url", fileStorageService.store(file), "mediaType", mediaType));
+        String url = !groupImage && groupService.isPrivateGroup(groupId, userId)
+                ? fileStorageService.storePrivateGroupFile(file, groupId)
+                : fileStorageService.store(file);
+        return ResponseEntity.ok(Map.of("url", url, "mediaType", mediaType));
     }
 
     @GetMapping("/notifications")

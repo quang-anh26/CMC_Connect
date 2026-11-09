@@ -51,6 +51,7 @@ public class MessageService {
     private final ConversationService conversationService;
     private final UserService userService;
     private final BlockService blockService;
+    private final NotificationService notificationService;
 
     @Transactional
     public MessageResponse sendMessage(Long senderId, MessageRequest request) {
@@ -143,12 +144,15 @@ public class MessageService {
         message = messageRepository.save(message);
 
         for (ConversationMember member : members) {
-            if (member.getUser().getUserId().equals(senderId)) continue;
+            Long recipientId = member.getUser().getUserId();
+            if (recipientId.equals(senderId)) continue;
             messageStatusRepository.save(MessageStatus.builder()
                     .message(message)
                     .user(member.getUser())
                     .status(MessageDeliveryStatus.SENT)
                     .build());
+            notificationService.create(recipientId, senderId, "MESSAGE", "CONVERSATION",
+                    conversation.getConversationId(), "đã gửi cho bạn một tin nhắn.");
         }
 
         return toResponse(message, senderId);

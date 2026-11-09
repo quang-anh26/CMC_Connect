@@ -5,7 +5,7 @@ import Avatar from '../components/Avatar'
 import EmptyState from '../components/EmptyState'
 import LoadingState from '../components/LoadingState'
 import ErrorState from '../components/ErrorState'
-import { CalendarIcon, LocationPinIcon } from '../components/Icons'
+import { ArrowLeftIcon, CalendarIcon, FriendsIcon, GlobeIcon, LocationPinIcon, LockIcon } from '../components/Icons'
 import { eventApi } from '../api/eventApi'
 import { useAuth } from '../context/AuthContext'
 
@@ -206,7 +206,7 @@ export default function EventsPage() {
 
       <main className="events-content">
         {eventId && (
-          <button type="button" className="events-back-link" onClick={() => navigate('/events')}>← Tất cả sự kiện</button>
+          <button type="button" className="events-back-link" onClick={() => navigate('/events')}><ArrowLeftIcon size="1em" /> Tất cả sự kiện</button>
         )}
 
         {eventId ? (
@@ -241,7 +241,7 @@ export default function EventsPage() {
                     <aside className="event-detail-sidebar">
                       <section className="event-organizer-card"><span className="event-card-label">Người tổ chức</span><div><Avatar src={selectedEvent.organizerAvatar} name={selectedEvent.organizerName} size={44} /><strong>{selectedEvent.organizerName}</strong></div></section>
                       <section className="event-count-card"><div><strong>{selectedEvent.goingCount}</strong><span>Sẽ tham gia</span></div><div><strong>{selectedEvent.interestedCount}</strong><span>Quan tâm</span></div></section>
-                      <div className="event-privacy-note">{selectedEvent.privacy === 'PUBLIC' ? '🌐 Công khai' : selectedEvent.privacy === 'FRIENDS' ? '👥 Bạn bè' : '🔒 Riêng tư'}</div>
+                      <div className="event-privacy-note">{selectedEvent.privacy === 'PUBLIC' ? <><GlobeIcon size="1em" /> Công khai</> : selectedEvent.privacy === 'FRIENDS' ? <><FriendsIcon size="1em" /> Bạn bè</> : <><LockIcon size="1em" /> Riêng tư</>}</div>
                       <AttendanceButtons event={selectedEvent} onChange={setSelectedEvent} />
                     </aside>
                   </div>

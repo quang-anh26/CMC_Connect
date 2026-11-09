@@ -35,6 +35,11 @@ public class UploadDirectory {
         return workingDirectory.resolve(configuredPath).normalize();
     }
 
+    public Path resolvePrivateGroup(Long groupId) {
+        return resolve().toAbsolutePath().normalize().getParent()
+                .resolve("private-group-files").resolve(groupId.toString()).normalize();
+    }
+
     public List<Path> resolveLocations() {
         Path configuredPath = Paths.get(configuredDirectory);
         Path primary = resolve();

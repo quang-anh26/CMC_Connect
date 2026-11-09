@@ -11,7 +11,7 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 
 /**
  * STOMP over WebSocket (plan section 2: "Spring WebSocket/STOMP") + section 6 realtime flow:
- * React -> WebSocket/STOMP -> Spring Boot -> save Message to SQL Server -> broadcast to recipient.
+ * React -> WebSocket/STOMP -> Spring Boot -> save Message to PostgreSQL -> broadcast to recipient.
  *
  * Client connects to /ws (SockJS fallback enabled), subscribes to:
  *   /topic/conversation/{conversationId}   -> new messages / recall / seen updates in that conversation
@@ -46,9 +46,8 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
-        // Match the REST CORS policy so mobile clients can establish STOMP sessions.
         registry.addEndpoint("/ws")
-            .setAllowedOriginPatterns("*")
-                .withSockJS();
+            .setAllowedOriginPatterns(allowedOrigins.split("\\s*,\\s*"))
+            .withSockJS();
     }
 }

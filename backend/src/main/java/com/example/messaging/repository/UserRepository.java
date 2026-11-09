@@ -17,6 +17,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
     /** Một email có thể gắn với nhiều tài khoản. */
     List<User> findAllByEmail(String email);
 
+    boolean existsByEmail(String email);
+
     @Query("SELECT u FROM User u WHERE " +
            "LOWER(u.username) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
            "LOWER(u.displayName) LIKE LOWER(CONCAT('%', :keyword, '%'))")

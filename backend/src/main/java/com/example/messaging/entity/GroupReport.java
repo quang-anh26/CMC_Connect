@@ -1,6 +1,7 @@
 package com.example.messaging.entity;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.Nationalized;
 import lombok.*;
 
 import java.time.LocalDateTime;
@@ -31,6 +32,7 @@ public class GroupReport {
     @Column(name = "target_id", nullable = false)
     private Long targetId;
 
+    @Nationalized
     @Column(nullable = false, length = 500)
     private String reason;
 

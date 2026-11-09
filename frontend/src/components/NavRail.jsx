@@ -9,8 +9,10 @@ import SettingsModal from './SettingsModal'
 import {
   MessengerLogo,
   ChatIcon,
-  FeedIcon,
+  HomeIcon,
   FriendsIcon,
+  GroupIcon,
+  BookmarkIcon,
   FeedVideoIcon,
   BellIcon,
   CalendarIcon,
@@ -112,12 +114,12 @@ export default function NavRail() {
           <NavLink
             to="/feed"
             className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
-            title="Bảng tin"
+            title="Trang chủ"
           >
             <span className="nav-icon">
-              <FeedIcon size={20} />
+              <HomeIcon size={20} />
             </span>
-            <span className="nav-label">Bảng tin</span>
+            <span className="nav-label">Trang chủ</span>
           </NavLink>
 
           <NavLink
@@ -156,13 +158,13 @@ export default function NavRail() {
           </NavLink>
 
           <NavLink to="/groups" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} title="Nhóm">
-            <span className="nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="7" r="3.2"/><circle cx="4.8" cy="9" r="2.4"/><circle cx="19.2" cy="9" r="2.4"/><path d="M6.4 18.7v-1.1a5.6 5.6 0 0 1 11.2 0v1.1c0 .8-.6 1.4-1.4 1.4H7.8c-.8 0-1.4-.6-1.4-1.4Z"/><path d="M1.1 17.7v-.8a3.8 3.8 0 0 1 4-3.8c.6 0 1.2.1 1.7.4a7 7 0 0 0-1.8 4.7H2.5c-.8 0-1.4-.2-1.4-.5ZM22.9 17.7v-.8a3.8 3.8 0 0 0-4-3.8c-.6 0-1.2.1-1.7.4a7 7 0 0 1 1.8 4.7h2.5c.8 0 1.4-.2 1.4-.5Z"/></svg></span><span className="nav-label">Nhóm</span>
+            <span className="nav-icon"><GroupIcon size={20} /></span><span className="nav-label">Nhóm</span>
           </NavLink>
           <NavLink to="/video" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} title="Video">
             <span className="nav-icon"><FeedVideoIcon size={20} /></span><span className="nav-label">Video</span>
           </NavLink>
           <NavLink to="/saved" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} title="Đã lưu">
-            <span className="nav-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 4.75A1.75 1.75 0 0 1 7.75 3h8.5A1.75 1.75 0 0 1 18 4.75V21l-6-4-6 4V4.75Z"/></svg></span><span className="nav-label">Đã lưu</span>
+            <span className="nav-icon"><BookmarkIcon size={20} /></span><span className="nav-label">Đã lưu</span>
           </NavLink>
           <NavLink to="/notifications" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} title="Thông báo">
             <span className="nav-icon"><BellIcon size={20} /></span><span className="nav-label">Thông báo</span>

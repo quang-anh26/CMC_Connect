@@ -40,7 +40,7 @@ public class SocialEvent {
     @Column(nullable = false, length = 180)
     private String location;
 
-    @Column(columnDefinition = "NVARCHAR(MAX)")
+    @Column(columnDefinition = "TEXT")
     private String description;
 
     @Enumerated(EnumType.STRING)

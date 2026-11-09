@@ -4,6 +4,7 @@ import com.example.messaging.dto.feed.CreateCommentRequest;
 import com.example.messaging.dto.feed.CreatePostRequest;
 import com.example.messaging.dto.feed.FeedPostResponse;
 import com.example.messaging.dto.feed.SharePostRequest;
+import com.example.messaging.dto.feed.UpdatePostPrivacyRequest;
 import com.example.messaging.security.CurrentUser;
 import com.example.messaging.service.FeedService;
 import jakarta.validation.Valid;
@@ -29,6 +30,13 @@ public class FeedController {
     public ResponseEntity<FeedPostResponse> create(@CurrentUser Long userId,
                                                     @Valid @RequestBody CreatePostRequest request) {
         return ResponseEntity.ok(feedService.create(userId, request));
+    }
+
+    @PutMapping("/{postId}/privacy")
+    public ResponseEntity<FeedPostResponse> updatePrivacy(@CurrentUser Long userId,
+                                                           @PathVariable Long postId,
+                                                           @Valid @RequestBody UpdatePostPrivacyRequest request) {
+        return ResponseEntity.ok(feedService.updatePrivacy(postId, userId, request.getPrivacy()));
     }
 
     @PostMapping("/{postId}/like")

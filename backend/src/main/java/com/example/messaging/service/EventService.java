@@ -29,6 +29,7 @@ public class EventService {
     private final EventParticipantRepository participantRepository;
     private final FriendRequestRepository friendRequestRepository;
     private final UserService userService;
+    private final NotificationService notificationService;
 
     @Transactional(readOnly = true)
     public List<EventResponse> list(Long viewerId, String filter) {
@@ -83,7 +84,11 @@ public class EventService {
         event.setLocation(request.getLocation().trim());
         event.setDescription(clean(request.getDescription()));
         event.setPrivacy(parsePrivacy(request.getPrivacy()));
-        return toResponse(eventRepository.save(event), requesterId);
+        SocialEvent saved = eventRepository.save(event);
+        participantRepository.findAttendees(eventId).forEach(participant ->
+            notificationService.create(participant.getUser().getUserId(), requesterId, "EVENT_UPDATED", "EVENT", eventId,
+                "đã cập nhật sự kiện “" + saved.getTitle() + "”."));
+        return toResponse(saved, requesterId);
     }
 
     @Transactional
@@ -92,6 +97,9 @@ public class EventService {
         requireOrganizer(event, requesterId);
         event.setCancelled(true);
         eventRepository.save(event);
+        participantRepository.findAttendees(eventId).forEach(participant ->
+            notificationService.create(participant.getUser().getUserId(), requesterId, "EVENT_CANCELLED", "EVENT", eventId,
+                "đã hủy sự kiện “" + event.getTitle() + "”."));
     }
 
     @Transactional
@@ -120,6 +128,8 @@ public class EventService {
                     .build());
             participant.setStatus(status);
             participantRepository.save(participant);
+            notificationService.create(event.getOrganizer().getUserId(), userId, "EVENT_ATTENDANCE", "EVENT", eventId,
+                "đã phản hồi tham gia sự kiện “" + event.getTitle() + "”.");
         }
         return toResponse(event, userId);
     }

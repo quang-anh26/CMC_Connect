@@ -8,7 +8,7 @@ import { friendApi } from '../api/friendApi'
 import { blockApi } from '../api/blockApi'
 import { useSocket } from '../context/SocketContext'
 import { useAuth } from '../context/AuthContext'
-import { SearchIcon, MoreVerticalIcon, ChatIcon } from './Icons'
+import { SearchIcon, MoreVerticalIcon, ChatIcon, ChevronDown, CheckIcon, CloseIcon, PlusIcon, UserPlusIcon } from './Icons'
 
 export function formatConversationTime(dateStr) {
   if (!dateStr) return ''
@@ -83,7 +83,7 @@ function ConversationFilters({
           onClick={() => setShowCategoryMenu((open) => !open)}
         >
           {categoryLabels[conversationCategory]}
-          <span aria-hidden="true">⌄</span>
+          <span aria-hidden="true"><ChevronDown size={14} /></span>
         </button>
         {showCategoryMenu && (
           <div className="conversation-category-menu" role="group" aria-label="Phân loại cuộc trò chuyện">
@@ -104,7 +104,7 @@ function ConversationFilters({
                 }}
               >
                 <span className="conversation-category-check" aria-hidden="true">
-                  {conversationCategory === value ? '✓' : ''}
+                  {conversationCategory === value ? <CheckIcon size="1em" /> : ''}
                 </span>
                 {label}
               </button>
@@ -416,7 +416,7 @@ export default function Sidebar({ activeConversationId }) {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
           <span className="search-icon-btn">
-            <SearchIcon size={16} color="#8392a5" />
+            <SearchIcon size={16} />
           </span>
         </div>
       </div>
@@ -427,7 +427,7 @@ export default function Sidebar({ activeConversationId }) {
           <div className="group-create-title">
             <strong>Tạo nhóm mới</strong>
             <button className="icon-btn" onClick={() => setGroupOpen(false)} title="Đóng">
-              ✕
+              <CloseIcon size={16} />
             </button>
           </div>
           <form onSubmit={createGroup}>
@@ -470,7 +470,7 @@ export default function Sidebar({ activeConversationId }) {
                     {user.displayName}
                     <small>@{user.username}</small>
                   </span>
-                  <span>{selected ? '✓' : '+'}</span>
+                  <span>{selected ? <CheckIcon size="1.1em" /> : <PlusIcon size="1.1em" />}</span>
                 </button>
               )
             })}
@@ -523,7 +523,7 @@ export default function Sidebar({ activeConversationId }) {
                     }}
                     title="Gửi lời mời kết bạn"
                   >
-                    ➕
+                    <UserPlusIcon size={18} />
                   </button>
                   <button type="button" className="icon-btn" title="Nhắn tin" onClick={(event) => {
                     event.stopPropagation()

@@ -4,10 +4,12 @@ import { useAuth } from '../context/AuthContext'
 import { friendApi } from '../api/friendApi'
 import { groupApi } from '../api/groupApi'
 import { savedApi } from '../api/savedApi'
+import axiosClient from '../api/axiosClient'
 import Avatar, { SafeImage } from '../components/Avatar'
 import EmptyState from '../components/EmptyState'
 import LoadingState from '../components/LoadingState'
 import ErrorState from '../components/ErrorState'
+import { ArrowLeftIcon, BookmarkIcon, ExternalLinkIcon, FileIcon, GroupIcon, PinIcon, SearchIcon, SendIcon } from '../components/Icons'
 
 const tabs = ['Bài viết', 'Thành viên', 'Media', 'Giới thiệu']
 const reactions = [
@@ -21,6 +23,35 @@ const reactions = [
 function formatDate(value) {
   if (!value) return ''
   return new Date(value).toLocaleString('vi-VN', { dateStyle: 'medium', timeStyle: 'short' })
+}
+
+function GroupPostMedia({ post }) {
+  const [source, setSource] = useState('')
+  const [failed, setFailed] = useState(false)
+
+  useEffect(() => {
+    let active = true
+    let objectUrl = ''
+    setSource('')
+    setFailed(false)
+    axiosClient.get(post.mediaUrl, { responseType: 'blob' })
+      .then(({ data }) => {
+        objectUrl = URL.createObjectURL(data)
+        if (active) setSource(objectUrl)
+        else URL.revokeObjectURL(objectUrl)
+      })
+      .catch(() => { if (active) setFailed(true) })
+    return () => {
+      active = false
+      if (objectUrl) URL.revokeObjectURL(objectUrl)
+    }
+  }, [post.mediaUrl])
+
+  if (failed) return <p className="group-media-error" role="status">Không thể tải tệp đính kèm.</p>
+  if (!source) return <div className="group-media-loading" aria-label="Đang tải tệp đính kèm" />
+  if (post.mediaType === 'IMAGE') return <img className="group-post-image" src={source} alt="Tệp đính kèm bài viết" />
+  if (post.mediaType === 'VIDEO') return <video className="group-post-video" src={source} controls />
+  return <a className="group-post-file" href={source} download target="_blank" rel="noreferrer"><ExternalLinkIcon size="1em" /> Mở tệp đính kèm</a>
 }
 
 function PollCard({ post, canVote, onVote }) {
@@ -75,6 +106,8 @@ export default function GroupDetailPage() {
   const role = group?.role
   const isMember = Boolean(group?.joined)
   const canModerate = ['OWNER', 'ADMIN', 'MODERATOR'].includes(role)
+  const isPrivatePreview = group?.visibility === 'PRIVATE' && !isMember
+  const activeTab = isPrivatePreview ? 'Giới thiệu' : tab
 
   const loadGroup = async () => {
     setLoading(true)
@@ -84,18 +117,18 @@ export default function GroupDetailPage() {
       setSettings({ name: data.name, description: data.description || '', category: data.category || '', visibility: data.visibility, avatar: data.avatar || '', coverImage: data.coverImage || '', postApprovalRequired: data.postApprovalRequired, spamKeywords: data.spamKeywords || '' })
       setError('')
       setLoadFailed(false)
-      const canViewPublic = data.visibility === 'PUBLIC'
+      const canViewGroupContent = data.joined || data.visibility === 'PUBLIC'
       const [postResponse, memberResponse, eventResponse] = await Promise.all([
-        data.joined || canViewPublic ? groupApi.posts(groupId, { search, sort, mediaOnly: tab === 'Media' }) : Promise.resolve({ data: [] }),
-        data.joined || canViewPublic ? groupApi.members(groupId) : Promise.resolve({ data: [] }),
-        groupApi.events(groupId),
+        canViewGroupContent ? groupApi.posts(groupId, { search, sort, mediaOnly: tab === 'Media' }) : Promise.resolve({ data: [] }),
+        canViewGroupContent ? groupApi.members(groupId) : Promise.resolve({ data: [] }),
+        canViewGroupContent ? groupApi.events(groupId) : Promise.resolve({ data: [] }),
       ])
       setPosts(postResponse.data || [])
       setMembers(memberResponse.data || [])
       setEvents(eventResponse.data || [])
     } catch (err) {
-      setError(err.response?.status === 403 ? 'Đây là nhóm riêng tư. Bạn cần gửi yêu cầu tham gia để xem nội dung.' : err.response?.data?.message || 'Không thể tải nhóm.')
-      setLoadFailed(err.response?.status !== 403)
+      setError(err.response?.status === 403 ? 'Bạn không có quyền truy cập nhóm này.' : err.response?.data?.message || 'Không thể tải nhóm.')
+      setLoadFailed(true)
       setGroup(null)
     } finally { setLoading(false) }
   }
@@ -341,11 +374,11 @@ export default function GroupDetailPage() {
   }
 
   if (loading) return <main className="groups-page group-detail-page"><LoadingState label="Đang tải nhóm..." /></main>
-  if (!group) return <main className="groups-page group-detail-page"><Link className="group-back-link" to="/groups">← Tất cả nhóm</Link>{loadFailed ? <ErrorState title="Không thể mở nhóm" message={error} onRetry={loadGroup} /> : <EmptyState icon="◌" title="Không thể mở nhóm" description={error} action={<button type="button" className="group-primary-button" onClick={joinOrLeave}>Gửi yêu cầu tham gia</button>} />}</main>
+  if (!group) return <main className="groups-page group-detail-page"><Link className="group-back-link" to="/groups"><ArrowLeftIcon size="1em" /> Tất cả nhóm</Link>{loadFailed ? <ErrorState title="Không thể mở nhóm" message={error} onRetry={loadGroup} /> : <EmptyState icon={<GroupIcon size={28} />} title="Không thể mở nhóm" description={error} action={<button type="button" className="group-primary-button" onClick={joinOrLeave}>Gửi yêu cầu tham gia</button>} />}</main>
 
   return (
     <main className="groups-page group-detail-page">
-      <Link className="group-back-link" to="/groups">← Tất cả nhóm</Link>
+      <Link className="group-back-link" to="/groups"><ArrowLeftIcon size="1em" /> Tất cả nhóm</Link>
       <header className="group-cover" style={group.coverImage ? { backgroundImage: `linear-gradient(0deg, rgba(8, 15, 22, .76), rgba(8, 15, 22, .05)), url("${group.coverImage}")` } : undefined}>
         {!group.coverImage && <div className="group-cover-pattern" aria-hidden="true" />}
         <div className="group-cover-title"><div className="group-avatar-large"><SafeImage src={group.avatar} fallback={group.name.slice(0, 1).toUpperCase()} /></div><div><span className="groups-kicker">{group.visibility === 'PRIVATE' ? 'NHÓM RIÊNG TƯ' : 'NHÓM CÔNG KHAI'}</span><h1>{group.name}</h1><p>{group.memberCount} thành viên <span>·</span> {group.category || 'Cộng đồng'}</p></div></div>
@@ -354,7 +387,7 @@ export default function GroupDetailPage() {
         {isMember ? <button className="group-secondary-button" type="button" onClick={joinOrLeave}>Rời nhóm</button> : <button className="group-primary-button" type="button" onClick={joinOrLeave}>{group.visibility === 'PRIVATE' ? 'Yêu cầu tham gia' : 'Tham gia nhóm'}</button>}
         {canModerate && <button className="group-secondary-button" type="button" onClick={() => setShowAdmin((open) => !open)}>{showAdmin ? 'Đóng quản trị' : 'Quản trị'}</button>}
       </div></section>
-      <nav className="group-detail-tabs" aria-label="Nội dung nhóm">{tabs.map((item) => <button type="button" key={item} onClick={() => setTab(item)} className={tab === item ? 'selected' : ''}>{item}{item === 'Thành viên' && <span>{members.length}</span>}</button>)}</nav>
+      <nav className="group-detail-tabs" aria-label="Nội dung nhóm">{(isPrivatePreview ? ['Giới thiệu'] : tabs).map((item) => <button type="button" key={item} onClick={() => setTab(item)} className={activeTab === item ? 'selected' : ''}>{item}{item === 'Thành viên' && <span>{members.length}</span>}</button>)}</nav>
       {notice && <div className="group-notice" role="status"><span>{notice}</span><button type="button" onClick={() => setNotice('')} aria-label="Đóng">×</button></div>}
 
       {showAdmin && canModerate && <section className="group-admin-panel"><div className="group-admin-heading"><div><span className="groups-kicker">KHÔNG GIAN QUẢN TRỊ</span><h2>Kiểm duyệt nhóm</h2></div><button type="button" className="group-secondary-button" onClick={() => setSettingsOpen(true)}>Cài đặt nhóm</button></div>
@@ -369,21 +402,21 @@ export default function GroupDetailPage() {
       <div className="group-content-grid">
         <aside className="group-side-column"><section className="group-side-panel"><span className="groups-kicker">VỀ NHÓM</span><p>{group.description || 'Chưa có mô tả.'}</p><div className="group-side-stat"><span>Quyền riêng tư</span><strong>{group.visibility === 'PRIVATE' ? 'Riêng tư' : 'Công khai'}</strong></div><div className="group-side-stat"><span>Quản lý bởi</span><strong>{group.ownerName}</strong></div><div className="group-side-stat"><span>Thành viên</span><strong>{group.memberCount}</strong></div></section>
           {isMember && <section className="group-side-panel"><span className="groups-kicker">MỜI BẠN BÈ</span><label className="group-invite-select"><span>Chọn bạn bè</span><select defaultValue="" onChange={inviteFriend}><option value="">Mời vào nhóm...</option>{friends.map((friend) => <option key={friend.userId} value={friend.userId}>{friend.displayName || friend.username}</option>)}</select></label></section>}
-          <section className="group-side-panel group-events-panel"><div className="group-event-heading"><div><span className="groups-kicker">LỊCH NHÓM</span><strong>Sự kiện</strong></div>{isMember && <button type="button" className="group-quiet-button" onClick={() => setEventFormOpen((open) => !open)}>{eventFormOpen ? 'Đóng' : '＋ Tạo'}</button>}</div>
+          {!isPrivatePreview && <section className="group-side-panel group-events-panel"><div className="group-event-heading"><div><span className="groups-kicker">LỊCH NHÓM</span><strong>Sự kiện</strong></div>{isMember && <button type="button" className="group-quiet-button" onClick={() => setEventFormOpen((open) => !open)}>{eventFormOpen ? 'Đóng' : '＋ Tạo'}</button>}</div>
             {eventFormOpen && <form className="group-event-form" onSubmit={createEvent}><label>Tên sự kiện<input required maxLength={120} value={eventDraft.title} onChange={(event) => setEventDraft({ ...eventDraft, title: event.target.value })} /></label><label>Địa điểm<input maxLength={200} value={eventDraft.location} onChange={(event) => setEventDraft({ ...eventDraft, location: event.target.value })} /></label><label>Bắt đầu<input type="datetime-local" required value={eventDraft.startsAt} onChange={(event) => setEventDraft({ ...eventDraft, startsAt: event.target.value })} /></label><label>Kết thúc<input type="datetime-local" value={eventDraft.endsAt} onChange={(event) => setEventDraft({ ...eventDraft, endsAt: event.target.value })} /></label><label>Mô tả<textarea rows="2" maxLength={2000} value={eventDraft.description} onChange={(event) => setEventDraft({ ...eventDraft, description: event.target.value })} /></label><button className="group-primary-button compact">Tạo sự kiện</button></form>}
             {events.length === 0 ? <EmptyState compact description="Chưa có sự kiện nào." /> : events.map((event) => <div className="group-event-item" key={event.eventId}><span className="group-event-date">{new Date(event.startsAt).toLocaleDateString('vi-VN', { day: '2-digit', month: 'short' })}</span><div><strong>{event.title}</strong><span>{formatDate(event.startsAt)}{event.location ? ` · ${event.location}` : ''}</span><small>{event.participantCount} người tham gia</small></div>{isMember && <button type="button" className={event.participating ? 'group-event-joined' : ''} onClick={() => participateEvent(event.eventId)}>{event.participating ? 'Đã tham gia' : 'Tham gia'}</button>}</div>)}
-          </section></aside>
+          </section>}</aside>
 
         <section className="group-main-column">
-          {tab === 'Thành viên' ? <section className="group-members-panel"><div className="group-section-heading"><div><span className="groups-kicker">CỘNG ĐỒNG</span><h2>Thành viên</h2></div><span className="group-result-count">{members.length}</span></div>{members.map((member) => <div className="group-member-row" key={member.userId}><Avatar src={member.avatar} name={member.name} size={42} /><div className="group-member-copy"><strong>{member.name}</strong><span>{member.role === 'OWNER' ? 'Chủ nhóm' : member.role === 'ADMIN' ? 'Admin' : member.role === 'MODERATOR' ? 'Moderator' : 'Thành viên'}</span></div>{canModerate && member.userId !== user?.userId && member.role !== 'OWNER' && <details className="group-member-menu"><summary aria-label={`Tùy chọn ${member.name}`}>•••</summary><div><button type="button" onClick={() => manageMember(member, 'role')}>Đổi vai trò</button><button type="button" onClick={() => manageMember(member, 'warn')}>Cảnh cáo</button><button type="button" onClick={() => manageMember(member, 'remove')}>Xóa thành viên</button><button type="button" onClick={() => manageMember(member, 'ban')}>Cấm thành viên</button></div></details>}</div>)}</section>
-            : tab === 'Giới thiệu' ? <section className="group-about-panel"><span className="groups-kicker">GIỚI THIỆU</span><h2>{group.name}</h2><p>{group.description || 'Nhóm chưa có mô tả.'}</p><dl><div><dt>Danh mục</dt><dd>{group.category || 'Chưa phân loại'}</dd></div><div><dt>Quyền riêng tư</dt><dd>{group.visibility === 'PRIVATE' ? 'Riêng tư' : 'Công khai'}</dd></div><div><dt>Ngày tạo</dt><dd>{formatDate(group.createdAt)}</dd></div><div><dt>Chủ nhóm</dt><dd>{group.ownerName}</dd></div></dl></section>
+          {activeTab === 'Thành viên' ? <section className="group-members-panel"><div className="group-section-heading"><div><span className="groups-kicker">CỘNG ĐỒNG</span><h2>Thành viên</h2></div><span className="group-result-count">{members.length}</span></div>{members.map((member) => <div className="group-member-row" key={member.userId}><Avatar src={member.avatar} name={member.name} size={42} /><div className="group-member-copy"><strong>{member.name}</strong><span>{member.role === 'OWNER' ? 'Chủ nhóm' : member.role === 'ADMIN' ? 'Admin' : member.role === 'MODERATOR' ? 'Moderator' : 'Thành viên'}</span></div>{canModerate && member.userId !== user?.userId && member.role !== 'OWNER' && <details className="group-member-menu"><summary aria-label={`Tùy chọn ${member.name}`}>•••</summary><div><button type="button" onClick={() => manageMember(member, 'role')}>Đổi vai trò</button><button type="button" onClick={() => manageMember(member, 'warn')}>Cảnh cáo</button><button type="button" onClick={() => manageMember(member, 'remove')}>Xóa thành viên</button><button type="button" onClick={() => manageMember(member, 'ban')}>Cấm thành viên</button></div></details>}</div>)}</section>
+            : activeTab === 'Giới thiệu' ? <section className="group-about-panel"><span className="groups-kicker">GIỚI THIỆU</span><h2>{group.name}</h2><p>{group.description || 'Nhóm chưa có mô tả.'}</p><dl><div><dt>Danh mục</dt><dd>{group.category || 'Chưa phân loại'}</dd></div><div><dt>Quyền riêng tư</dt><dd>{group.visibility === 'PRIVATE' ? 'Riêng tư' : 'Công khai'}</dd></div><div><dt>Ngày tạo</dt><dd>{formatDate(group.createdAt)}</dd></div><div><dt>Chủ nhóm</dt><dd>{group.ownerName}</dd></div></dl></section>
               : <>
-                {tab === 'Bài viết' && isMember && <form className="group-composer" onSubmit={composerMode === 'POST' ? submitPost : submitPoll}>
+                {activeTab === 'Bài viết' && isMember && <form className="group-composer" onSubmit={composerMode === 'POST' ? submitPost : submitPoll}>
                   <div className="group-compose-modes" role="tablist" aria-label="Loại nội dung"><button type="button" className={composerMode === 'POST' ? 'selected' : ''} onClick={() => setComposerMode('POST')}>Bài viết</button><button type="button" className={composerMode === 'POLL' ? 'selected' : ''} onClick={() => setComposerMode('POLL')}>Bình chọn</button></div>
                   {composerMode === 'POST' ? <>
                     <div className="group-composer-top"><Avatar src={user?.avatar} name={user?.displayName || user?.username} size={42} /><textarea value={content} onChange={(event) => setContent(event.target.value)} maxLength={10000} placeholder={`Chia sẻ điều gì đó với ${group.name}...`} aria-label="Nội dung bài viết" /></div>
                     {file && filePreview && <div className="group-attachment-preview">
-                      {file.type.startsWith('video/') ? <video src={filePreview} controls /> : file.type.startsWith('image/') ? <img src={filePreview} alt="Xem trước ảnh bài viết" /> : <span className="group-attachment-name">▤ {file.name}</span>}
+                      {file.type.startsWith('video/') ? <video src={filePreview} controls /> : file.type.startsWith('image/') ? <img src={filePreview} alt="Xem trước ảnh bài viết" /> : <span className="group-attachment-name"><FileIcon size="1em" /> {file.name}</span>}
                       <button type="button" onClick={clearSelectedFile} aria-label="Bỏ tệp đã chọn">×</button>
                     </div>}
                     <div className="group-composer-bottom">
@@ -394,21 +427,19 @@ export default function GroupDetailPage() {
                   </>
                     : <div className="group-poll-builder"><textarea required maxLength={10000} value={pollQuestion} onChange={(event) => setPollQuestion(event.target.value)} placeholder="Đặt câu hỏi..." aria-label="Câu hỏi bình chọn" />{pollOptions.map((option, index) => <div className="group-poll-input-row" key={index}><input required maxLength={120} value={option} onChange={(event) => setPollOptions((current) => current.map((item, currentIndex) => currentIndex === index ? event.target.value : item))} placeholder={`Lựa chọn ${index + 1}`} /><button type="button" aria-label="Xóa lựa chọn" disabled={pollOptions.length <= 2} onClick={() => setPollOptions((current) => current.filter((_, currentIndex) => currentIndex !== index))}>×</button></div>)}{pollOptions.length < 10 && <button type="button" className="group-add-option" onClick={() => setPollOptions((current) => [...current, ''])}>＋ Thêm lựa chọn</button>}<div className="group-poll-submit"><label>Kết thúc lúc<input type="datetime-local" value={pollEndsAt} onChange={(event) => setPollEndsAt(event.target.value)} /></label><button className="group-primary-button compact" disabled={posting || !pollQuestion.trim() || pollOptions.filter((item) => item.trim()).length < 2}>{posting ? 'Đang tạo...' : group.postApprovalRequired ? 'Gửi duyệt' : 'Tạo bình chọn'}</button></div></div>}
                 </form>}
-                <div className="group-post-toolbar"><div><span className="groups-kicker">{tab === 'Media' ? 'THƯ VIỆN NHÓM' : 'THẢO LUẬN'}</span><h2>{tab === 'Media' ? 'Ảnh và tệp' : 'Bài viết'}</h2></div>{tab === 'Bài viết' && <select value={sort} onChange={(event) => setSort(event.target.value)} aria-label="Sắp xếp bài viết"><option value="NEWEST">Mới nhất</option><option value="OLDEST">Cũ nhất</option></select>}</div>
-                {tab === 'Bài viết' && <label className="group-post-search"><span aria-hidden="true">⌕</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm trong bài viết" /></label>}
-                {posts.length === 0 ? <EmptyState icon="◌" title={tab === 'Media' ? 'Chưa có tệp được chia sẻ' : 'Chưa có bài viết'} description={isMember ? 'Hãy bắt đầu cuộc trò chuyện đầu tiên trong nhóm.' : 'Tham gia nhóm để xem và đăng bài.'} /> : <div className="group-post-list">{posts.map((post) => <article className="group-post" key={post.postId}>
-                  {post.pinned && <div className="group-pinned-label">⌖ BÀI VIẾT ĐÃ GHIM</div>}
+                <div className="group-post-toolbar"><div><span className="groups-kicker">{activeTab === 'Media' ? 'THƯ VIỆN NHÓM' : 'THẢO LUẬN'}</span><h2>{activeTab === 'Media' ? 'Ảnh và tệp' : 'Bài viết'}</h2></div>{activeTab === 'Bài viết' && <select value={sort} onChange={(event) => setSort(event.target.value)} aria-label="Sắp xếp bài viết"><option value="NEWEST">Mới nhất</option><option value="OLDEST">Cũ nhất</option></select>}</div>
+                {activeTab === 'Bài viết' && <label className="group-post-search"><span aria-hidden="true"><SearchIcon size={17} /></span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Tìm trong bài viết" /></label>}
+                {posts.length === 0 ? <EmptyState icon={<FileIcon size={28} />} title={activeTab === 'Media' ? 'Chưa có tệp được chia sẻ' : 'Chưa có bài viết'} description={isMember ? 'Hãy bắt đầu cuộc trò chuyện đầu tiên trong nhóm.' : 'Tham gia nhóm để xem và đăng bài.'} /> : <div className="group-post-list">{posts.map((post) => <article className="group-post" key={post.postId}>
+                  {post.pinned && <div className="group-pinned-label"><PinIcon size="1em" /> BÀI VIẾT ĐÃ GHIM</div>}
                   <header className="group-post-head"><Avatar className="group-post-author-avatar" src={post.authorAvatar} name={post.authorName} size={42} /><div className="group-post-author"><strong>{post.authorName}</strong><span>{formatDate(post.createdAt)}{post.status === 'PENDING' ? ' · Chờ duyệt' : ''}</span></div><details className="group-post-menu"><summary aria-label="Tùy chọn bài viết">•••</summary><div>{post.authorId === user?.userId && <button type="button" onClick={async () => { const text = window.prompt('Chỉnh sửa bài viết', post.content); if (text == null) return; try { await groupApi.updatePost(groupId, post.postId, { content: text, mediaUrl: post.mediaUrl, mediaType: post.mediaType }); await loadGroup() } catch (err) { announce(err.response?.data?.message || 'Không thể sửa bài viết.') } }}>Chỉnh sửa</button>}{(post.authorId === user?.userId || canModerate) && <button type="button" onClick={async () => { if (!window.confirm('Xóa bài viết này?')) return; try { await groupApi.removePost(groupId, post.postId); await loadGroup() } catch (err) { announce(err.response?.data?.message || 'Không thể xóa bài viết.') } }}>Xóa bài viết</button>}{canModerate && <button type="button" onClick={async () => { try { await groupApi.pin(groupId, post.postId); await loadGroup() } catch (err) { announce(err.response?.data?.message || 'Không thể ghim bài viết.') } }}>{post.pinned ? 'Bỏ ghim' : 'Ghim bài viết'}</button>}<button type="button" onClick={() => reportPost(post)}>Báo cáo</button></div></details></header>
                   {post.content && <p className="group-post-content">{post.content}</p>}
                   {post.poll && <PollCard post={post} canVote={isMember} onVote={votePoll} />}
-                  {post.mediaType === 'IMAGE' && <img className="group-post-image" src={post.mediaUrl} alt="Tệp đính kèm bài viết" />}
-                  {post.mediaType === 'VIDEO' && <video className="group-post-video" src={post.mediaUrl} controls />}
-                  {post.mediaType === 'FILE' && <a className="group-post-file" href={post.mediaUrl} target="_blank" rel="noreferrer">↗ Mở tệp đính kèm</a>}
+                  {post.mediaUrl && <GroupPostMedia post={post} />}
                   <div className="group-post-stats"><span>{post.reactionCount} cảm xúc</span><span>{post.comments?.length || 0} bình luận</span></div>
-                  <div className="group-post-actions"><GroupPostReactionControl post={post} onSelect={(postId, type) => react(post, type)} /><button type="button" className="group-comment-action" onClick={() => openComments(post.postId)}>Bình luận</button><button type="button" className="group-comment-action" onClick={() => toggleSavedGroupPost(post)}>{savedGroupPosts[post.postId] ? '▣ Đã lưu' : '▣ Lưu'}</button></div>
+                  <div className="group-post-actions"><GroupPostReactionControl post={post} onSelect={(postId, type) => react(post, type)} /><button type="button" className="group-comment-action" onClick={() => openComments(post.postId)}>Bình luận</button><button type="button" className="group-comment-action" onClick={() => toggleSavedGroupPost(post)}><BookmarkIcon size="1.05em" filled={!!savedGroupPosts[post.postId]} /> {savedGroupPosts[post.postId] ? 'Đã lưu' : 'Lưu'}</button></div>
                   <div className="group-comment-area" id={`group-comments-${post.postId}`}>
                   {post.comments?.length > 0 && <div className="group-comments">{post.comments.map((comment) => <div className={`group-comment ${comment.parentCommentId ? 'reply' : ''}`} key={comment.commentId}><Avatar src={comment.authorAvatar} name={comment.authorName} size={30} /><div className="group-comment-body"><strong>{comment.authorName}</strong><p>{comment.content}</p><div><time>{formatDate(comment.createdAt)}</time><button type="button" onClick={() => setReplyTo({ postId: post.postId, commentId: comment.parentCommentId || comment.commentId, name: comment.authorName })}>Trả lời</button>{(comment.authorId === user?.userId || canModerate) && <button type="button" onClick={async () => { if (window.confirm('Xóa bình luận này?')) { try { await groupApi.removeComment(groupId, comment.commentId); await loadGroup() } catch (err) { announce(err.response?.data?.message || 'Không thể xóa bình luận.') } } }}>Xóa</button>}</div></div></div>)}</div>}
-                  {isMember && <form className="group-comment-form" onSubmit={(event) => submitComment(post.postId, event)}><Avatar src={user?.avatar} name={user?.displayName || user?.username} size={30} /><div>{replyTo?.postId === post.postId && <span className="group-replying">Trả lời {replyTo.name}<button type="button" onClick={() => setReplyTo(null)}>×</button></span>}<input id={`group-comment-${post.postId}`} value={comments[post.postId] || ''} onChange={(event) => setComments((current) => ({ ...current, [post.postId]: event.target.value }))} placeholder="Viết bình luận..." maxLength={2000} aria-label="Viết bình luận" /><button disabled={!comments[post.postId]?.trim()} aria-label="Gửi bình luận">↗</button></div></form>}
+                  {isMember && <form className="group-comment-form" onSubmit={(event) => submitComment(post.postId, event)}><Avatar src={user?.avatar} name={user?.displayName || user?.username} size={30} /><div>{replyTo?.postId === post.postId && <span className="group-replying">Trả lời {replyTo.name}<button type="button" onClick={() => setReplyTo(null)}>×</button></span>}<input id={`group-comment-${post.postId}`} value={comments[post.postId] || ''} onChange={(event) => setComments((current) => ({ ...current, [post.postId]: event.target.value }))} placeholder="Viết bình luận..." maxLength={2000} aria-label="Viết bình luận" /><button disabled={!comments[post.postId]?.trim()} aria-label="Gửi bình luận"><SendIcon size={16} /></button></div></form>}
                   </div>
                 </article>)}</div>}
               </>}

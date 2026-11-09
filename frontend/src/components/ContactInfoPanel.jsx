@@ -218,7 +218,7 @@ export default function ContactInfoPanel({ conversationInfo, otherUserId, images
             }}
           >
             <span className="info-action-icon">
-              <UserProfileIcon size={18} color="#94a3b8" />
+              <UserProfileIcon size={18} />
             </span>
             <span className="info-action-text">Xem thông tin</span>
           </button>
@@ -226,7 +226,7 @@ export default function ContactInfoPanel({ conversationInfo, otherUserId, images
 
         <button className="info-action-item" type="button" title="Tìm kiếm trong cuộc trò chuyện" onClick={() => setSearchOpen((value) => !value)}>
           <span className="info-action-icon">
-            <SearchIcon size={18} color="#94a3b8" />
+            <SearchIcon size={18} />
           </span>
           <span className="info-action-text">Tìm kiếm trong cuộc trò chuyện</span>
         </button>
@@ -289,7 +289,7 @@ export default function ContactInfoPanel({ conversationInfo, otherUserId, images
       <div className="info-media-section">
         <div className="info-section-header">
           <span className="info-section-title">File, ảnh, liên kết</span>
-          <ChevronRight size={16} color="#64748b" />
+          <ChevronRight size={16} />
         </div>
 
         {previewMedia.length > 0 ? (

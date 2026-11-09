@@ -25,6 +25,7 @@ public class FriendService {
     private final FriendRequestRepository friendRequestRepository;
     private final UserService userService;
     private final ConversationService conversationService;
+    private final NotificationService notificationService;
 
     @Transactional
     public FriendRequestResponse sendRequest(Long senderId, Long receiverId) {
@@ -65,6 +66,9 @@ public class FriendService {
         if (accept) {
             conversationService.getOrCreatePrivateConversation(
                 fr.getSender().getUserId(), fr.getReceiver().getUserId());
+            notificationService.create(fr.getSender().getUserId(), fr.getReceiver().getUserId(),
+                    "FRIEND_REQUEST_ACCEPTED", "USER", fr.getReceiver().getUserId(),
+                    "đã chấp nhận lời mời kết bạn của bạn.");
         }
         return toResponse(saved);
     }

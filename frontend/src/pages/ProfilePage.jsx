@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import Avatar from '../components/Avatar'
+import PostMenu from '../components/PostMenu'
 import EmptyState from '../components/EmptyState'
 import LoadingState from '../components/LoadingState'
 import { conversationApi } from '../api/conversationApi'
@@ -9,7 +10,7 @@ import { friendApi } from '../api/friendApi'
 import { storyApi } from '../api/storyApi'
 import { userApi } from '../api/userApi'
 import { useAuth } from '../context/AuthContext'
-import { ChatIcon, FriendsIcon } from '../components/Icons'
+import { ChatIcon, CheckIcon, ClockIcon, CommentIcon, FriendsIcon, GroupIcon, ImageIcon, PencilIcon, ShareIcon, ThumbUpIcon, UserIcon, UserPlusIcon } from '../components/Icons'
 
 const profileTabs = ['Bài viết', 'Giới thiệu', 'Bạn bè', 'Ảnh', 'Video', 'Nhóm', 'Sự kiện']
 
@@ -69,6 +70,7 @@ export default function ProfilePage() {
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [composerText, setComposerText] = useState('')
+  const [composerPrivacy, setComposerPrivacy] = useState('PUBLIC')
   const [composerFile, setComposerFile] = useState(null)
   const [posting, setPosting] = useState(false)
   const [commentDrafts, setCommentDrafts] = useState({})
@@ -242,9 +244,10 @@ export default function ProfilePage() {
         imageUrl = upload.data.url
         mediaType = upload.data.mediaType
       }
-      const { data } = await feedApi.create({ content: composerText.trim() || null, imageUrl, mediaType })
+      const { data } = await feedApi.create({ content: composerText.trim() || null, imageUrl, mediaType, privacy: composerPrivacy })
       setPosts((current) => [data, ...current])
       setComposerText('')
+      setComposerPrivacy('PUBLIC')
       setComposerFile(null)
       if (mediaInputRef.current) mediaInputRef.current.value = ''
       setNotice('Bài viết đã được đăng.')
@@ -277,7 +280,7 @@ export default function ProfilePage() {
         ))
         return isOwnProfile ? [data, ...updated.filter((item) => item.postId !== data.postId)] : updated
       })
-      setNotice('Bài viết đã được chia sẻ lên bảng tin của bạn.')
+      setNotice('Bài viết đã được chia sẻ lên trang chủ của bạn.')
       window.setTimeout(() => setNotice(''), 3000)
     } catch (err) {
       setError(err.response?.data?.message || 'Không thể chia sẻ bài viết.')
@@ -367,12 +370,12 @@ export default function ProfilePage() {
           <div className="profile-main-column">
             <section className="profile-hero">
               <div className="profile-hero-cover" style={coverImage ? { backgroundImage: `linear-gradient(180deg, rgba(12, 24, 48, .02), rgba(12, 24, 48, .58)), url(${coverImage})` } : undefined}>
-                {isOwnProfile && <button className="profile-cover-edit" type="button" onClick={() => setEditOpen(true)}>▧ <span>Chỉnh sửa ảnh bìa</span></button>}
+                {isOwnProfile && <button className="profile-cover-edit" type="button" onClick={() => setEditOpen(true)}><ImageIcon size="1.1em" /> <span>Chỉnh sửa ảnh bìa</span></button>}
               </div>
               <div className="profile-hero-details">
                 <Avatar className="profile-hero-avatar" src={avatar} name={profileName} size={136} />
                 <div className="profile-hero-copy">
-                  <h1>{profileName} <span className="profile-verified" title="Tài khoản của bạn">✓</span></h1>
+                  <h1>{profileName} <span className="profile-verified" title="Tài khoản của bạn"><CheckIcon size="0.8em" strokeWidth={3} /></span></h1>
                   <p>@{profileUsername}</p>
                   <div className={`profile-hero-status ${profileOnline ? 'is-online' : ''}`}><i />{profileOnline ? 'Đang hoạt động' : 'CMC Talk'}</div>
                   {bio && <small className="profile-hero-bio">{bio}</small>}
@@ -384,17 +387,17 @@ export default function ProfilePage() {
                 </div>
                 <div className={`profile-hero-actions ${isOwnProfile ? '' : 'profile-viewing-other-actions'}`}>
                   {isOwnProfile ? <>
-                    <button className="profile-edit-button" type="button" onClick={() => { setError(''); setEditOpen(true) }}>✎ <span>Chỉnh sửa trang cá nhân</span></button>
+                    <button className="profile-edit-button" type="button" onClick={() => { setError(''); setEditOpen(true) }}><PencilIcon size="1.1em" /> <span>Chỉnh sửa trang cá nhân</span></button>
                     <button className="profile-more-button" type="button" aria-label="Tùy chọn khác">···</button>
                   </> : <>
                     <button className="profile-message-button" type="button" onClick={openConversation} disabled={relationshipBusy}>
                       <ChatIcon size={17} /> Nhắn tin
                     </button>
                     {relationship.status === 'NONE' && <button className="profile-friend-action" type="button" onClick={sendFriendRequest} disabled={relationshipBusy}>
-                      <FriendsIcon size={17} /> Thêm bạn bè
+                      <UserPlusIcon size={17} /> Thêm bạn bè
                     </button>}
                     {relationship.status === 'SENT' && <button className="profile-friend-action is-pending" type="button" disabled>
-                      <FriendsIcon size={17} /> Đã gửi lời mời
+                      <ClockIcon size={17} /> Đã gửi lời mời
                     </button>}
                     {relationship.status === 'RECEIVED' && <>
                       <button className="profile-friend-action" type="button" onClick={() => respondToFriendRequest(true)} disabled={relationshipBusy}>Chấp nhận lời mời</button>
@@ -440,22 +443,30 @@ export default function ProfilePage() {
             {(activeTab === 'Bài viết' || activeTab === 'Ảnh' || activeTab === 'Video') && (
               <>
                 {activeTab === 'Bài viết' && isOwnProfile && (
-                  <form className="profile-composer" onSubmit={publishProfilePost}>
-                    <div className="profile-composer-top"><Avatar src={avatar} name={profileName} size={40} /><textarea value={composerText} onChange={(event) => setComposerText(event.target.value)} placeholder={`${profileName} ơi, bạn đang nghĩ gì?`} rows={2} /></div>
-                    {composerPreview && <div className="profile-composer-preview">{composerFile?.type.startsWith('video/') ? <video src={composerPreview} controls /> : <img src={composerPreview} alt="Ảnh xem trước" />}<button type="button" onClick={() => setComposerFile(null)}>×</button></div>}
-                    <div className="profile-composer-actions"><label>▧ Ảnh/Video<input ref={mediaInputRef} type="file" accept="image/*,video/*" onChange={(event) => setComposerFile(event.target.files?.[0] || null)} /></label><button type="submit" disabled={posting || (!composerText.trim() && !composerFile)}>{posting ? 'Đang đăng...' : 'Đăng bài'}</button></div>
+                  <form className="create-post-card profile-composer" onSubmit={publishProfilePost}>
+                    <Avatar src={avatar} name={profileName} size={42} />
+                    <div className="create-post-main">
+                      <textarea value={composerText} onChange={(event) => setComposerText(event.target.value)} placeholder={`${profileName} ơi, bạn đang nghĩ gì?`} rows={1} maxLength={10000} />
+                      {composerPreview && <div className="post-composer-preview profile-composer-preview">{composerFile?.type.startsWith('video/') ? <video src={composerPreview} controls /> : <img src={composerPreview} alt="Ảnh xem trước" />}<button type="button" onClick={() => { setComposerFile(null); if (mediaInputRef.current) mediaInputRef.current.value = '' }} aria-label="Bỏ tệp đã chọn">×</button></div>}
+                      <input ref={mediaInputRef} type="file" accept="image/*,video/*" hidden onChange={(event) => setComposerFile(event.target.files?.[0] || null)} />
+                      <div className="composer-actions profile-composer-actions">
+                        <label className="post-privacy-picker" title="Ai có thể xem bài viết này?"><span aria-hidden="true">{composerPrivacy === 'PUBLIC' ? '🌐' : composerPrivacy === 'FRIENDS' ? '👥' : '🔒'}</span><select aria-label="Quyền riêng tư bài viết" value={composerPrivacy} onChange={(event) => setComposerPrivacy(event.target.value)}><option value="PUBLIC">Công khai</option><option value="FRIENDS">Bạn bè</option><option value="PRIVATE">Chỉ mình tôi</option></select></label>
+                        <div className="composer-tools"><button type="button" onClick={() => mediaInputRef.current?.click()}><ImageIcon size="1.05em" /> <span>Ảnh / Video</span></button></div>
+                        <button className="publish-button" type="submit" disabled={posting || (!composerText.trim() && !composerFile)}>{posting ? 'Đang đăng...' : 'Đăng bài'}</button>
+                      </div>
+                    </div>
                   </form>
                 )}
                 {loading && <LoadingState variant="skeleton" lines={2} skeletonHeight={110} label="Đang tải bài viết..." />}
                 {!loading && tabPosts.length === 0 && <EmptyState title={activeTab === 'Ảnh' ? 'Chưa có ảnh' : activeTab === 'Video' ? 'Chưa có video' : 'Chưa có bài viết'} description={isOwnProfile ? 'Bài viết của bạn sẽ hiển thị tại đây.' : 'Bài viết của người dùng sẽ hiển thị tại đây.'} />}
                 {tabPosts.map((post) => (
-                  <article className="profile-post-card" key={post.postId}>
-                    <header><Avatar src={post.authorAvatar || avatar} name={post.authorName || profileName} size={42} /><div><strong>{post.authorName || profileName}</strong><small>{formatProfileTime(post.createdAt)}</small></div><button type="button" aria-label="Tùy chọn bài viết">···</button></header>
+                  <article className="profile-post-card post-card" key={post.postId}>
+                    <header><Avatar src={post.authorAvatar || avatar} name={post.authorName || profileName} size={42} /><div className="profile-post-author"><strong>{post.authorName || profileName}</strong><small>{formatProfileTime(post.createdAt)} · <span className="post-privacy-indicator">{post.privacy === 'FRIENDS' ? '👥 Bạn bè' : post.privacy === 'PRIVATE' ? '🔒 Chỉ mình tôi' : '🌐 Công khai'}</span></small></div><PostMenu post={post} currentUserId={user?.userId} onPostUpdated={(updated) => setPosts((current) => current.map((item) => item.postId === updated.postId ? updated : item))} onPostDeleted={(deleted) => setPosts((current) => current.filter((item) => item.postId !== deleted.postId))} onError={setError} /></header>
                     {post.content && <p className="profile-post-content">{post.content}</p>}
                     {post.sharedPost && <div className="shared-post-preview"><div className="shared-post-heading"><Avatar src={post.sharedPost.authorAvatar} name={post.sharedPost.authorName} size={32} /><div><strong>{post.sharedPost.authorName}</strong><small>{formatProfileTime(post.sharedPost.createdAt)}</small></div></div>{post.sharedPost.content && <p>{post.sharedPost.content}</p>}{post.sharedPost.mediaType === 'VIDEO' ? <video className="shared-post-media" src={post.sharedPost.imageUrl} controls /> : post.sharedPost.imageUrl && <img className="shared-post-media" src={post.sharedPost.imageUrl} alt="Shared post" />}</div>}
                     {post.mediaType === 'VIDEO' ? <video className="profile-post-media" src={post.imageUrl} controls /> : post.imageUrl && <img className="profile-post-media" src={post.imageUrl} alt="Ảnh trong bài viết" />}
-                    <div className="profile-post-summary"><span>👍 {post.likeCount || 0}</span><span>{post.comments?.length || 0} bình luận</span></div>
-                    <div className="profile-post-actions"><button type="button" className={post.likedByViewer ? 'liked' : ''} onClick={() => reactToPost(post.postId)}>👍 Thích</button><button type="button" onClick={() => document.getElementById(`profile-comment-${post.postId}`)?.focus()}>▢ Bình luận</button><button type="button" onClick={() => shareToFeed(post)}>↗ {post.shareCount > 0 && <span className="action-count">{post.shareCount}</span>} Chia sẻ</button></div>
+                    <div className="profile-post-summary"><span><ThumbUpIcon size="1em" /> {post.likeCount || 0}</span><span>{post.comments?.length || 0} bình luận</span></div>
+                    <div className="profile-post-actions"><button type="button" className={post.likedByViewer ? 'liked' : ''} onClick={() => reactToPost(post.postId)}><ThumbUpIcon size="1.1em" /> Thích</button><button type="button" onClick={() => document.getElementById(`profile-comment-${post.postId}`)?.focus()}><CommentIcon size="1.1em" /> Bình luận</button><button type="button" onClick={() => shareToFeed(post)}><ShareIcon size="1.1em" /> {post.shareCount > 0 && <span className="action-count">{post.shareCount}</span>} Chia sẻ</button></div>
                     {post.comments?.slice(-2).map((comment) => <div className="profile-post-comment" key={comment.commentId}><strong>{comment.authorName}</strong><span>{comment.content}</span></div>)}
                     <form className="profile-comment-form" onSubmit={(event) => { event.preventDefault(); addComment(post.postId) }}><Avatar src={avatar} name={profileName} size={30} /><input id={`profile-comment-${post.postId}`} value={commentDrafts[post.postId] || ''} onChange={(event) => setCommentDrafts((current) => ({ ...current, [post.postId]: event.target.value }))} placeholder="Viết bình luận..." /><button type="submit">Gửi</button></form>
                   </article>
@@ -464,7 +475,7 @@ export default function ProfilePage() {
             )}
             {activeTab === 'Giới thiệu' && <section className="profile-panel profile-tab-panel"><h2>Giới thiệu</h2><p>{bio || 'Chưa có phần giới thiệu.'}</p><p>{education || 'Chưa cập nhật trường học'}</p><p>{location || 'Chưa cập nhật nơi ở'}</p><p>Tình trạng mối quan hệ: {relationshipStatus || 'Chưa cập nhật'}</p><p>Ngày sinh: {formatBirthDate(birthDate) || 'Chưa cập nhật'}</p><p>Tên người dùng: @{profileUsername}</p></section>}
             {isOwnProfile && activeTab === 'Bạn bè' && <section className="profile-panel profile-tab-panel"><h2>Bạn bè ({friends.length})</h2><div className="profile-friend-grid">{friends.map((friend) => { const item = getFriendInfo(friend, user?.userId); return <button type="button" className="profile-friend-card profile-user-link" key={friend.id} onClick={() => navigate(`/feed/profile/${item.id}`)}><Avatar src={item.avatar} name={item.name} size={54} /><strong>{item.name}</strong></button> })}</div></section>}
-            {isOwnProfile && activeTab === 'Nhóm' && <section className="profile-panel profile-tab-panel"><h2>Nhóm ({groups.length})</h2>{groups.length ? groups.map((group) => <div className="profile-group-row" key={group.conversationId}><span className="profile-group-icon">♧</span><div><strong>{group.name || 'Nhóm chat'}</strong><small>Nhóm trò chuyện</small></div></div>) : <p className="profile-muted">Bạn chưa tham gia nhóm nào.</p>}</section>}
+            {isOwnProfile && activeTab === 'Nhóm' && <section className="profile-panel profile-tab-panel"><h2>Nhóm ({groups.length})</h2>{groups.length ? groups.map((group) => <div className="profile-group-row" key={group.conversationId}><span className="profile-group-icon"><GroupIcon size="1em" /></span><div><strong>{group.name || 'Nhóm chat'}</strong><small>Nhóm trò chuyện</small></div></div>) : <p className="profile-muted">Bạn chưa tham gia nhóm nào.</p>}</section>}
             {activeTab === 'Sự kiện' && <EmptyState title="Chưa có hoạt động sự kiện" description="Các sự kiện bạn tham gia sẽ xuất hiện tại đây." />}
           </main>
           </div>
@@ -486,10 +497,10 @@ export default function ProfilePage() {
             </section>
             <section className="profile-panel">
               <div className="profile-panel-heading"><h2>Nhóm tham gia</h2><button type="button" onClick={() => setActiveTab('Nhóm')}>Xem tất cả</button></div>
-              {groups.slice(0, 3).map((group) => <div className="profile-group-row" key={group.conversationId}><span className="profile-group-icon">♧</span><div><strong>{group.name || 'Nhóm chat'}</strong><small>Nhóm trò chuyện</small></div></div>)}
+              {groups.slice(0, 3).map((group) => <div className="profile-group-row" key={group.conversationId}><span className="profile-group-icon"><GroupIcon size="1em" /></span><div><strong>{group.name || 'Nhóm chat'}</strong><small>Nhóm trò chuyện</small></div></div>)}
               {groups.length === 0 && <p className="profile-muted">Nhóm bạn tham gia sẽ hiển thị tại đây.</p>}
             </section>
-            <section className="profile-panel profile-account-panel"><h2>Thông tin liên hệ</h2><div className="profile-info-row"><span>@</span><span>{profileUsername || '—'}</span></div><div className="profile-info-row"><span>◉</span><span>{profileOnline ? 'Đang hoạt động' : 'CMC Talk'}</span></div></section>
+            <section className="profile-panel profile-account-panel"><h2>Thông tin liên hệ</h2><div className="profile-info-row"><span>@</span><span>{profileUsername || '—'}</span></div><div className="profile-info-row"><span><UserIcon size="1em" /></span><span>{profileOnline ? 'Đang hoạt động' : 'CMC Talk'}</span></div></section>
           </aside>}
         </div>
       </div>

@@ -1,6 +1,7 @@
 package com.example.messaging.entity;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.Nationalized;
 import lombok.*;
 
 import java.time.LocalDateTime;
@@ -22,10 +23,11 @@ public class SocialGroup {
     @JoinColumn(name = "owner_id", nullable = false)
     private User owner;
 
+    @Nationalized
     @Column(nullable = false, length = 100)
     private String name;
 
-    @Column(columnDefinition = "NVARCHAR(2000)")
+    @Column(length = 2000)
     private String description;
 
     @Column(length = 500)
@@ -34,6 +36,7 @@ public class SocialGroup {
     @Column(name = "cover_image", length = 500)
     private String coverImage;
 
+    @Nationalized
     @Column(length = 80)
     private String category;
 
@@ -45,7 +48,7 @@ public class SocialGroup {
     @Builder.Default
     private boolean postApprovalRequired = false;
 
-    @Column(name = "spam_keywords", columnDefinition = "NVARCHAR(2000)")
+    @Column(name = "spam_keywords", length = 2000)
     private String spamKeywords;
 
     @Column(name = "created_at", updatable = false)

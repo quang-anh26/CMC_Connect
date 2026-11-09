@@ -18,6 +18,7 @@ import AdminDashboardPage from './pages/admin/AdminDashboardPage'
 import GroupsPage from './pages/GroupsPage'
 import GroupDetailPage from './pages/GroupDetailPage'
 import NotificationsPage from './pages/NotificationsPage'
+import ForumPage from './pages/ForumPage'
 
 const VideosPage = React.lazy(() => import('./pages/VideosPage'))
 const SavedPage = React.lazy(() => import('./pages/SavedPage'))
@@ -58,6 +59,7 @@ export default function App() {
               <Route path="groups" element={<GroupsPage />} />
               <Route path="groups/:groupId" element={<GroupDetailPage />} />
               <Route path="notifications" element={<NotificationsPage />} />
+<<<<<<< HEAD
 <<<<<<< Updated upstream
 =======
               <Route path="forum" element={<ForumPage />} />
@@ -66,18 +68,30 @@ export default function App() {
               <Route path="forum/categories/:categoryId" element={<ForumPage />} />
               <Route path="forum/faculties/:facultyId" element={<ForumPage />} />
               <Route path="forum/majors/:majorId" element={<ForumPage />} />
+=======
+              <Route path="forum" element={<ForumPage />} />
+              <Route path="forum/categories" element={<ForumPage />} />
+              <Route path="forum/categories/:categoryId" element={<ForumPage />} />
+>>>>>>> origin/main
               <Route path="forum/courses" element={<ForumPage />} />
               <Route path="forum/courses/:courseId" element={<ForumPage />} />
               <Route path="forum/topics/:topicId" element={<ForumPage />} />
               <Route path="forum/new" element={<ForumPage />} />
+<<<<<<< HEAD
               <Route path="forum/share-resource" element={<ForumPage />} />
               <Route path="forum/search" element={<ForumPage />} />
               <Route path="forum/admin" element={<ForumPage />} />
               <Route path="forum/moderation" element={<ForumPage />} />
 >>>>>>> Stashed changes
+=======
+              <Route path="forum/search" element={<ForumPage />} />
+              <Route path="forum/admin" element={<ForumPage />} />
+              <Route path="forum/moderation" element={<ForumPage />} />
+>>>>>>> origin/main
               <Route path="feed/profile" element={<ProfilePage />} />
               <Route path="feed/profile/:profileUserId" element={<ProfilePage />} />
               <Route path="chat/:conversationId" element={<ChatWindow />} />
+              <Route path="friends/suggestions" element={<FriendsPage />} />
               <Route path="friends" element={<FriendsPage />} />
               <Route path="message-requests" element={<Navigate to="/messages" replace />} />
               <Route path="profile" element={<Navigate to="/feed/profile" replace />} />

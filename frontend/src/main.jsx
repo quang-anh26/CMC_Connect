@@ -1,6 +1,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
+import { initializeTheme } from './utils/theme'
 import './styles/design-tokens.css'
 import './index.css'
 import './styles/conversation-inbox.css'
@@ -10,6 +11,8 @@ import './styles/app-topbar.css'
 import './styles/video-page.css'
 import './styles/conversation-layout.css'
 import './styles/shape-overrides.css'
+
+initializeTheme()
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
