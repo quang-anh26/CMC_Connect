@@ -5,6 +5,8 @@ import com.example.messaging.dto.feed.StoryResponse;
 import com.example.messaging.entity.SocialStory;
 import com.example.messaging.entity.User;
 import com.example.messaging.exception.ApiException;
+import com.example.messaging.repository.SocialStoryCommentRepository;
+import com.example.messaging.repository.SocialStoryReactionRepository;
 import com.example.messaging.repository.SocialStoryRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -18,6 +20,8 @@ import java.util.List;
 public class StoryService {
 
     private final SocialStoryRepository storyRepository;
+    private final SocialStoryReactionRepository reactionRepository;
+    private final SocialStoryCommentRepository commentRepository;
     private final UserService userService;
 
     @Transactional(readOnly = true)
@@ -64,6 +68,9 @@ public class StoryService {
         if (!story.getAuthor().getUserId().equals(requesterId)) {
             throw ApiException.forbidden("Chá»‰ ngÆ°á»i Ä‘Äƒng tin má»›i cÃ³ thá»ƒ xÃ³a tin");
         }
+        // Xóa cảm xúc/bình luận của tin trước để không vướng khóa ngoại
+        reactionRepository.deleteByStory_StoryId(storyId);
+        commentRepository.deleteByStory_StoryId(storyId);
         storyRepository.delete(story);
     }
 

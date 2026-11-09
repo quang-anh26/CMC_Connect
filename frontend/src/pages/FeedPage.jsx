@@ -1,11 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { feedApi } from '../api/feedApi'
-import { conversationApi } from '../api/conversationApi'
 import { storyApi } from '../api/storyApi'
 import { videoApi } from '../api/videoApi'
-import { messageApi } from '../api/messageApi'
 import { eventApi } from '../api/eventApi'
 import { savedApi } from '../api/savedApi'
 import Avatar from '../components/Avatar'
@@ -14,10 +12,14 @@ import EmptyState from '../components/EmptyState'
 import LoadingState from '../components/LoadingState'
 import ErrorState from '../components/ErrorState'
 import PrimarySidebar from '../components/PrimarySidebar'
-import { BookmarkIcon, CalendarIcon, CommentIcon, ImageIcon, PencilIcon, PlayIcon, ShareIcon } from '../components/Icons'
+import PrivacyPicker from '../components/PrivacyPicker'
+import MediaPicker from '../components/MediaPicker'
+import ActiveFriendsCard from '../components/ActiveFriendsCard'
+import { BookmarkIcon, CalendarIcon, CommentIcon, PencilIcon, ShareIcon } from '../components/Icons'
 import { useAuth } from '../context/AuthContext'
+import '../styles/home-update.css'
 
-const storyImage = 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=500&q=80'
+const STORY_IMAGE_DURATION_MS = 5000
 const postReactions = [
   { type: 'LIKE', label: 'Thích', emoji: '👍' },
   { type: 'LOVE', label: 'Yêu thích', emoji: '❤️' },
@@ -25,7 +27,14 @@ const postReactions = [
   { type: 'WOW', label: 'Wow', emoji: '😮' },
   { type: 'ANGRY', label: 'Phẫn nộ', emoji: '😡' },
 ]
-const storyReactions = ['👍', '❤️', '😂', '😮', '😢', '😡']
+const storyReactions = [
+  { type: 'LIKE', label: 'Thích', emoji: '👍' },
+  { type: 'LOVE', label: 'Yêu thích', emoji: '❤️' },
+  { type: 'HAHA', label: 'Haha', emoji: '😂' },
+  { type: 'WOW', label: 'Wow', emoji: '😮' },
+  { type: 'SAD', label: 'Buồn', emoji: '😢' },
+  { type: 'ANGRY', label: 'Phẫn nộ', emoji: '😡' },
+]
 const postEmojis = ['😀', '😄', '😍', '🥰', '😂', '😊', '😎', '🤔', '😢', '😡', '🎉', '❤️']
 
 function PostReactionControl({ post, onSelect }) {
@@ -53,6 +62,31 @@ function PostReactionControl({ post, onSelect }) {
       </div>
     </div>
   )
+}
+
+// Gom các tin theo người đăng: mỗi người chỉ xuất hiện 1 lần, các tin của họ xếp từ cũ -> mới
+// (giống Facebook). Nhóm nào có tin mới nhất thì đứng trước.
+function groupStories(list) {
+  const map = new Map()
+  for (const story of list) {
+    const key = String(story.authorId)
+    if (!map.has(key)) {
+      map.set(key, { authorId: story.authorId, authorName: story.authorName, authorAvatar: story.authorAvatar, stories: [] })
+    }
+    map.get(key).stories.push(story)
+  }
+  const time = (story) => new Date(story.createdAt).getTime() || 0
+  const groups = [...map.values()]
+  groups.forEach((group) => {
+    group.stories.sort((a, b) => time(a) - time(b) || Number(a.storyId) - Number(b.storyId))
+    group.latest = group.stories[group.stories.length - 1]
+  })
+  groups.sort((a, b) => time(b.latest) - time(a.latest) || Number(b.latest.storyId) - Number(a.latest.storyId))
+  return groups
+}
+
+function orderStories(list) {
+  return groupStories(list).flatMap((group) => group.stories)
 }
 
 function formatPostTime(value) {
@@ -92,11 +126,13 @@ export default function FeedPage() {
   const [storyError, setStoryError] = useState('')
   const [storiesError, setStoriesError] = useState('')
   const [activeStory, setActiveStory] = useState(null)
-  const [storyReply, setStoryReply] = useState('')
-  const [storyReplySending, setStoryReplySending] = useState(false)
+  const [storyInteraction, setStoryInteraction] = useState(null)
+  const [storyCommentDraft, setStoryCommentDraft] = useState('')
+  const [storyCommentSending, setStoryCommentSending] = useState(false)
   const [storyDeleting, setStoryDeleting] = useState(false)
   const [storyViewerError, setStoryViewerError] = useState('')
-  const [storyViewerNotice, setStoryViewerNotice] = useState('')
+  const [storyProgress, setStoryProgress] = useState(0)
+  const [storyPaused, setStoryPaused] = useState(false)
   const [activePostImage, setActivePostImage] = useState(null)
   const [shareTarget, setShareTarget] = useState(null)
   const [shareCaption, setShareCaption] = useState('')
@@ -110,6 +146,14 @@ export default function FeedPage() {
   const postTextAreaRef = useRef(null)
   const storyTouchStartX = useRef(null)
   const lastNotificationTarget = useRef('')
+  const storyProgressRef = useRef(0)
+  const moveStoryRef = useRef(null)
+
+  const storyGroups = useMemo(() => groupStories(stories), [stories])
+  const orderedStories = useMemo(() => storyGroups.flatMap((group) => group.stories), [storyGroups])
+  const activeGroup = activeStory ? storyGroups.find((group) => String(group.authorId) === String(activeStory.authorId)) : null
+  const activeIndexInGroup = activeGroup ? activeGroup.stories.findIndex((story) => String(story.storyId) === String(activeStory.storyId)) : -1
+  const activeOrderedIndex = activeStory ? orderedStories.findIndex((story) => String(story.storyId) === String(activeStory.storyId)) : -1
 
   const loadPosts = () => {
     setLoading(true)
@@ -206,13 +250,11 @@ export default function FeedPage() {
     }
     window.addEventListener('keydown', handleStoryKeys)
     return () => window.removeEventListener('keydown', handleStoryKeys)
-  }, [activeStory, stories])
+  }, [activeStory, orderedStories])
 
   useEffect(() => {
     if (activeStory) return
-    setStoryReply('')
     setStoryViewerError('')
-    setStoryViewerNotice('')
   }, [activeStory])
 
   useEffect(() => {
@@ -221,6 +263,31 @@ export default function FeedPage() {
     return () => window.clearTimeout(timeoutId)
   }, [notice])
 
+  useEffect(() => {
+    storyProgressRef.current = 0
+    setStoryProgress(0)
+  }, [activeStory?.storyId])
+
+  // Tin ảnh/chữ tự chuyển sau vài giây; tin video chạy theo thời lượng video (xem onTimeUpdate/onEnded).
+  useEffect(() => {
+    if (!activeStory || activeStory.mediaType === 'VIDEO' || storyPaused) return undefined
+    const startedAt = Date.now() - storyProgressRef.current * STORY_IMAGE_DURATION_MS
+    const timerId = window.setInterval(() => {
+      const progress = Math.min(1, (Date.now() - startedAt) / STORY_IMAGE_DURATION_MS)
+      storyProgressRef.current = progress
+      setStoryProgress(progress)
+      if (progress >= 1) {
+        window.clearInterval(timerId)
+        moveStoryRef.current?.(1)
+      }
+    }, 100)
+    return () => window.clearInterval(timerId)
+  }, [activeStory?.storyId, activeStory?.mediaType, storyPaused])
+
+  useEffect(() => {
+    if (!activeStory) setStoryPaused(false)
+  }, [activeStory])
+
   const closeStoryComposer = () => {
     setStoryModalOpen(false)
     setStoryContent('')
@@ -228,42 +295,73 @@ export default function FeedPage() {
     setStoryError('')
   }
 
-  const moveStory = (direction) => {
-    if (!activeStory || stories.length < 2) return
-    const currentIndex = stories.findIndex((story) => String(story.storyId) === String(activeStory.storyId))
-    if (currentIndex < 0) return
-    const nextIndex = (currentIndex + direction + stories.length) % stories.length
-    setActiveStory(stories[nextIndex])
-    setStoryReply('')
+  const showStory = (story) => {
+    setActiveStory(story)
     setStoryViewerError('')
-    setStoryViewerNotice('')
   }
 
-  const sendStoryReply = async (content, keepViewerOpen = false) => {
-    if (!activeStory || !content.trim() || storyReplySending) return
-    if (String(activeStory.authorId) === String(user?.userId)) return
-    setStoryReplySending(true)
+  // Lướt qua từng tin: hết tin của người này thì sang người kế tiếp; hết tất cả thì đóng.
+  const moveStory = (direction) => {
+    if (!activeStory) return
+    const currentIndex = orderedStories.findIndex((story) => String(story.storyId) === String(activeStory.storyId))
+    if (currentIndex < 0) return
+    const target = orderedStories[currentIndex + direction]
+    if (!target) {
+      if (direction > 0) setActiveStory(null)
+      return
+    }
+    showStory(target)
+  }
+  moveStoryRef.current = moveStory
+
+  // Cảm xúc + bình luận của tin đang xem
+  useEffect(() => {
+    setStoryInteraction(null)
+    setStoryCommentDraft('')
+    if (!activeStory) return undefined
+    let cancelled = false
+    storyApi.interactions(activeStory.storyId)
+      .then((response) => { if (!cancelled) setStoryInteraction(response.data) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [activeStory?.storyId])
+
+  const reactToStory = async (reactionType) => {
+    if (!activeStory) return
     setStoryViewerError('')
     try {
-      const conversationResponse = await conversationApi.getOrCreatePrivate(activeStory.authorId)
-      const conversationId = conversationResponse.data.conversationId
-      const storyContext = activeStory.content?.trim() || (activeStory.mediaType === 'VIDEO' ? 'video' : activeStory.mediaType === 'IMAGE' ? 'ảnh' : 'tin')
-      await messageApi.send({
-        conversationId,
-        content: `↪ Trả lời tin của ${activeStory.authorName} (${storyContext}):\n${content.trim()}`,
-        messageType: 'TEXT',
-      })
-      setStoryReply('')
-      if (keepViewerOpen) {
-        setStoryViewerNotice('Đã gửi cảm xúc vào tin nhắn.')
-      } else {
-        setActiveStory(null)
-        navigate(`/chat/${conversationId}`)
-      }
+      const response = await storyApi.react(activeStory.storyId, reactionType)
+      setStoryInteraction(response.data)
     } catch (err) {
-      setStoryViewerError(err.response?.data?.message || 'Không gửi được phản hồi. Vui lòng thử lại.')
+      setStoryViewerError(err.response?.data?.message || 'Không thể thả cảm xúc. Vui lòng thử lại.')
+    }
+  }
+
+  const submitStoryComment = async (event) => {
+    event.preventDefault()
+    const text = storyCommentDraft.trim()
+    if (!activeStory || !text || storyCommentSending) return
+    setStoryCommentSending(true)
+    setStoryViewerError('')
+    try {
+      const response = await storyApi.comment(activeStory.storyId, text)
+      setStoryInteraction(response.data)
+      setStoryCommentDraft('')
+    } catch (err) {
+      setStoryViewerError(err.response?.data?.message || 'Không gửi được bình luận. Vui lòng thử lại.')
     } finally {
-      setStoryReplySending(false)
+      setStoryCommentSending(false)
+    }
+  }
+
+  const removeStoryComment = async (commentId) => {
+    if (!activeStory) return
+    setStoryViewerError('')
+    try {
+      const response = await storyApi.deleteComment(activeStory.storyId, commentId)
+      setStoryInteraction(response.data)
+    } catch (err) {
+      setStoryViewerError(err.response?.data?.message || 'Không xóa được bình luận.')
     }
   }
 
@@ -272,13 +370,13 @@ export default function FeedPage() {
     if (!window.confirm('Bạn có chắc muốn xóa tin này?')) return
     setStoryDeleting(true)
     setStoryViewerError('')
-    setStoryViewerNotice('')
     try {
-      const currentIndex = stories.findIndex((story) => String(story.storyId) === String(activeStory.storyId))
+      const currentIndex = orderedStories.findIndex((story) => String(story.storyId) === String(activeStory.storyId))
       await storyApi.delete(activeStory.storyId)
       const remainingStories = stories.filter((story) => String(story.storyId) !== String(activeStory.storyId))
+      const remainingOrdered = orderStories(remainingStories)
       setStories(remainingStories)
-      setActiveStory(remainingStories[currentIndex] || remainingStories[currentIndex - 1] || null)
+      setActiveStory(remainingOrdered[currentIndex] || remainingOrdered[currentIndex - 1] || null)
       setStoryViewerError('')
     } catch (err) {
       setStoryViewerError(err.response?.data?.message || 'Không xóa được tin. Vui lòng thử lại.')
@@ -352,6 +450,13 @@ export default function FeedPage() {
     } finally {
       setPosting(false)
     }
+  }
+
+  const pickPostMedia = (kind) => {
+    const input = postMediaInputRef.current
+    if (!input) return
+    input.accept = kind === 'video' ? 'video/*' : 'image/*'
+    input.click()
   }
 
   const insertPostEmoji = (emoji) => {
@@ -467,32 +572,37 @@ export default function FeedPage() {
             </span>
             <span className="story-create-label">Tạo tin</span>
           </button>
-          {stories.map((story) => (
-            <button
-              className={`story-card ${story.mediaType === 'VIDEO' ? 'video-story-card' : ''}`}
-              key={story.storyId}
-              type="button"
-              onClick={() => setActiveStory(story)}
-              style={story.mediaType === 'IMAGE' && story.mediaUrl
-                ? { backgroundImage: `linear-gradient(180deg, transparent 28%, rgba(6,14,30,.94)), url(${story.mediaUrl})` }
-                : undefined}
-              title={story.content || (story.mediaType === 'VIDEO' ? 'Tin video' : 'Tin văn bản')}
-            >
-              {story.mediaType === 'VIDEO' && story.mediaUrl && (
-                <video
-                  className="story-card-video"
-                  src={story.mediaUrl}
-                  muted
-                  playsInline
-                  preload="metadata"
-                  onLoadedData={(event) => event.currentTarget.pause()}
-                  aria-hidden="true"
-                />
-              )}
-              <Avatar className="story-avatar" src={story.authorAvatar} name={story.authorName} size={30} />
-              <span>{story.authorName}</span>
-            </button>
-          ))}
+          {storyGroups.map((group) => {
+            const story = group.latest
+            const storyCount = group.stories.length
+            return (
+              <button
+                className={`story-card ${story.mediaType === 'VIDEO' ? 'video-story-card' : ''}`}
+                key={group.authorId}
+                type="button"
+                onClick={() => showStory(group.stories[0])}
+                style={story.mediaType === 'IMAGE' && story.mediaUrl
+                  ? { backgroundImage: `linear-gradient(180deg, transparent 28%, rgba(6,14,30,.94)), url(${story.mediaUrl})` }
+                  : undefined}
+                title={storyCount > 1 ? `${group.authorName} · ${storyCount} tin` : (story.content || (story.mediaType === 'VIDEO' ? 'Tin video' : 'Tin văn bản'))}
+              >
+                {story.mediaType === 'VIDEO' && story.mediaUrl && (
+                  <video
+                    className="story-card-video"
+                    src={story.mediaUrl}
+                    muted
+                    playsInline
+                    preload="metadata"
+                    onLoadedData={(event) => event.currentTarget.pause()}
+                    aria-hidden="true"
+                  />
+                )}
+                <Avatar className="story-avatar" src={group.authorAvatar} name={group.authorName} size={30} />
+                {storyCount > 1 && <span className="story-count-badge" aria-label={`${storyCount} tin`}>{storyCount}</span>}
+                <span>{group.authorName}</span>
+              </button>
+            )
+          })}
         </div>
         {storiesError && <div className="story-error">{storiesError}</div>}
       </section>
@@ -567,18 +677,24 @@ export default function FeedPage() {
             <section className="story-sidebar-section story-sidebar-all">
               <h3>Tất cả tin</h3>
               <div className="story-sidebar-list">
-                {stories.map((story) => (
-                  <button
-                    key={story.storyId}
-                    type="button"
-                    className={`story-sidebar-item ${String(story.storyId) === String(activeStory.storyId) ? 'active' : ''}`}
-                    onClick={() => setActiveStory(story)}
-                    aria-current={String(story.storyId) === String(activeStory.storyId) ? 'true' : undefined}
-                  >
-                    <Avatar src={story.authorAvatar} name={story.authorName} size={42} />
-                    <span><strong>{story.authorName}</strong><small>{formatPostTime(story.createdAt)}</small></span>
-                  </button>
-                ))}
+                {storyGroups.map((group) => {
+                  const isActive = String(group.authorId) === String(activeStory.authorId)
+                  return (
+                    <button
+                      key={group.authorId}
+                      type="button"
+                      className={`story-sidebar-item ${isActive ? 'active' : ''}`}
+                      onClick={() => showStory(group.stories[0])}
+                      aria-current={isActive ? 'true' : undefined}
+                    >
+                      <Avatar src={group.authorAvatar} name={group.authorName} size={42} />
+                      <span>
+                        <strong>{group.authorName}</strong>
+                        <small>{group.stories.length > 1 ? `${group.stories.length} tin · ` : ''}{formatPostTime(group.latest.createdAt)}</small>
+                      </span>
+                    </button>
+                  )
+                })}
               </div>
             </section>
           </aside>
@@ -593,6 +709,22 @@ export default function FeedPage() {
               storyTouchStartX.current = null
             }}
           >
+            {activeGroup && (
+              <div className="story-progress" aria-label="Các tin của người này">
+                {activeGroup.stories.map((story, index) => (
+                  <button
+                    key={story.storyId}
+                    type="button"
+                    className="story-progress-segment"
+                    onClick={() => showStory(story)}
+                    aria-label={`Xem tin ${index + 1}/${activeGroup.stories.length}`}
+                    aria-current={index === activeIndexInGroup ? 'true' : undefined}
+                  >
+                    <span style={{ width: index < activeIndexInGroup ? '100%' : index === activeIndexInGroup ? `${Math.round(storyProgress * 100)}%` : '0%' }} />
+                  </button>
+                ))}
+              </div>
+            )}
             <header className="story-viewer-header">
               <div className="story-viewer-author">
                 <Avatar src={activeStory.authorAvatar} name={activeStory.authorName} size={34} />
@@ -607,32 +739,77 @@ export default function FeedPage() {
             </header>
             <div className="story-viewer-stage">
               {activeStory.mediaType === 'IMAGE' && <img className="story-viewer-media" src={activeStory.mediaUrl} alt="Ảnh trong tin" />}
-              {activeStory.mediaType === 'VIDEO' && <video className="story-viewer-media" src={activeStory.mediaUrl} controls autoPlay />}
-              {stories.length > 1 && <>
-                <button type="button" className="story-nav-button previous" onClick={() => moveStory(-1)} aria-label="Tin trước">‹</button>
-                <button type="button" className="story-nav-button next" onClick={() => moveStory(1)} aria-label="Tin tiếp theo">›</button>
-              </>}
+              {activeStory.mediaType === 'VIDEO' && (
+                <video
+                  key={activeStory.storyId}
+                  className="story-viewer-media"
+                  src={activeStory.mediaUrl}
+                  controls
+                  autoPlay
+                  playsInline
+                  onTimeUpdate={(event) => {
+                    const { currentTime, duration } = event.currentTarget
+                    if (duration > 0) {
+                      storyProgressRef.current = currentTime / duration
+                      setStoryProgress(currentTime / duration)
+                    }
+                  }}
+                  onEnded={() => moveStory(1)}
+                />
+              )}
             </div>
             {activeStory.content && <p className="story-viewer-caption">{activeStory.content}</p>}
-            {String(activeStory.authorId) !== String(user?.userId) && (
-              <div className="story-reply-panel">
-                {storyViewerError && <div className="story-viewer-error">{storyViewerError}</div>}
-                <div className="story-reactions" aria-label="Thả cảm xúc cho tin">
-                  {storyReactions.map((emoji) => (
-                    <button key={emoji} type="button" onClick={() => sendStoryReply(emoji, true)} disabled={storyReplySending} aria-label={`Gửi ${emoji} phản hồi`}>
-                      {emoji}
-                    </button>
-                  ))}
-                </div>
-                {storyViewerNotice && <div className="story-viewer-notice">{storyViewerNotice}</div>}
-                <form className="story-reply-form" onSubmit={(event) => { event.preventDefault(); sendStoryReply(storyReply) }}>
-                  <input value={storyReply} onChange={(event) => setStoryReply(event.target.value)} placeholder="Trả lời tin…" maxLength={2000} />
-                  <button type="submit" disabled={storyReplySending || !storyReply.trim()}>{storyReplySending ? 'Đang gửi…' : 'Gửi'}</button>
-                </form>
+            <div className="story-interact">
+              <div className="story-reaction-bar" role="group" aria-label="Thả cảm xúc cho tin">
+                {storyReactions.map((reaction) => (
+                  <button
+                    key={reaction.type}
+                    type="button"
+                    className={storyInteraction?.viewerReaction === reaction.type ? 'selected' : ''}
+                    title={reaction.label}
+                    aria-label={reaction.label}
+                    aria-pressed={storyInteraction?.viewerReaction === reaction.type}
+                    onClick={() => reactToStory(reaction.type)}
+                  >{reaction.emoji}</button>
+                ))}
               </div>
-            )}
-            {String(activeStory.authorId) === String(user?.userId) && storyViewerError && <div className="story-viewer-error">{storyViewerError}</div>}
+              {storyInteraction?.reactionCount > 0 && (
+                <div className="story-reaction-summary">
+                  {storyReactions.filter((reaction) => storyInteraction.reactionCounts?.[reaction.type] > 0).map((reaction) => <span key={reaction.type}>{reaction.emoji}</span>)}
+                  <b>{storyInteraction.reactionCount}</b>
+                </div>
+              )}
+              <div className="story-comments" aria-label="Bình luận về tin">
+                {storyInteraction && storyInteraction.comments.length === 0 && <p className="story-comments-empty">Chưa có bình luận nào. Hãy là người đầu tiên!</p>}
+                {storyInteraction?.comments.map((comment) => (
+                  <div className="story-comment" key={comment.commentId}>
+                    <Avatar src={comment.authorAvatar} name={comment.authorName} size={28} />
+                    <div className="story-comment-body">
+                      <strong>{comment.authorName}</strong>
+                      <p>{comment.content}</p>
+                    </div>
+                    {(String(comment.authorId) === String(user?.userId) || String(activeStory.authorId) === String(user?.userId)) && (
+                      <button type="button" className="story-comment-remove" onClick={() => removeStoryComment(comment.commentId)} aria-label="Xóa bình luận" title="Xóa bình luận">×</button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {storyViewerError && <div className="story-viewer-error">{storyViewerError}</div>}
+              <form className="story-reply-form" onSubmit={submitStoryComment}>
+                <input
+                  value={storyCommentDraft}
+                  onChange={(event) => setStoryCommentDraft(event.target.value)}
+                  onFocus={() => setStoryPaused(true)}
+                  onBlur={() => setStoryPaused(false)}
+                  placeholder="Viết bình luận…"
+                  maxLength={1000}
+                />
+                <button type="submit" disabled={storyCommentSending || !storyCommentDraft.trim()}>{storyCommentSending ? 'Đang gửi…' : 'Gửi'}</button>
+              </form>
+            </div>
           </section>
+          {activeOrderedIndex > 0 && <button type="button" className="story-nav-outer previous" onClick={() => moveStory(-1)} aria-label="Tin trước">‹</button>}
+          {activeOrderedIndex >= 0 && activeOrderedIndex < orderedStories.length - 1 && <button type="button" className="story-nav-outer next" onClick={() => moveStory(1)} aria-label="Tin tiếp theo">›</button>}
         </div>,
         document.body,
       )}
@@ -681,13 +858,13 @@ export default function FeedPage() {
             <div className="composer-tools">
               <button
                 type="button"
-                className={emojiPickerOpen ? 'selected' : ''}
+                className={`composer-icon-btn ${emojiPickerOpen ? 'selected' : ''}`}
                 onClick={() => setEmojiPickerOpen((open) => !open)}
                 aria-label="Chọn cảm xúc"
                 aria-expanded={emojiPickerOpen}
                 aria-haspopup="true"
                 title="Chọn cảm xúc"
-              ><span aria-hidden="true">😊</span><span>Cảm xúc</span></button>
+              ><span aria-hidden="true">😊</span></button>
               {emojiPickerOpen && (
                 <div className="post-emoji-picker" role="group" aria-label="Chèn biểu tượng cảm xúc">
                   {postEmojis.map((emoji) => (
@@ -695,14 +872,9 @@ export default function FeedPage() {
                   ))}
                 </div>
               )}
-              <button type="button" onClick={() => postMediaInputRef.current?.click()}><ImageIcon size="1.05em" /> <span>Ảnh / Video</span></button>
             </div>
-            <label className="post-privacy-picker" title="Ai có thể xem bài viết này?">
-              <span aria-hidden="true">{postPrivacy === 'PUBLIC' ? '🌐' : postPrivacy === 'FRIENDS' ? '👥' : '🔒'}</span>
-              <select aria-label="Quyền riêng tư bài viết" value={postPrivacy} onChange={(event) => setPostPrivacy(event.target.value)}>
-                <option value="PUBLIC">Công khai</option><option value="FRIENDS">Bạn bè</option><option value="PRIVATE">Chỉ mình tôi</option>
-              </select>
-            </label>
+            <MediaPicker onPick={pickPostMedia} disabled={posting} />
+            <PrivacyPicker value={postPrivacy} onChange={setPostPrivacy} disabled={posting} />
             <button className="publish-button" type="submit" disabled={posting || (!content.trim() && !postFile)}>{posting ? 'Đang đăng...' : 'Đăng bài'}</button>
           </div>
         </div>
@@ -818,12 +990,7 @@ export default function FeedPage() {
           <div className="aside-heading"><strong>Sự kiện sắp tới</strong><span className="preview-label">Xem trước</span></div>
           {upcomingEvents.length ? upcomingEvents.map((item) => <div className="preview-event" key={item.eventId}><span className="preview-event-icon"><CalendarIcon size="1em" /></span><div><strong>{item.title}</strong><small>{new Intl.DateTimeFormat('vi-VN', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(item.startsAt))}<br />{item.location}</small></div><button type="button" onClick={() => navigate(`/events/${item.eventId}`)}>Chi tiết</button></div>) : <EmptyState compact description="Chưa có sự kiện sắp tới." action={<button type="button" className="ui-state__action" onClick={() => navigate('/events')}>Xem sự kiện</button>} />}
         </section>
-        <section className="aside-card preview-video-card">
-          <div className="aside-heading"><strong>Video gợi ý</strong><span className="preview-label">Xem trước</span></div>
-          <div className="preview-video-thumb" style={{ backgroundImage: `linear-gradient(0deg, rgba(8, 18, 38, .5), transparent), url(${storyImage})` }}><span><PlayIcon size="1em" /></span><small>3:45</small></div>
-          <strong className="preview-video-title">Hà Nội · Những khoảnh khắc bình yên</strong>
-          <small className="preview-video-meta">Du lịch Việt Nam · 12K lượt xem</small>
-        </section>
+        <ActiveFriendsCard />
       </aside>
       </div>
       </div>
