@@ -58,6 +58,23 @@ export default function App() {
               <Route path="groups" element={<GroupsPage />} />
               <Route path="groups/:groupId" element={<GroupDetailPage />} />
               <Route path="notifications" element={<NotificationsPage />} />
+<<<<<<< Updated upstream
+=======
+              <Route path="forum" element={<ForumPage />} />
+              <Route path="forum/rules" element={<ForumPage />} />
+              <Route path="forum/categories" element={<ForumPage />} />
+              <Route path="forum/categories/:categoryId" element={<ForumPage />} />
+              <Route path="forum/faculties/:facultyId" element={<ForumPage />} />
+              <Route path="forum/majors/:majorId" element={<ForumPage />} />
+              <Route path="forum/courses" element={<ForumPage />} />
+              <Route path="forum/courses/:courseId" element={<ForumPage />} />
+              <Route path="forum/topics/:topicId" element={<ForumPage />} />
+              <Route path="forum/new" element={<ForumPage />} />
+              <Route path="forum/share-resource" element={<ForumPage />} />
+              <Route path="forum/search" element={<ForumPage />} />
+              <Route path="forum/admin" element={<ForumPage />} />
+              <Route path="forum/moderation" element={<ForumPage />} />
+>>>>>>> Stashed changes
               <Route path="feed/profile" element={<ProfilePage />} />
               <Route path="feed/profile/:profileUserId" element={<ProfilePage />} />
               <Route path="chat/:conversationId" element={<ChatWindow />} />
