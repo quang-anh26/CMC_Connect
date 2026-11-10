@@ -68,6 +68,17 @@ function formatFileSize(size) {
     : `${Math.max(1, Math.round(size / 1024))} KB`
 }
 
+function formatDate(value) {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toLocaleString('vi-VN', { dateStyle: 'medium', timeStyle: 'short' })
+}
+
+function getErrorMessage(error) {
+  return error.response?.data?.message || error.response?.data?.error || 'Có lỗi xảy ra. Vui lòng thử lại.'
+}
+
 function createSubmissionKey() {
   if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID()
   const hex = () => Math.floor(Math.random() * 0x10000).toString(16).padStart(4, '0')

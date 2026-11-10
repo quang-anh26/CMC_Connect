@@ -89,6 +89,7 @@ export default function PrivacyPicker({ value, onChange, disabled = false }) {
         title="Ai có thể xem bài viết này?"
       >
         <span className="pp-trigger-icon"><current.Icon /></span>
+        <span className="composer-action-label">{current.label}</span>
       </button>
       {open && (
         <div className="pp-menu" role="listbox" aria-label="Chọn quyền riêng tư">

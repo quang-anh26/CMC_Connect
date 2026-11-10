@@ -250,3 +250,24 @@
 .pp-trigger--icon .pp-trigger-icon { width: auto; height: auto; flex: 0 0 auto; background: transparent; }
 .pp-trigger--icon .pp-trigger-icon svg { width: 22px; height: 22px; }
 .pp-menu--narrow { width: 236px; }
+
+/* Keep the post composer tools explicit instead of icon-only. */
+.feed-page .post-composer-actions .composer-tools button.composer-icon-btn,
+.feed-page .post-composer-actions .composer-icon-btn,
+.feed-page .post-composer-actions .pp-trigger.pp-trigger--icon {
+  display: inline-flex; width: auto; min-width: 0; height: 36px; min-height: 36px;
+  align-items: center; justify-content: center; gap: 7px; padding: 0 11px;
+  border: 1px solid var(--hu-border); border-radius: 9px; background: var(--hu-surface);
+  font-size: 15px; white-space: nowrap;
+}
+.feed-page .post-composer-actions .composer-icon-btn[aria-label^="Chọn cảm xúc"] { font-size: 16px; }
+.feed-page .post-composer-actions .composer-action-label { color: var(--hu-text); font-size: 12px; font-weight: 650; }
+.feed-page .post-composer-actions .pp-trigger--icon .pp-trigger-icon svg { width: 18px; height: 18px; }
+.feed-page .post-composer-actions .pp-menu:not(.pp-menu--narrow) { width: 228px; gap: 1px; padding: 6px; border-radius: 12px; }
+.feed-page .post-composer-actions .pp-menu:not(.pp-menu--narrow) .pp-menu-title { padding: 4px 8px 6px; font-size: 11px; }
+.feed-page .post-composer-actions .pp-menu:not(.pp-menu--narrow) .pp-option { gap: 9px; padding: 7px 8px; border-radius: 9px; }
+.feed-page .post-composer-actions .pp-menu:not(.pp-menu--narrow) .pp-option-icon { flex-basis: 32px; width: 32px; height: 32px; }
+.feed-page .post-composer-actions .pp-menu:not(.pp-menu--narrow) .pp-option-icon svg { width: 16px; height: 16px; }
+.feed-page .post-composer-actions .pp-menu:not(.pp-menu--narrow) .pp-option-text { gap: 2px; }
+.feed-page .post-composer-actions .pp-menu:not(.pp-menu--narrow) .pp-option-text strong { font-size: 13px; }
+.feed-page .post-composer-actions .pp-menu:not(.pp-menu--narrow) .pp-option-text small { font-size: 11px; }
