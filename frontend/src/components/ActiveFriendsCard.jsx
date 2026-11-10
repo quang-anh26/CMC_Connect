@@ -19,13 +19,18 @@ function normalizeFriend(item, myId) {
   const id = source.userId ?? source.friendId ?? source.friendUserId ?? source.otherUserId ?? source.id
     ?? (String(item.senderId) !== String(myId) ? item.senderId : item.receiverId)
   if (id == null || String(id) === String(myId)) return null
-  const name = source.displayName || source.friendName || source.fullName || source.name || source.username || 'Người dùng'
+  const isSender = String(item.senderId) !== String(myId)
+  const sideName = isSender ? item.senderDisplayName : item.receiverDisplayName
+  const sideUsername = isSender ? item.senderUsername : item.receiverUsername
+  const sideAvatar = isSender ? item.senderAvatar : item.receiverAvatar
+  const name = source.displayName || source.friendName || source.fullName || source.name
+    || sideName || source.username || sideUsername || 'Người dùng'
   const flag = source.online ?? source.isOnline ?? source.active ?? item.online ?? item.isOnline
   const statusText = String(source.status || '').toUpperCase()
   return {
     id,
     name,
-    avatar: source.avatar || source.friendAvatar || source.avatarUrl || null,
+    avatar: source.avatar || source.friendAvatar || source.avatarUrl || sideAvatar || null,
     serverOnline: flag === true || statusText === 'ONLINE',
   }
 }
@@ -103,7 +108,7 @@ export default function ActiveFriendsCard() {
         </span>
         <span className="friend-text">
           <strong>{friend.name}</strong>
-          <small>{friend.isOnline ? 'Đang hoạt động' : 'Ngoại tuyến'}</small>
+          <small>{friend.isOnline ? 'Online' : 'Offline'}</small>
         </span>
       </button>
     </li>
@@ -114,7 +119,7 @@ export default function ActiveFriendsCard() {
       <div className="aside-heading friends-card-heading">
         <strong>Bạn bè</strong>
         {state === 'ready' && friends.length > 0 && (
-          <span className="friends-card-count"><i aria-hidden="true" />{online.length} đang hoạt động</span>
+          <span className="friends-card-count"><i aria-hidden="true" />{online.length} online</span>
         )}
       </div>
 
@@ -142,13 +147,13 @@ export default function ActiveFriendsCard() {
         <div className="friends-scroll" tabIndex={0} aria-label="Danh sách bạn bè, cuộn để xem thêm">
           {online.length > 0 && (
             <>
-              <div className="friends-group-label">Đang hoạt động · {online.length}</div>
+              <div className="friends-group-label">Online · {online.length}</div>
               <ul className="friends-list">{online.map(renderRow)}</ul>
             </>
           )}
           {offline.length > 0 && (
             <>
-              <div className="friends-group-label">Ngoại tuyến · {offline.length}</div>
+              <div className="friends-group-label">Offline · {offline.length}</div>
               <ul className="friends-list">{offline.map(renderRow)}</ul>
             </>
           )}
