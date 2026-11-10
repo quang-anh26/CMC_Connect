@@ -26,85 +26,35 @@ const RESOURCE_TYPES = [
   { value: 'LECTURE', label: 'Bài giảng' },
   { value: 'REFERENCE', label: 'Tài liệu tham khảo' },
 ]
-// Các loại bài đăng dành cho sinh viên (đã gộp các loại gần giống nhau).
-// Giá trị cũ KNOWLEDGE / EXPERIENCE vẫn còn trong dữ liệu cũ nên được gộp vào DISCUSSION khi hiển thị và lọc.
-const POST_TYPES = [
-  {
-    value: 'RESOURCE',
-    label: 'Tài liệu',
-    description: 'Giáo trình, slide, đề thi, bài giảng… kèm tệp đính kèm.',
-    titleLabel: 'Tên tài liệu',
-    titlePlaceholder: 'Nhập tên giáo trình, đề thi hoặc tài liệu',
-    contentLabel: 'Mô tả tài liệu',
-    contentPlaceholder: 'Mô tả nội dung, môn học hoặc cách sử dụng tài liệu...',
-    footer: 'Hãy chia sẻ tài liệu bạn có quyền sử dụng và ghi rõ nguồn.',
-    submit: 'Chia sẻ tài liệu',
-  },
-  {
-    value: 'QUESTION',
-    label: 'Hỏi đáp',
-    description: 'Hỏi bài tập, kiến thức hoặc cách học một môn học.',
-    titleLabel: 'Câu hỏi',
-    titlePlaceholder: 'Tóm tắt câu hỏi của bạn',
-    contentLabel: 'Nội dung chi tiết',
-    contentPlaceholder: 'Nêu rõ môn học, bối cảnh và điều bạn đã thử...',
-    footer: 'Chọn đúng khoa và ngành để người biết câu trả lời dễ tìm thấy bạn.',
-    submit: 'Đăng câu hỏi',
-  },
-  {
-    value: 'PROJECT',
-    label: 'Đồ án & nhóm',
-    description: 'Tìm đồng đội, chia sẻ tiến độ và kinh nghiệm làm đồ án.',
-    titleLabel: 'Tiêu đề',
-    titlePlaceholder: 'Ví dụ: Cần thêm thành viên cho đồ án môn ...',
-    contentLabel: 'Nội dung',
-    contentPlaceholder: 'Mô tả đề tài, số người cần tìm, kỹ năng mong muốn và cách liên hệ...',
-    footer: 'Chỉ đăng nội dung liên quan đến đồ án, bài tập lớn của môn học.',
-    submit: 'Đăng bài',
-  },
-  {
-    value: 'DISCUSSION',
-    label: 'Thảo luận & kinh nghiệm',
-    description: 'Trao đổi kiến thức, phương pháp học, kinh nghiệm thi cử, thực tập.',
-    titleLabel: 'Tiêu đề',
-    titlePlaceholder: 'Tóm tắt nội dung bạn muốn trao đổi hoặc chia sẻ',
-    contentLabel: 'Nội dung',
-    contentPlaceholder: 'Thêm bối cảnh, nội dung chi tiết hoặc kinh nghiệm của bạn...',
-    footer: 'Chọn khoa và chuyên ngành phù hợp để cộng đồng dễ tìm thấy bài đăng.',
-    submit: 'Đăng bài',
-  },
-]
+// Diễn đàn chỉ dùng để chia sẻ tài liệu học tập. Các loại bài cũ (hỏi đáp, đồ án, thảo luận…)
+// không còn tạo mới được nhưng dữ liệu cũ vẫn hiển thị bình thường với nhãn bên dưới.
 const TOPIC_TYPES = [
   { value: '', label: 'Tất cả' },
-  ...POST_TYPES.map(({ value, label }) => ({ value, label })),
+  { value: 'RESOURCE', label: 'Tài liệu' },
 ]
-const LEGACY_TYPES = { KNOWLEDGE: 'DISCUSSION', EXPERIENCE: 'DISCUSSION' }
-const DEFAULT_POST_TYPE = 'RESOURCE'
+const LEGACY_TYPE_LABELS = {
+  QUESTION: 'Hỏi đáp',
+  PROJECT: 'Đồ án & nhóm',
+  DISCUSSION: 'Thảo luận',
+  KNOWLEDGE: 'Thảo luận',
+  EXPERIENCE: 'Thảo luận',
+}
+const RESOURCE_FORM = {
+  titleLabel: 'Tên tài liệu',
+  titlePlaceholder: 'Nhập tên giáo trình, đề thi hoặc tài liệu',
+  contentLabel: 'Mô tả tài liệu',
+  contentPlaceholder: 'Mô tả nội dung, môn học hoặc cách sử dụng tài liệu...',
+  footer: 'Hãy chia sẻ tài liệu bạn có quyền sử dụng và ghi rõ nguồn.',
+  submit: 'Chia sẻ tài liệu',
+}
 
 function normalizeType(value) {
-  return LEGACY_TYPES[value] || value || ''
-}
-
-function findPostType(value) {
-  return POST_TYPES.find((item) => item.value === normalizeType(value))
-}
-
-function getErrorMessage(error) {
-  return error?.response?.data?.message
-    || error?.response?.data?.error
-    || error?.response?.data?.detail
-    || error?.response?.data?.title
-    || 'Không thể hoàn thành yêu cầu. Vui lòng thử lại.'
-}
-
-function formatDate(value) {
-  if (!value) return ''
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? '' : date.toLocaleString('vi-VN')
+  return value === 'RESOURCE' ? 'RESOURCE' : value ? 'other' : ''
 }
 
 function typeLabel(value) {
-  return findPostType(value)?.label || value
+  if (value === 'RESOURCE') return 'Tài liệu'
+  return LEGACY_TYPE_LABELS[value] || value
 }
 
 function resourceKindLabel(value) {
@@ -156,7 +106,7 @@ function ForumHeader({ title = 'Diễn đàn học tập', description }) {
       <div className="forum-hero-copy">
         <span className="forum-eyebrow">STUDY FORUM · CMC</span>
         <h1>{title}</h1>
-        <p>{description || 'Hỏi đáp, thảo luận và chia sẻ tài liệu học tập trong cộng đồng sinh viên CMC.'}</p>
+        <p>{description || 'Chia sẻ và tìm kiếm tài liệu học tập trong cộng đồng sinh viên CMC.'}</p>
       </div>
       <div className="forum-hero-actions">
         <Link className="forum-button forum-button-primary" to="/forum/new">
@@ -178,7 +128,7 @@ function TopicCard({ topic, saved, onBookmark }) {
       />
       <div className="forum-topic-content">
         <div className="forum-topic-meta">
-          <span className={`forum-type-badge forum-type-${normalizeType(topic.type).toLowerCase()}`}>
+          <span className={`forum-type-badge forum-type-${String(topic.type || '').toLowerCase()}`}>
             {typeLabel(topic.type)}
           </span>
           {topic.resourceKind && (
@@ -231,28 +181,12 @@ function ForumSidebar({ topics, showPopular = true }) {
 
   return (
     <aside className="forum-sidebar">
-      <section className="forum-sidebar-card">
-        <div className="forum-sidebar-heading">
-          <h2>Duyệt nhanh</h2>
-          <Link to="/forum/categories">Khám phá</Link>
-        </div>
-        <div className="forum-sidebar-categories">
-          {POST_TYPES.map((item, index) => (
-            <Link key={item.value} to={`/forum?type=${item.value}`}>
-              <span className="forum-category-number">{String(index + 1).padStart(2, '0')}</span>
-              <span>{item.label}</span>
-              <span aria-hidden="true">›</span>
-            </Link>
-          ))}
-        </div>
-      </section>
-
       {showPopular && <TopicSidebarCard title="Được quan tâm" topics={popular} empty="Chưa có chủ đề nổi bật." />}
 
       <section className="forum-sidebar-card forum-guidelines">
         <BookOpenIcon size={20} />
         <h2>Cùng xây dựng cộng đồng tốt</h2>
-        <p>Chỉ đăng nội dung liên quan đến học tập và môn học, đặt tiêu đề rõ ràng và ghi nguồn khi chia sẻ tài liệu.</p>
+        <p>Chỉ chia sẻ nội dung liên quan đến học tập, đặt tên rõ ràng và ghi nguồn khi chia sẻ tài liệu.</p>
         <Link to="/forum/rules">Xem hướng dẫn cộng đồng <span aria-hidden="true">→</span></Link>
       </section>
     </aside>
@@ -307,7 +241,7 @@ function ForumFilters({
         <input
           value={q}
           onChange={(event) => onChange('q', event.target.value)}
-          placeholder="Tìm chủ đề, câu hỏi, tài liệu..."
+          placeholder="Tìm tài liệu, chủ đề..."
         />
       </label>
       <label className="forum-filter-select">
@@ -361,7 +295,7 @@ export default function ForumPage() {
   const [totalPages, setTotalPages] = useState(0)
   const [totalElements, setTotalElements] = useState(0)
   const [q, setQ] = useState(searchParams.get('q') || '')
-  const [type, setType] = useState(normalizeType(searchParams.get('type')))
+  const [type, setType] = useState(searchParams.get('type') === 'RESOURCE' ? 'RESOURCE' : '')
   const [categoryFilter, setCategoryFilter] = useState(searchParams.get('categoryId') || '')
   const [facultyFilter, setFacultyFilter] = useState(searchParams.get('facultyId') || '')
   const [majorFilter, setMajorFilter] = useState(searchParams.get('majorId') || '')
@@ -380,12 +314,9 @@ export default function ForumPage() {
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [selectedFaculty, setSelectedFaculty] = useState('')
   const [selectedMajor, setSelectedMajor] = useState('')
-  const [postType, setPostType] = useState(DEFAULT_POST_TYPE)
   const submissionKey = useRef(null)
 
   const isNew = location.pathname === '/forum/new' || location.pathname === '/forum/share-resource'
-  const isResourceForm = postType === 'RESOURCE'
-  const currentPostType = findPostType(postType) || POST_TYPES[0]
   const isDetail = Boolean(topicId)
   const isCategoryIndex = location.pathname === '/forum/categories' && !routeCategoryId
   const isCourseRoute = location.pathname.startsWith('/forum/courses')
@@ -398,20 +329,13 @@ export default function ForumPage() {
 
   useEffect(() => {
     setQ(searchParams.get('q') || '')
-    setType(normalizeType(searchParams.get('type')))
+    setType(searchParams.get('type') === 'RESOURCE' ? 'RESOURCE' : '')
     setCategoryFilter(searchParams.get('categoryId') || '')
     setFacultyFilter(searchParams.get('facultyId') || '')
     setMajorFilter(searchParams.get('majorId') || '')
     setSort(searchParams.get('sort') || 'newest')
     setPage(0)
   }, [searchParams])
-
-  // Form đăng bài chung: /forum/share-resource (đường dẫn cũ) hoặc ?type=... chọn sẵn loại bài.
-  useEffect(() => {
-    if (!isNew) return
-    const requested = findPostType(searchParams.get('type'))?.value
-    setPostType(location.pathname === '/forum/share-resource' ? 'RESOURCE' : requested || DEFAULT_POST_TYPE)
-  }, [isNew, location.pathname, searchParams])
 
   const loadTaxonomy = useCallback(async () => {
     try {
@@ -536,13 +460,12 @@ export default function ForumPage() {
     setError('')
     const form = new FormData(event.currentTarget)
     const file = form.get('file')
-    const topicType = postType
     if (!form.get('facultyId')) {
       setError('Chọn khoa trước khi đăng bài.')
       setBusy(false)
       return
     }
-    if (isResourceForm && (!file || !file.size)) {
+    if (!file || !file.size) {
       setError('Bài đăng loại Tài liệu bắt buộc phải có tệp đính kèm.')
       setBusy(false)
       return
@@ -559,11 +482,11 @@ export default function ForumPage() {
       const created = await createForumTopicWithAttachment({
         title: form.get('title').trim(),
         content: form.get('content').trim(),
-        type: topicType,
-        resourceKind: isResourceForm ? form.get('resourceKind') : null,
+        type: 'RESOURCE',
+        resourceKind: form.get('resourceKind'),
         facultyId: form.get('facultyId'),
         majorId: form.get('majorId') || null,
-        source: isResourceForm ? (form.get('source') || '').trim() || null : null,
+        source: (form.get('source') || '').trim() || null,
       }, file?.size ? file : null, submissionKey.current)
       navigate(`/forum/topics/${created.id}`)
     } catch (requestError) {
@@ -599,7 +522,7 @@ export default function ForumPage() {
       const updated = await updateForumTopic(detail.id, {
         title: form.get('title').trim(),
         content: form.get('content').trim(),
-        type: detail.type === 'RESOURCE' ? 'RESOURCE' : form.get('type'),
+        type: detail.type,
         resourceKind: detail.resourceKind || null,
         categoryId: detail.categoryId || null,
         courseId: detail.courseId || null,
@@ -691,37 +614,16 @@ export default function ForumPage() {
           <>
             <ForumHeader
               title="Đăng bài mới"
-              description="Chia sẻ tài liệu, đặt câu hỏi, tìm nhóm đồ án hoặc trao đổi kinh nghiệm học tập cùng sinh viên CMC."
+              description="Chia sẻ giáo trình, slide, đề thi và tài liệu học tập hữu ích cho sinh viên CMC."
             />
             <section className="forum-panel forum-editor-panel">
               <div className="forum-section-heading">
-                <h2>Thông tin bài đăng</h2>
-                <p>Bài đăng sẽ xuất hiện ngay sau khi đăng. Chỉ đăng nội dung liên quan đến học tập và môn học.</p>
+                <h2>Thông tin tài liệu</h2>
+                <p>Bài đăng sẽ xuất hiện ngay sau khi đăng. Chỉ chia sẻ tài liệu liên quan đến học tập.</p>
               </div>
               {error && <div className="forum-alert forum-alert-error" role="alert">{error}</div>}
               {notice && <div className="forum-alert forum-alert-success" role="status">{notice}</div>}
               <form className="forum-editor-form" onSubmit={handleCreateTopic}>
-                <fieldset className="forum-type-picker">
-                  <legend>Bạn muốn đăng gì?</legend>
-                  <div className="forum-type-options">
-                    {POST_TYPES.map((item) => (
-                      <label
-                        key={item.value}
-                        className={`forum-type-option${postType === item.value ? ' is-selected' : ''}`}
-                      >
-                        <input
-                          type="radio"
-                          name="type"
-                          value={item.value}
-                          checked={postType === item.value}
-                          onChange={() => setPostType(item.value)}
-                        />
-                        <strong>{item.label}</strong>
-                        <span>{item.description}</span>
-                      </label>
-                    ))}
-                  </div>
-                </fieldset>
                 <div className="forum-form-row forum-form-row-two">
                   <label className="forum-field">
                     <span>Khoa</span>
@@ -756,7 +658,7 @@ export default function ForumPage() {
                     </select>
                   </label>
                 </div>
-                {isResourceForm && (
+                {(
                   <div className="forum-form-row forum-form-row-two">
                     <label className="forum-field">
                       <span>Loại tài liệu</span>
@@ -773,39 +675,39 @@ export default function ForumPage() {
                   </div>
                 )}
                 <label className="forum-field">
-                  <span>{currentPostType.titleLabel}</span>
+                  <span>{RESOURCE_FORM.titleLabel}</span>
                   <input
                     name="title"
                     required
                     maxLength={180}
-                    placeholder={currentPostType.titlePlaceholder}
+                    placeholder={RESOURCE_FORM.titlePlaceholder}
                   />
                 </label>
                 <label className="forum-field">
-                  <span>{currentPostType.contentLabel}</span>
+                  <span>{RESOURCE_FORM.contentLabel}</span>
                   <textarea
                     name="content"
                     required
                     maxLength={30000}
                     rows={9}
-                    placeholder={currentPostType.contentPlaceholder}
+                    placeholder={RESOURCE_FORM.contentPlaceholder}
                   />
                 </label>
                 <label className="forum-field">
-                  <span>Tệp đính kèm {isResourceForm ? '(bắt buộc)' : '(không bắt buộc)'} <small>(PDF, DOC, DOCX, PPT, PPTX, XLS, XLSX, ZIP, MP4 · tối đa 50 MB)</small></span>
+                  <span>Tệp đính kèm (bắt buộc) <small>(PDF, DOC, DOCX, PPT, PPTX, XLS, XLSX, ZIP, MP4 · tối đa 50 MB)</small></span>
                   <input
                     name="file"
                     type="file"
-                    required={isResourceForm}
+                    required
                     accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip,.mp4"
                   />
                 </label>
                 <div className="forum-form-footer">
-                  <p>{currentPostType.footer}</p>
+                  <p>{RESOURCE_FORM.footer}</p>
                   <div className="forum-form-actions">
                     <Link className="forum-button forum-button-secondary" to="/forum">Hủy</Link>
                     <button className="forum-button forum-button-primary" type="submit" disabled={busy}>
-                      {busy ? 'Đang đăng...' : currentPostType.submit}
+                      {busy ? 'Đang đăng...' : RESOURCE_FORM.submit}
                     </button>
                   </div>
                 </div>
@@ -822,7 +724,7 @@ export default function ForumPage() {
                 <>
                   <article className="forum-panel forum-detail-card">
                     <div className="forum-detail-topline">
-                      <span className={`forum-type-badge forum-type-${normalizeType(detail.type).toLowerCase()}`}>{typeLabel(detail.type)}</span>
+                      <span className={`forum-type-badge forum-type-${String(detail.type || '').toLowerCase()}`}>{typeLabel(detail.type)}</span>
                       {detail.category && <Link to={`/forum/categories/${detail.categoryId}`}>{detail.category}</Link>}
                       {detail.faculty && <Link to={`/forum/faculties/${detail.facultyId}`}>{detail.faculty}</Link>}
                       {detail.major && <Link to={`/forum/majors/${detail.majorId}`}>{detail.major}</Link>}
@@ -840,21 +742,6 @@ export default function ForumPage() {
                           <input name="title" defaultValue={detail.title} required maxLength={180} />
                         </label>
                         <div className="forum-form-row">
-                          {detail.type === 'RESOURCE' ? (
-                            <div className="forum-field">
-                              <span>Loại bài đăng</span>
-                              <strong className="forum-field-static">{typeLabel(detail.type)}</strong>
-                            </div>
-                          ) : (
-                            <label className="forum-field">
-                              <span>Loại bài đăng</span>
-                              <select name="type" defaultValue={normalizeType(detail.type)}>
-                                {POST_TYPES.filter((item) => item.value !== 'RESOURCE').map((item) => (
-                                  <option key={item.value} value={item.value}>{item.label}</option>
-                                ))}
-                              </select>
-                            </label>
-                          )}
                         </div>
                         <label className="forum-field">
                           <span>Nội dung</span>
@@ -966,22 +853,7 @@ export default function ForumPage() {
           </section>
         ) : isCategoryIndex ? (
           <>
-            <ForumHeader title="Khám phá diễn đàn" description="Tìm đúng nơi để hỏi đáp, chia sẻ tài liệu và học cùng nhau theo loại bài, khoa hoặc ngành." />
-            <section className="forum-panel forum-categories-panel">
-              <div className="forum-section-heading">
-                <h2>Theo loại bài đăng</h2>
-                <p>Chọn loại nội dung bạn đang cần.</p>
-              </div>
-              <ForumLinkGrid
-                label="Loại bài đăng"
-                items={POST_TYPES.map((item) => ({
-                  key: item.value,
-                  to: `/forum?type=${item.value}`,
-                  title: item.label,
-                  description: item.description,
-                }))}
-              />
-            </section>
+            <ForumHeader title="Khám phá diễn đàn" description="Tìm tài liệu học tập theo khoa hoặc chuyên ngành của bạn." />
             <section className="forum-panel forum-categories-panel">
               <div className="forum-section-heading">
                 <h2>Theo khoa và chuyên ngành</h2>
@@ -1012,9 +884,9 @@ export default function ForumPage() {
             <ForumHeader title="Hướng dẫn cộng đồng" description="Một cộng đồng học tập hữu ích bắt đầu từ sự tôn trọng và chia sẻ có trách nhiệm." />
             <h2>Quy định diễn đàn</h2>
             <ul>
-              <li>Chỉ đăng nội dung liên quan đến học tập, đồ án và định hướng học tập; bài không phù hợp có thể bị gỡ.</li>
+              <li>Chỉ chia sẻ nội dung liên quan đến học tập; bài không phù hợp có thể bị gỡ.</li>
               <li>Trao đổi lịch sự, tập trung vào nội dung và tôn trọng sự khác biệt.</li>
-              <li>Đặt tiêu đề rõ ràng, cung cấp đủ bối cảnh khi đặt câu hỏi.</li>
+              <li>Đặt tên và mô tả tài liệu rõ ràng để mọi người dễ tìm.</li>
               <li>Trích dẫn nguồn và chỉ chia sẻ tài liệu bạn có quyền sử dụng.</li>
               <li>Không đăng thông tin cá nhân, nội dung spam hoặc nội dung vi phạm pháp luật.</li>
             </ul>
