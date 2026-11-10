@@ -110,6 +110,7 @@ export default function FeedPage() {
   const [posts, setPosts] = useState([])
   const [upcomingEvents, setUpcomingEvents] = useState([])
   const [stories, setStories] = useState([])
+  const [viewedStoryIds, setViewedStoryIds] = useState(() => new Set())
   const [content, setContent] = useState('')
   const [postPrivacy, setPostPrivacy] = useState('PUBLIC')
   const [postFile, setPostFile] = useState(null)
@@ -197,6 +198,16 @@ export default function FeedPage() {
       .catch(() => setStoriesError('Không thể tải tin. Vui lòng thử tải lại trang.'))
       .finally(() => setStoriesLoading(false))
   }, [])
+
+  useEffect(() => {
+    if (!user?.userId) return
+    try {
+      const stored = JSON.parse(localStorage.getItem(`cmctalk-viewed-stories-${user.userId}`) || '[]')
+      setViewedStoryIds(new Set(stored.map(String)))
+    } catch {
+      setViewedStoryIds(new Set())
+    }
+  }, [user?.userId])
 
   useEffect(() => {
     if (!storyFile) {
@@ -296,6 +307,16 @@ export default function FeedPage() {
   }
 
   const showStory = (story) => {
+    const viewedId = String(story.storyId)
+    setViewedStoryIds((current) => {
+      if (current.has(viewedId)) return current
+      const next = new Set(current)
+      next.add(viewedId)
+      if (user?.userId) {
+        try { localStorage.setItem(`cmctalk-viewed-stories-${user.userId}`, JSON.stringify([...next])) } catch {}
+      }
+      return next
+    })
     setActiveStory(story)
     setStoryViewerError('')
   }
@@ -574,7 +595,7 @@ export default function FeedPage() {
           </button>
           {storyGroups.map((group) => {
             const story = group.latest
-            const storyCount = group.stories.length
+            const unseenStoryCount = group.stories.filter((item) => !viewedStoryIds.has(String(item.storyId))).length
             return (
               <button
                 className={`story-card ${story.mediaType === 'VIDEO' ? 'video-story-card' : ''}`}
@@ -584,7 +605,7 @@ export default function FeedPage() {
                 style={story.mediaType === 'IMAGE' && story.mediaUrl
                   ? { backgroundImage: `linear-gradient(180deg, transparent 28%, rgba(6,14,30,.94)), url(${story.mediaUrl})` }
                   : undefined}
-                title={storyCount > 1 ? `${group.authorName} · ${storyCount} tin` : (story.content || (story.mediaType === 'VIDEO' ? 'Tin video' : 'Tin văn bản'))}
+                title={unseenStoryCount > 0 ? `${group.authorName} · ${unseenStoryCount} tin chưa xem` : (story.content || (story.mediaType === 'VIDEO' ? 'Tin video' : 'Tin văn bản'))}
               >
                 {story.mediaType === 'VIDEO' && story.mediaUrl && (
                   <video
@@ -598,7 +619,7 @@ export default function FeedPage() {
                   />
                 )}
                 <Avatar className="story-avatar" src={group.authorAvatar} name={group.authorName} size={30} />
-                {storyCount > 1 && <span className="story-count-badge" aria-label={`${storyCount} tin`}>{storyCount}</span>}
+                {unseenStoryCount > 0 && <span className="story-count-badge" aria-label={`${unseenStoryCount} tin chưa xem`}>{unseenStoryCount}</span>}
                 <span>{group.authorName}</span>
               </button>
             )
@@ -864,7 +885,7 @@ export default function FeedPage() {
                 aria-expanded={emojiPickerOpen}
                 aria-haspopup="true"
                 title="Chọn cảm xúc"
-              ><span aria-hidden="true">😊</span></button>
+              ><span aria-hidden="true">😊</span><span className="composer-action-label">Cảm xúc</span></button>
               {emojiPickerOpen && (
                 <div className="post-emoji-picker" role="group" aria-label="Chèn biểu tượng cảm xúc">
                   {postEmojis.map((emoji) => (
@@ -942,11 +963,11 @@ export default function FeedPage() {
                 </header>
                 {post.sharedPost.content && <p>{post.sharedPost.content}</p>}
                 {post.sharedPost.imageUrl && (post.sharedPost.mediaType === 'VIDEO'
-                  ? <video className="shared-post-media" src={videoApi.resolveMediaUrl(post.sharedPost.imageUrl)} controls playsInline preload="metadata" onError={() => setError('Không phát được video đã chia sẻ. Kiểm tra định dạng video hoặc kết nối máy chủ.')} />
+                  ? <video className="shared-post-media" src={videoApi.resolveMediaUrl(post.sharedPost.imageUrl)} controls playsInline preload="metadata" />
                   : <button className="post-image-open" type="button" onClick={() => setActivePostImage({ src: post.sharedPost.imageUrl, alt: post.sharedPost.content || 'Ảnh trong bài viết' })} aria-label="Mở ảnh bài viết gốc"><img className="shared-post-media" src={post.sharedPost.imageUrl} alt="Nội dung bài viết gốc" /></button>)}
               </article>
             ) : post.imageUrl && (post.mediaType === 'VIDEO'
-              ? <video className="post-image" src={videoApi.resolveMediaUrl(post.imageUrl)} controls playsInline preload="metadata" onError={() => setError('Không phát được video trong bài viết. Kiểm tra định dạng video hoặc kết nối máy chủ.')} />
+              ? <video className="post-image" src={videoApi.resolveMediaUrl(post.imageUrl)} controls playsInline preload="metadata" />
               : <button
                 className="post-image-open"
                 type="button"

@@ -60,6 +60,7 @@ export default function MediaPicker({ onPick, disabled = false }) {
         title="Ảnh / Video"
       >
         <PhotoIcon />
+        <span className="composer-action-label">Ảnh/video</span>
       </button>
       {open && (
         <div className="pp-menu pp-menu--narrow" role="menu" aria-label="Thêm ảnh hoặc video">
