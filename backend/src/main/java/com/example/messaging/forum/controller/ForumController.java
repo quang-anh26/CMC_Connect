@@ -185,9 +185,8 @@ public class ForumController {
                             builder.like(builder.lower(root.get("content")), pattern)));
         }
         if (!type.isBlank()) {
-            Set<String> matchingTypes = typesMatching(type);
             specification = specification.and((root, query, builder) ->
-                    root.get("type").in(matchingTypes));
+                    builder.equal(root.get("type"), type));
         }
         if (categoryId != null) {
             specification = specification.and((root, query, builder) ->
@@ -259,16 +258,6 @@ public class ForumController {
         topic.setStatus("DELETED");
         topics.save(topic);
         return ResponseEntity.noContent().build();
-    }
-
-    /**
-     * Giao diện gộp "Trao đổi kiến thức" và "Kinh nghiệm học tập" vào "Thảo luận".
-     * Dữ liệu cũ vẫn giữ nguyên giá trị KNOWLEDGE / EXPERIENCE nên khi lọc DISCUSSION phải lấy cả hai.
-     */
-    private static Set<String> typesMatching(String type) {
-        return "DISCUSSION".equals(type)
-                ? Set.of("DISCUSSION", "KNOWLEDGE", "EXPERIENCE")
-                : Set.of(type);
     }
 
     private void validateTopicType(String type) {
