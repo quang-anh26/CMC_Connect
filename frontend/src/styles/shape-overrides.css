@@ -29,7 +29,7 @@
   [class*="image"],
   [class*="media"],
   [role="dialog"]
-):not([class*="avatar"]):not([class*="icon"]):not([class*="indicator"]):not([class*="dot"]) {
+):not([class*="avatar"]):not([class*="icon"]):not([class*="indicator"]):not([class*="dot"]):not([class*="profile"]):not(.profile-page *) {
   border-radius: 4px !important;
 }
 
@@ -45,6 +45,6 @@
   input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
   select,
   textarea
-):not([class*="avatar"]):not([class*="icon"]):not([class*="indicator"]):not([class*="dot"]):not(:has(.avatar)) {
+):not([class*="avatar"]):not([class*="icon"]):not([class*="indicator"]):not([class*="dot"]):not([class*="profile"]):not(.profile-page *):not(:has(.avatar)) {
   border-radius: 4px !important;
 }

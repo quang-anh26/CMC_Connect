@@ -11,6 +11,7 @@ import './styles/app-topbar.css'
 import './styles/video-page.css'
 import './styles/conversation-layout.css'
 import './styles/shape-overrides.css'
+import './styles/profile-redesign.css'
 
 initializeTheme()
 
