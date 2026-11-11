@@ -190,6 +190,7 @@ public class SavedService {
     private SavedItemResponse toResponse(SavedItem item, Long userId) {
         String title = "";
         String description = "";
+        Long authorId = null;
         String authorName = "";
         String avatar = null;
         String previewUrl = null;
@@ -200,6 +201,7 @@ public class SavedService {
                     SocialPost post = socialPostRepository.findById(item.getContentId()).orElse(null);
                     if (post != null && feedService.canView(post, userId)) {
                         title = post.getContent();
+                        authorId = post.getAuthor().getUserId();
                         authorName = displayName(post.getAuthor());
                         avatar = post.getAuthor().getAvatar();
                         previewUrl = post.getImageUrl();
@@ -216,6 +218,7 @@ public class SavedService {
                             || groupMemberRepository.existsByGroupGroupIdAndUserUserId(post.getGroup().getGroupId(), userId));
                     if (canRead) {
                         title = post.getContent();
+                        authorId = post.getAuthor().getUserId();
                         authorName = displayName(post.getAuthor());
                         avatar = post.getAuthor().getAvatar();
                         previewUrl = post.getMediaUrl();
@@ -226,7 +229,7 @@ public class SavedService {
         }
         CollectionItem relation = item.getCollectionItem();
         SavedCollection collection = relation == null ? null : relation.getCollection();
-        return new SavedItemResponse(item.getSavedItemId(), item.getContentType(), item.getContentId(),
+        return new SavedItemResponse(item.getSavedItemId(), item.getContentType(), item.getContentId(), authorId,
                 title, description, authorName, avatar, previewUrl, targetUrl, sourcePath, item.getSavedAt(),
                 collection == null ? null : collection.getCollectionId(), collection == null ? null : collection.getName());
     }

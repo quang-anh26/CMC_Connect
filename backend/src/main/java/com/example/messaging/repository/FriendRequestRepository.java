@@ -25,10 +25,17 @@ public interface FriendRequestRepository extends JpaRepository<FriendRequest, Lo
     boolean existsBySenderUserIdAndReceiverUserIdAndStatus(
             Long senderId, Long receiverId, FriendRequestStatus status);
 
+    Optional<FriendRequest> findByIdAndSenderUserIdAndStatus(
+            Long id, Long senderId, FriendRequestStatus status);
+
+    boolean existsBySenderUserIdAndReceiverUserIdAndStatusOrSenderUserIdAndReceiverUserIdAndStatus(
+            Long senderId, Long receiverId, FriendRequestStatus senderStatus,
+            Long reverseSenderId, Long reverseReceiverId, FriendRequestStatus receiverStatus);
+
     @Query("SELECT f FROM FriendRequest f WHERE " +
             "(f.sender.userId = :userA AND f.receiver.userId = :userB) OR " +
             "(f.sender.userId = :userB AND f.receiver.userId = :userA) " +
-            "ORDER BY f.createdAt DESC")
+            "ORDER BY f.createdAt DESC, f.id DESC")
     List<FriendRequest> findRelationship(@Param("userA") Long userA, @Param("userB") Long userB);
 
         @Query("SELECT CASE WHEN COUNT(f) > 0 THEN true ELSE false END FROM FriendRequest f WHERE " +

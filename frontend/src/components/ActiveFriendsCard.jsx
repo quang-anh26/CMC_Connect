@@ -6,7 +6,7 @@ import { conversationApi } from '../api/conversationApi'
 import { useAuth } from '../context/AuthContext'
 import Avatar from './Avatar'
 
-const PRESENCE_POLL_MS = 30000
+const PRESENCE_POLL_MS = 15000
 
 // /api/friends/accepted có thể trả về thẳng thông tin bạn bè hoặc một bản ghi kết bạn lồng
 // thông tin hai phía; hàm này lấy ra "người bạn" (không phải mình) ở cả hai dạng.
@@ -25,13 +25,10 @@ function normalizeFriend(item, myId) {
   const sideAvatar = isSender ? item.senderAvatar : item.receiverAvatar
   const name = source.displayName || source.friendName || source.fullName || source.name
     || sideName || source.username || sideUsername || 'Người dùng'
-  const flag = source.online ?? source.isOnline ?? source.active ?? item.online ?? item.isOnline
-  const statusText = String(source.status || '').toUpperCase()
   return {
     id,
     name,
     avatar: source.avatar || source.friendAvatar || source.avatarUrl || sideAvatar || null,
-    serverOnline: flag === true || statusText === 'ONLINE',
   }
 }
 
@@ -65,12 +62,16 @@ export default function ActiveFriendsCard() {
       return undefined
     }
     let cancelled = false
+    let fetching = false
     const fetchPresence = () => {
+      if (fetching) return
+      fetching = true
       presenceApi.online(idsKey.split(','))
         .then((response) => {
           if (!cancelled) setOnlineIds(new Set((response.data?.onlineIds || []).map(String)))
         })
-        .catch(() => {})
+        .catch(() => { if (!cancelled) setOnlineIds(new Set()) })
+        .finally(() => { fetching = false })
     }
     fetchPresence()
     const timerId = window.setInterval(fetchPresence, PRESENCE_POLL_MS)
@@ -83,7 +84,7 @@ export default function ActiveFriendsCard() {
   // Đang hoạt động đứng trước, ngoại tuyến đứng sau; mỗi nhóm xếp theo tên.
   const { online, offline } = useMemo(() => {
     const byName = (a, b) => a.name.localeCompare(b.name, 'vi')
-    const withStatus = friends.map((friend) => ({ ...friend, isOnline: onlineIds.has(String(friend.id)) || friend.serverOnline }))
+    const withStatus = friends.map((friend) => ({ ...friend, isOnline: onlineIds.has(String(friend.id)) }))
     return {
       online: withStatus.filter((friend) => friend.isOnline).sort(byName),
       offline: withStatus.filter((friend) => !friend.isOnline).sort(byName),
