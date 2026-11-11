@@ -24,6 +24,12 @@ public class FriendController {
         return ResponseEntity.ok(friendService.sendRequest(userId, request.getReceiverId()));
     }
 
+    @DeleteMapping("/requests/{id}")
+    public ResponseEntity<Void> cancel(@CurrentUser Long userId, @PathVariable Long id) {
+        friendService.cancelRequest(id, userId);
+        return ResponseEntity.noContent().build();
+    }
+
     @PostMapping("/requests/{id}/accept")
     public ResponseEntity<FriendRequestResponse> accept(@CurrentUser Long userId, @PathVariable Long id) {
         return ResponseEntity.ok(friendService.respond(id, userId, true));

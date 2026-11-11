@@ -60,6 +60,11 @@ public class FeedService {
     }
 
     @Transactional(readOnly = true)
+    public FeedPostResponse getPost(Long postId, Long viewerId) {
+        return toResponse(getReadablePost(postId, viewerId), viewerId);
+    }
+
+    @Transactional(readOnly = true)
     public Page<FeedPostResponse> searchPosts(String keyword, boolean videos, boolean popular,
                                               boolean savedOnly, boolean followingOnly,
                                               Long viewerId, int page, int size) {

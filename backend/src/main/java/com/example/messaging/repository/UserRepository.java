@@ -2,9 +2,11 @@ package com.example.messaging.repository;
 
 import com.example.messaging.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -27,4 +29,11 @@ public interface UserRepository extends JpaRepository<User, Long> {
     long countByStatus(com.example.messaging.entity.enums.UserStatus status);
 
     long countByOnlineTrue();
+
+    @Query("SELECT u.userId FROM User u WHERE u.userId IN :ids AND u.online = true AND u.lastSeenAt >= :threshold")
+    List<Long> findRecentlyOnlineIds(@Param("ids") List<Long> ids, @Param("threshold") LocalDateTime threshold);
+
+    @Modifying
+    @Query("UPDATE User u SET u.online = false WHERE u.online = true AND (u.lastSeenAt IS NULL OR u.lastSeenAt < :threshold)")
+    int markInactiveUsersOffline(@Param("threshold") LocalDateTime threshold);
 }

@@ -35,8 +35,12 @@ public class FriendService {
         User sender = userService.getByIdOrThrow(senderId);
         User receiver = userService.getByIdOrThrow(receiverId);
 
-        if (friendRequestRepository.existsBySenderUserIdAndReceiverUserIdAndStatus(
-                senderId, receiverId, FriendRequestStatus.PENDING)) {
+        if (friendRequestRepository.areAcceptedFriends(senderId, receiverId)) {
+            throw ApiException.conflict("Hai bạn đã là bạn bè");
+        }
+        if (friendRequestRepository.existsBySenderUserIdAndReceiverUserIdAndStatusOrSenderUserIdAndReceiverUserIdAndStatus(
+                senderId, receiverId, FriendRequestStatus.PENDING,
+                receiverId, senderId, FriendRequestStatus.PENDING)) {
             throw ApiException.conflict("Lời mời kết bạn đã được gửi trước đó");
         }
 
@@ -47,6 +51,14 @@ public class FriendService {
                 .build();
 
         return toResponse(friendRequestRepository.save(fr));
+    }
+
+    @Transactional
+    public void cancelRequest(Long requestId, Long senderId) {
+        FriendRequest request = friendRequestRepository
+                .findByIdAndSenderUserIdAndStatus(requestId, senderId, FriendRequestStatus.PENDING)
+                .orElseThrow(() -> ApiException.notFound("Không tìm thấy lời mời đang chờ hoặc bạn không có quyền hủy"));
+        friendRequestRepository.delete(request);
     }
 
     @Transactional

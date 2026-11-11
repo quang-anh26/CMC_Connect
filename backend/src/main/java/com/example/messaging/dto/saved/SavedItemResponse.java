@@ -6,6 +6,7 @@ public record SavedItemResponse(
         Long savedItemId,
         String contentType,
         Long contentId,
+        Long authorId,
         String title,
         String description,
         String authorName,

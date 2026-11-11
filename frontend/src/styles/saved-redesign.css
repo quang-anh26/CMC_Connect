@@ -95,6 +95,9 @@
 .sv-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
 .sv-card { display: flex; min-width: 0; gap: 16px; padding: 14px; border: 1px solid var(--sv-line); border-radius: 14px; background: var(--sv-surface); box-shadow: var(--sv-shadow); }
 .sv-thumb { position: relative; display: block; flex: 0 0 210px; width: 210px; height: 126px; overflow: hidden; border-radius: 10px; background: linear-gradient(135deg, #1a4fa0, #0b2a5e); color: #fff; text-decoration: none; }
+.sv-thumb-button { padding: 0; border: 0; text-align: left; cursor: pointer; }
+.sv-author-link { display: inline-flex; align-items: center; color: inherit; text-decoration: none; }
+.sv-author-link:hover { color: #1877f2; text-decoration: underline; }
 .sv-thumb img, .sv-thumb video { width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }
 .sv-thumb-fallback { position: absolute; inset: 0; display: grid; place-items: center; font-size: 40px; font-weight: 800; opacity: .85; }
 .sv-badge { position: absolute; top: 8px; left: 8px; padding: 3px 9px; border-radius: 6px; background: rgba(255, 255, 255, .92); color: #1b3d73; font-size: 11px; font-weight: 800; }
@@ -116,6 +119,22 @@
 .sv-load-more:disabled { opacity: .6; }
 .sv-empty { padding: 34px 16px; border: 1px solid var(--sv-line); border-radius: 14px; background: var(--sv-surface); }
 .sv-empty-action { display: inline-flex; min-height: 42px; align-items: center; padding: 0 22px; border-radius: 8px; background: var(--sv-blue); color: #fff; font-weight: 800; text-decoration: none; }
+
+/* ---------- Create collection dialog ---------- */
+.sv-dialog-backdrop { position: fixed; z-index: 1500; inset: 0; display: grid; place-items: center; padding: 18px; background: rgba(11, 23, 42, .58); backdrop-filter: blur(3px); }
+.sv-dialog { display: grid; gap: 10px; width: min(440px, 100%); padding: 20px; border: 1px solid var(--sv-line); border-radius: 14px; background: var(--sv-surface); color: var(--sv-ink); box-shadow: 0 20px 60px rgba(9, 30, 66, .28); }
+.sv-dialog-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--sv-line); }
+.sv-dialog-header h2 { margin: 0; color: var(--sv-ink); font-size: 18px; }
+.sv-dialog-header button { display: grid; width: 32px; height: 32px; place-items: center; border: 0; border-radius: 50%; background: var(--sv-blue-soft); color: var(--sv-muted); font-size: 22px; cursor: pointer; }
+.sv-dialog-header button:disabled { opacity: .55; cursor: default; }
+.sv-dialog > label { margin-top: 5px; color: var(--sv-ink); font-size: 13px; font-weight: 700; }
+.sv-dialog > input { width: 100%; height: 44px; padding: 0 12px; border: 1px solid var(--sv-line); border-radius: 9px; outline: 0; background: var(--sv-surface); color: var(--sv-ink); font: inherit; font-size: 14px; }
+.sv-dialog > input:focus { border-color: var(--sv-blue); box-shadow: 0 0 0 3px color-mix(in srgb, var(--sv-blue) 16%, transparent); }
+.sv-dialog-footer { display: flex; justify-content: flex-end; gap: 9px; margin-top: 8px; }
+.sv-dialog-footer button { min-width: 82px; min-height: 38px; padding: 0 14px; border: 0; border-radius: 8px; font-size: 13px; font-weight: 750; cursor: pointer; }
+.sv-dialog-cancel { background: var(--sv-blue-soft); color: var(--sv-ink); }
+.sv-dialog-submit { background: var(--sv-blue); color: #fff; }
+.sv-dialog-footer button:disabled { opacity: .55; cursor: default; }
 
 /* ---------- Responsive ---------- */
 @media (max-width: 1280px) {

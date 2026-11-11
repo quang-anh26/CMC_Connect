@@ -26,6 +26,11 @@ public class FeedController {
         return ResponseEntity.ok(feedService.list(userId));
     }
 
+    @GetMapping("/{postId}")
+    public ResponseEntity<FeedPostResponse> get(@CurrentUser Long userId, @PathVariable Long postId) {
+        return ResponseEntity.ok(feedService.getPost(postId, userId));
+    }
+
     @PostMapping
     public ResponseEntity<FeedPostResponse> create(@CurrentUser Long userId,
                                                     @Valid @RequestBody CreatePostRequest request) {

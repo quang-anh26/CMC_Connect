@@ -107,12 +107,23 @@ export default function FriendsPage() {
 
   const sendFriendRequest = async (receiverId) => {
     const id = String(receiverId)
-    if (sendingRequestIds.includes(id) || sentRequestIds.includes(id)) return
+    if (sendingRequestIds.includes(id)) return
     setSuggestionActionError('')
     setSendingRequestIds((current) => [...current, id])
     try {
-      await friendApi.send(receiverId)
-      setSentRequestIds((current) => [...current, id])
+      if (sentRequestIds.includes(id)) {
+        const request = sent.find((item) => String(item.receiverId) === id)
+        if (!request) throw new Error('Không tìm thấy lời mời để hủy. Hãy tải lại trang.')
+        await friendApi.cancel(request.id)
+        setSent((current) => current.filter((item) => item.id !== request.id))
+        setSentRequestIds((current) => current.filter((sentId) => sentId !== id))
+        await loadSuggestions()
+      } else {
+        const { data } = await friendApi.send(receiverId)
+        setSent((current) => [...current, data])
+        setSentRequestIds((current) => [...new Set([...current, id])])
+        await loadSuggestions()
+      }
     } catch (err) {
       setSuggestionActionError(err.response?.data?.message || 'Không thể gửi lời mời kết bạn. Vui lòng thử lại.')
     } finally {
@@ -202,14 +213,14 @@ export default function FriendsPage() {
         <button
           type="button"
           className={`friends-suggestion-button ${requestSent ? 'is-sent' : ''}`}
-          disabled={requestSent || sending}
+          disabled={sending}
           onClick={(event) => {
             event.stopPropagation()
             sendFriendRequest(candidate.userId)
           }}
         >
           <span className="friends-suggestion-button-icon" aria-hidden="true">{requestSent ? <CheckIcon size="1em" /> : <PlusIcon size="1em" />}</span>
-          {sending ? 'Đang gửi...' : requestSent ? 'Đã gửi lời mời' : 'Thêm bạn bè'}
+          {sending ? (requestSent ? 'Đang hủy...' : 'Đang gửi...') : requestSent ? 'Hủy lời mời' : 'Thêm bạn bè'}
         </button>
       </article>
     )
@@ -370,12 +381,14 @@ export default function FriendsPage() {
               <div className="friends-request-list">
                 {sent.map((r) => (
                   <div key={r.id} className="friends-request-item friends-sent-item">
-                    <div className="friends-sent-avatar" aria-hidden="true"><SendIcon size={18} /></div>
+                    <Avatar src={r.receiverAvatar} name={r.receiverDisplayName} size={48} />
                     <div className="friends-person-info">
-                      <strong>Người dùng #{r.receiverId}</strong>
+                      <strong>{r.receiverDisplayName || `Người dùng #${r.receiverId}`}</strong>
+                      {r.receiverUsername && <span>@{r.receiverUsername}</span>}
                       <span>Lời mời kết bạn đã gửi</span>
                     </div>
                     <span className="friends-pending-pill"><i /> Đang chờ</span>
+                    <button className="ui-button ui-button--quiet friends-reject-button" onClick={() => sendFriendRequest(r.receiverId)}>Hủy lời mời</button>
                   </div>
                 ))}
               </div>
