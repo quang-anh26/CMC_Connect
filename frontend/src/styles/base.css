@@ -419,24 +419,50 @@ input, textarea {
 .post-image-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 1200;
+  z-index: 1400;
   display: grid;
-  place-items: center;
-  padding: var(--space-6);
-  background: rgba(0, 0, 0, .92);
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 390px);
+  background: #111;
 }
 
+.post-media-viewer-stage { display: grid; min-width: 0; min-height: 0; place-items: center; padding: 28px 54px; }
 .post-image-viewer {
   display: block;
   max-width: 100%;
-  max-height: calc(100vh - 48px);
+  max-height: calc(100vh - 56px);
   object-fit: contain;
 }
+.post-media-viewer-details { display: flex; min-height: 0; flex-direction: column; overflow: hidden; padding: 24px 20px; border-left: 1px solid #303030; background: #fff; color: #1c1e21; }
+.post-media-viewer-author { display: flex; flex: 0 0 auto; align-items: center; gap: 11px; padding: 28px 0 17px; border-bottom: 1px solid #e4e6eb; }
+.post-media-viewer-author > div { display: grid; min-width: 0; gap: 4px; }
+.post-media-viewer-author a { color: inherit; text-decoration: none; }
+.post-media-viewer-author a:hover { color: #1877f2; }
+.post-media-viewer-author strong,.post-media-viewer-comment strong { color: #1c1e21; font-size: 14px; }
+.post-media-viewer-author small { color: #65676b; font-size: 12px; }
+.post-media-viewer-caption { flex: 0 0 auto; margin: 16px 0; color: #1c1e21; font-size: 14px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
+.post-media-viewer-stats { display: flex; flex: 0 0 auto; justify-content: space-between; padding: 12px 0; border-top: 1px solid #e4e6eb; border-bottom: 1px solid #e4e6eb; color: #65676b; font-size: 13px; }
+.post-media-viewer-actions { display: grid; flex: 0 0 auto; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; padding: 8px 0; border-bottom: 1px solid #e4e6eb; }
+.post-media-viewer-actions > button,.post-media-viewer-actions .reaction-trigger { display: flex; min-width: 0; min-height: 38px; align-items: center; justify-content: center; gap: 6px; padding: 4px; border-radius: 6px; background: transparent; color: #65676b; font: inherit; font-size: 12px; font-weight: 650; cursor: pointer; }
+.post-media-viewer-actions > button:hover,.post-media-viewer-actions .reaction-trigger:hover { background: #f0f2f5; }
+.post-media-viewer-actions .reaction-control { min-width: 0; }
+.post-media-viewer-actions .reaction-picker { display: none; }
+.post-media-viewer-actions .reaction-trigger.liked,.post-media-viewer-actions .saved-action-active { color: #1877f2; }
+.post-media-viewer-comments { min-height: 0; flex: 1; overflow-y: auto; padding-top: 14px; }
+.post-media-viewer-comment { display: flex; align-items: flex-start; gap: 9px; margin-bottom: 15px; }
+.post-media-viewer-comment > div { min-width: 0; padding: 9px 12px; border-radius: 16px; background: #f0f2f5; }
+.post-media-viewer-comment p { margin: 3px 0 0; color: #1c1e21; font-size: 13px; line-height: 1.4; overflow-wrap: anywhere; }
+.post-media-viewer-empty { color: #65676b; font-size: 13px; text-align: center; }
+.post-media-viewer-compose { display: flex; flex: 0 0 auto; align-items: center; gap: 8px; padding-top: 12px; border-top: 1px solid #e4e6eb; }
+.post-media-viewer-compose input { width: 100%; min-width: 0; height: 38px; padding: 0 12px; border: 0; border-radius: 20px; outline: 0; background: #f0f2f5; color: #1c1e21; font: inherit; font-size: 13px; }
+.post-media-viewer-compose > button { padding: 8px 9px; border-radius: 6px; background: transparent; color: #1877f2; font-size: 13px; font-weight: 700; }
+.post-media-viewer-compose > button:disabled { color: #aeb4bc; cursor: default; }
+.post-media-open { cursor: zoom-in; }
 
 .post-image-viewer-close {
   position: absolute;
+  z-index: 1;
   top: 16px;
-  right: 18px;
+  left: 16px;
   display: grid;
   width: 40px;
   height: 40px;
@@ -446,6 +472,15 @@ input, textarea {
   color: white;
   font-size: 28px;
   line-height: 1;
+}
+
+@media (max-width: 760px) {
+  .post-image-backdrop { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(40vh, 1fr) minmax(0, 38vh); }
+  .post-media-viewer-stage { padding: 58px 12px 12px; }
+  .post-image-viewer { max-height: 100%; }
+  .post-media-viewer-details { padding: 10px 16px; border-top: 1px solid #303030; border-left: 0; }
+  .post-media-viewer-author { padding-top: 8px; }
+  .post-image-viewer-close { top: 10px; left: 10px; }
 }
 
 .post-summary {

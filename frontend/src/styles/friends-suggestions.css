@@ -248,7 +248,7 @@
 }
 
 .chat-area.friends-page .friends-suggestion-button.is-sent {
-  cursor: default;
+  cursor: pointer;
 }
 
 [data-theme="light"] .chat-area.friends-page .friends-suggestion-card {

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { feedApi } from '../api/feedApi'
 import { storyApi } from '../api/storyApi'
 import { videoApi } from '../api/videoApi'
@@ -135,6 +135,7 @@ export default function FeedPage() {
   const [storyProgress, setStoryProgress] = useState(0)
   const [storyPaused, setStoryPaused] = useState(false)
   const [activePostImage, setActivePostImage] = useState(null)
+  const mediaViewerCommentRef = useRef(null)
   const [shareTarget, setShareTarget] = useState(null)
   const [shareCaption, setShareCaption] = useState('')
   const [sharing, setSharing] = useState(false)
@@ -231,12 +232,41 @@ export default function FeedPage() {
 
   useEffect(() => {
     if (!activePostImage) return undefined
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
     const closeOnEscape = (event) => {
       if (event.key === 'Escape') setActivePostImage(null)
     }
     window.addEventListener('keydown', closeOnEscape)
-    return () => window.removeEventListener('keydown', closeOnEscape)
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener('keydown', closeOnEscape)
+    }
   }, [activePostImage])
+
+  useEffect(() => {
+    if (!activePostImage?.post?.postId) return
+    const refreshedPost = posts.find((post) => post.postId === activePostImage.post.postId)
+    if (refreshedPost && refreshedPost !== activePostImage.post) {
+      setActivePostImage((current) => current ? { ...current, post: refreshedPost } : current)
+    }
+  }, [posts, activePostImage?.post?.postId])
+
+  const openPostMedia = (post, media = post) => {
+    const isVideo = media.mediaType === 'VIDEO'
+    setActivePostImage({
+      src: isVideo ? videoApi.resolveMediaUrl(media.imageUrl) : media.imageUrl,
+      mediaType: media.mediaType,
+      alt: media.content || post.content || 'Nội dung bài viết',
+      post: media === post ? post : {
+        ...post,
+        authorName: media.authorName || post.authorName,
+        authorAvatar: media.authorAvatar || post.authorAvatar,
+        createdAt: media.createdAt || post.createdAt,
+        content: media.content || post.content,
+      },
+    })
+  }
 
   useEffect(() => {
     if (!shareTarget) return undefined
@@ -747,10 +777,17 @@ export default function FeedPage() {
               </div>
             )}
             <header className="story-viewer-header">
-              <div className="story-viewer-author">
+              <Link
+                className="story-viewer-author story-viewer-author-profile"
+                to={`/feed/profile/${activeStory.authorId}`}
+                aria-label={`Xem trang cá nhân ${activeStory.authorName || 'người đăng tin'}`}
+                onClick={(event) => event.stopPropagation()}
+                onTouchStart={(event) => event.stopPropagation()}
+                onTouchEnd={(event) => event.stopPropagation()}
+              >
                 <Avatar src={activeStory.authorAvatar} name={activeStory.authorName} size={34} />
                 <div><strong>{activeStory.authorName}</strong><small>{formatPostTime(activeStory.createdAt)}</small></div>
-              </div>
+              </Link>
               {String(activeStory.authorId) === String(user?.userId) && (
                 <button type="button" className="story-delete-button" onClick={deleteActiveStory} disabled={storyDeleting}>
                   {storyDeleting ? 'Đang xóa…' : 'Xóa tin'}
@@ -836,10 +873,51 @@ export default function FeedPage() {
       )}
 
       {activePostImage && (
-        <div className="post-image-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setActivePostImage(null) }}>
-          <button className="post-image-viewer-close" type="button" onClick={() => setActivePostImage(null)} aria-label="Đóng ảnh">×</button>
-          <img className="post-image-viewer" src={activePostImage.src} alt={activePostImage.alt} />
-        </div>
+        createPortal(
+          <div className="post-image-backdrop" role="dialog" aria-modal="true" aria-label="Xem nội dung bài viết" onMouseDown={(event) => { if (event.target === event.currentTarget) setActivePostImage(null) }}>
+            <button className="post-image-viewer-close" type="button" onClick={() => setActivePostImage(null)} aria-label="Đóng">×</button>
+            <div className="post-media-viewer-stage">
+              {activePostImage.mediaType === 'VIDEO'
+                ? <video className="post-image-viewer" src={activePostImage.src} controls autoPlay playsInline />
+                : <img className="post-image-viewer" src={activePostImage.src} alt={activePostImage.alt} />}
+            </div>
+            <aside className="post-media-viewer-details">
+              <header className="post-media-viewer-author">
+                <Avatar src={activePostImage.post.authorAvatar} name={activePostImage.post.authorName} size={42} />
+                <div><strong>{activePostImage.post.authorName || 'Người dùng'}</strong><small>{formatPostTime(activePostImage.post.createdAt)} · {activePostImage.post.privacy === 'FRIENDS' ? 'Bạn bè' : 'Công khai'}</small></div>
+              </header>
+              {activePostImage.post.content && <p className="post-media-viewer-caption">{activePostImage.post.content}</p>}
+              <div className="post-media-viewer-stats">👍 {activePostImage.post.likeCount || 0} lượt thích <span>{activePostImage.post.comments?.length || 0} bình luận</span></div>
+              <div className="post-media-viewer-actions">
+                <PostReactionControl post={activePostImage.post} onSelect={selectReaction} />
+                <button type="button" onClick={() => mediaViewerCommentRef.current?.focus()}><CommentIcon size={17} /> Bình luận</button>
+                <button type="button" onClick={() => { setShareTarget(activePostImage.post); setShareCaption(''); setActivePostImage(null) }}><ShareIcon size={17} /> Chia sẻ</button>
+                <button type="button" className={activePostImage.post.savedByViewer ? 'saved-action-active' : ''} onClick={() => togglePostSaved(activePostImage.post)}><BookmarkIcon size={17} filled={!!activePostImage.post.savedByViewer} /> {activePostImage.post.savedByViewer ? 'Đã lưu' : 'Lưu'}</button>
+              </div>
+              <div className="post-media-viewer-comments">
+                {(activePostImage.post.comments || []).map((comment) => (
+                  <div className="post-media-viewer-comment" key={comment.commentId}>
+                    <Avatar src={comment.authorAvatar} name={comment.authorName} size={32} />
+                    <div><strong>{comment.authorName}</strong><p>{comment.content}</p></div>
+                  </div>
+                ))}
+                {!activePostImage.post.comments?.length && <p className="post-media-viewer-empty">Chưa có bình luận nào.</p>}
+              </div>
+              <form className="post-media-viewer-compose" onSubmit={(event) => { event.preventDefault(); addComment(activePostImage.post.postId) }}>
+                <Avatar src={user?.avatar} name={user?.displayName || user?.username || 'Bạn'} size={34} />
+                <input
+                  ref={mediaViewerCommentRef}
+                  value={commentDrafts[activePostImage.post.postId] || ''}
+                  onChange={(event) => setCommentDrafts((current) => ({ ...current, [activePostImage.post.postId]: event.target.value }))}
+                  placeholder="Viết bình luận..."
+                  maxLength={1000}
+                />
+                <button type="submit" disabled={!(commentDrafts[activePostImage.post.postId] || '').trim()}>Gửi</button>
+              </form>
+            </aside>
+          </div>,
+          document.body,
+        )
       )}
 
       <form className="create-post-card" onSubmit={publishPost}>
@@ -963,15 +1041,15 @@ export default function FeedPage() {
                 </header>
                 {post.sharedPost.content && <p>{post.sharedPost.content}</p>}
                 {post.sharedPost.imageUrl && (post.sharedPost.mediaType === 'VIDEO'
-                  ? <video className="shared-post-media" src={videoApi.resolveMediaUrl(post.sharedPost.imageUrl)} controls playsInline preload="metadata" />
-                  : <button className="post-image-open" type="button" onClick={() => setActivePostImage({ src: post.sharedPost.imageUrl, alt: post.sharedPost.content || 'Ảnh trong bài viết' })} aria-label="Mở ảnh bài viết gốc"><img className="shared-post-media" src={post.sharedPost.imageUrl} alt="Nội dung bài viết gốc" /></button>)}
+                  ? <video className="shared-post-media post-media-open" src={videoApi.resolveMediaUrl(post.sharedPost.imageUrl)} controls playsInline preload="metadata" onClick={() => openPostMedia(post, post.sharedPost)} />
+                  : <button className="post-image-open" type="button" onClick={() => openPostMedia(post, post.sharedPost)} aria-label="Mở ảnh bài viết gốc"><img className="shared-post-media" src={post.sharedPost.imageUrl} alt="Nội dung bài viết gốc" /></button>)}
               </article>
             ) : post.imageUrl && (post.mediaType === 'VIDEO'
-              ? <video className="post-image" src={videoApi.resolveMediaUrl(post.imageUrl)} controls playsInline preload="metadata" />
+              ? <video className="post-image post-media-open" src={videoApi.resolveMediaUrl(post.imageUrl)} controls playsInline preload="metadata" onClick={() => openPostMedia(post)} />
               : <button
                 className="post-image-open"
                 type="button"
-                onClick={() => setActivePostImage({ src: post.imageUrl, alt: post.content || 'Ảnh trong bài viết' })}
+                onClick={() => openPostMedia(post)}
                 aria-label="Mở ảnh bài viết"
               ><img className="post-image" src={post.imageUrl} alt="Nội dung bài viết" /></button>)}
             <div className="post-actions">

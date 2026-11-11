@@ -16,6 +16,7 @@ import java.util.Map;
 public class PresenceController {
 
     private final PresenceService presenceService;
+    private final org.springframework.messaging.simp.SimpMessagingTemplate messagingTemplate;
 
     /** Frontend gọi định kỳ để báo "tôi đang online". Body: { "active": true|false } */
     @PostMapping("/heartbeat")
@@ -23,6 +24,7 @@ public class PresenceController {
                                           @RequestBody(required = false) Map<String, Object> body) {
         boolean active = body == null || !Boolean.FALSE.equals(body.get("active"));
         presenceService.heartbeat(userId, active);
+        messagingTemplate.convertAndSend("/topic/presence", Map.of("userId", userId, "online", active));
         return ResponseEntity.noContent().build();
     }
 
