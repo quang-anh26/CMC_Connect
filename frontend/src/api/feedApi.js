@@ -2,6 +2,7 @@ import axiosClient from './axiosClient'
 
 export const feedApi = {
   list: () => axiosClient.get('/api/feed'),
+  get: (postId) => axiosClient.get(`/api/feed/${postId}`),
   create: (payload) => axiosClient.post('/api/feed', payload),
   updatePrivacy: (postId, privacy) => axiosClient.put(`/api/feed/${postId}/privacy`, { privacy }),
   like: (postId) => axiosClient.post(`/api/feed/${postId}/like`),

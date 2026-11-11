@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import Avatar from '../components/Avatar'
 import { feedApi } from '../api/feedApi'
@@ -62,6 +63,7 @@ export default function VideosPage() {
   const [reportTarget, setReportTarget] = useState(null)
   const [reportReason, setReportReason] = useState('')
   const [reporting, setReporting] = useState(false)
+  const [activeVideoCard, setActiveVideoCard] = useState(null)
   const [commentDrafts, setCommentDrafts] = useState({})
   const [replyTargets, setReplyTargets] = useState({})
   const [notice, setNotice] = useState('')
@@ -69,6 +71,24 @@ export default function VideosPage() {
   const [shareCaption, setShareCaption] = useState('')
   const [sharing, setSharing] = useState(false)
   const [shareError, setShareError] = useState('')
+
+  useEffect(() => {
+    if (!activeVideoCard) return undefined
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const closeOnEscape = (event) => { if (event.key === 'Escape') setActiveVideoCard(null) }
+    window.addEventListener('keydown', closeOnEscape)
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [activeVideoCard])
+
+  useEffect(() => {
+    if (!activeVideoCard) return
+    const currentCard = videos.find((card) => card.video.postId === activeVideoCard.video.postId)
+    if (currentCard && currentCard !== activeVideoCard) setActiveVideoCard(currentCard)
+  }, [videos, activeVideoCard?.video.postId])
 
   useEffect(() => {
     if (!shareTarget) return undefined
@@ -295,7 +315,7 @@ export default function VideosPage() {
             const comments = post.comments || []
             const roots = comments.filter((comment) => !comment.parentCommentId)
             return <article className="video-card" key={post.postId}>
-              <video className="video-player" src={videoApi.resolveMediaUrl(card.playbackUrl || post.imageUrl)} controls playsInline preload="metadata" onPlay={() => recordView(post.postId)} onError={handleVideoError} />
+              <video className="video-player" src={videoApi.resolveMediaUrl(card.playbackUrl || post.imageUrl)} controls playsInline preload="metadata" onClick={(event) => { event.currentTarget.pause(); setActiveVideoCard(card) }} onPlay={() => recordView(post.postId)} onError={handleVideoError} />
               <div className="video-card-details">
                 {post.content && <p className="video-description">{post.content}</p>}
                 <header className="video-card-author"><Link to={`/feed/profile/${post.authorId}`}><Avatar src={post.authorAvatar} name={post.authorName} size={34} /></Link><div className="video-author-copy"><Link to={`/feed/profile/${post.authorId}`}>{post.authorName}</Link><time>{post.createdAt ? new Date(post.createdAt).toLocaleString('vi-VN', { dateStyle: 'medium', timeStyle: 'short' }) : 'Mới đây'}</time></div>{!isOwner && <button className="video-follow-button" type="button" onClick={() => toggleFollow(card)}>{card.followingCreator ? 'Đang theo dõi' : 'Theo dõi'}</button>}<div className="video-more-actions">{isOwner ? <button type="button" onClick={() => deleteVideo(card)}>Xóa</button> : <button type="button" onClick={() => { setReportTarget(card); setReportReason('') }}>Báo cáo</button>}</div></header>
@@ -347,6 +367,55 @@ export default function VideosPage() {
           {!loading && !hasMore && videos.length > 0 && <p className="video-end-note">Bạn đã xem hết video phù hợp.</p>}
         </section>
       </div>
+
+      {activeVideoCard && createPortal(
+        <div className="post-image-backdrop" role="dialog" aria-modal="true" aria-label="Xem video" onMouseDown={(event) => { if (event.target === event.currentTarget) setActiveVideoCard(null) }}>
+          <button className="post-image-viewer-close" type="button" onClick={() => setActiveVideoCard(null)} aria-label="Đóng video">×</button>
+          <div className="post-media-viewer-stage">
+            <video
+              className="post-image-viewer"
+              src={videoApi.resolveMediaUrl(activeVideoCard.playbackUrl || activeVideoCard.video.imageUrl)}
+              controls autoPlay playsInline preload="auto"
+              onPlay={() => recordView(activeVideoCard.video.postId)}
+              onError={handleVideoError}
+            />
+          </div>
+          <aside className="post-media-viewer-details">
+            <header className="post-media-viewer-author">
+              <Avatar src={activeVideoCard.video.authorAvatar} name={activeVideoCard.video.authorName} size={42} />
+              <div><strong>{activeVideoCard.video.authorName || 'Người dùng'}</strong><small>{activeVideoCard.video.createdAt ? new Date(activeVideoCard.video.createdAt).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' }) : 'Mới đây'} · {activeVideoCard.video.privacy === 'FRIENDS' ? 'Bạn bè' : 'Công khai'}</small></div>
+            </header>
+            {activeVideoCard.video.content && <p className="post-media-viewer-caption">{activeVideoCard.video.content}</p>}
+            <div className="post-media-viewer-stats">▶ {activeVideoCard.video.viewCount || 0} lượt xem <span>👍 {activeVideoCard.video.likeCount || 0} lượt thích · {activeVideoCard.video.comments?.length || 0} bình luận</span></div>
+            <div className="post-media-viewer-actions">
+              <button type="button" className={activeVideoCard.video.likedByViewer ? 'saved-action-active' : ''} onClick={() => reactToVideo(activeVideoCard.video.postId, activeVideoCard.video.viewerReaction || 'LIKE')}><ThumbUpIcon size={17} /> {activeVideoCard.video.likedByViewer ? 'Đã thích' : 'Thích'}</button>
+              <button type="button" onClick={() => document.getElementById(`video-viewer-comment-${activeVideoCard.video.postId}`)?.focus()}><CommentIcon size={17} /> Bình luận</button>
+              <button type="button" onClick={() => { setShareTarget(activeVideoCard.video); setShareCaption(''); setShareError(''); setActiveVideoCard(null) }}><ShareIcon size={17} /> Chia sẻ</button>
+              <button type="button" className={activeVideoCard.savedByViewer ? 'saved-action-active' : ''} onClick={() => toggleSaved(activeVideoCard)}><BookmarkIcon size={17} filled={!!activeVideoCard.savedByViewer} /> {activeVideoCard.savedByViewer ? 'Đã lưu' : 'Lưu'}</button>
+            </div>
+            <div className="post-media-viewer-comments">
+              {(activeVideoCard.video.comments || []).map((comment) => (
+                <div className="post-media-viewer-comment" key={comment.commentId}>
+                  <Avatar src={comment.authorAvatar} name={comment.authorName} size={32} />
+                  <div><strong>{comment.authorName}</strong><p>{comment.content}</p></div>
+                </div>
+              ))}
+              {!activeVideoCard.video.comments?.length && <p className="post-media-viewer-empty">Chưa có bình luận nào.</p>}
+            </div>
+            <form className="post-media-viewer-compose" onSubmit={(event) => submitComment(event, activeVideoCard)}>
+              <Avatar src={user?.avatar} name={user?.displayName || user?.username || 'Bạn'} size={34} />
+              <input
+                id={`video-viewer-comment-${activeVideoCard.video.postId}`}
+                value={commentDrafts[`${activeVideoCard.video.postId}:root`] || ''}
+                onChange={(event) => setCommentDrafts((current) => ({ ...current, [`${activeVideoCard.video.postId}:root`]: event.target.value }))}
+                placeholder="Viết bình luận..." maxLength={1000}
+              />
+              <button type="submit" disabled={!(commentDrafts[`${activeVideoCard.video.postId}:root`] || '').trim()}>Gửi</button>
+            </form>
+          </aside>
+        </div>,
+        document.body,
+      )}
 
       {shareTarget && <div className="share-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !sharing) closeShareDialog() }}>
         <form className="share-dialog" onSubmit={shareVideo}>

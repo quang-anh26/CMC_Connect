@@ -2,6 +2,7 @@ package com.example.messaging.websocket;
 
 import com.example.messaging.entity.User;
 import com.example.messaging.service.UserService;
+import com.example.messaging.service.PresenceService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.event.EventListener;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -24,6 +25,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class PresenceEventListener {
 
     private final UserService userService;
+    private final PresenceService presenceService;
     private final SimpMessagingTemplate messagingTemplate;
     private final Map<String, Set<String>> sessionsByUsername = new ConcurrentHashMap<>();
 
@@ -40,7 +42,7 @@ public class PresenceEventListener {
             String sessionId = accessor.getSessionId();
             Set<String> sessions = sessionsByUsername.computeIfAbsent(username, ignored -> ConcurrentHashMap.newKeySet());
             if (sessions.add(sessionId) && sessions.size() == 1) {
-                withUser(username, true);
+                withUser(username);
             }
         }
     }
@@ -55,18 +57,17 @@ public class PresenceEventListener {
                 sessions.remove(accessor.getSessionId());
                 if (sessions.isEmpty()) {
                     sessionsByUsername.remove(username, sessions);
-                    withUser(username, false);
+                    withUser(username);
                 }
             }
         }
     }
 
-    private void withUser(String username, boolean online) {
+    private void withUser(String username) {
         try {
             User user = userService.getByUsernameOrThrow(username);
-            userService.setOnlineStatus(user.getUserId(), online);
             messagingTemplate.convertAndSend("/topic/presence",
-                    java.util.Map.of("userId", user.getUserId(), "online", online));
+                    java.util.Map.of("userId", user.getUserId(), "online", presenceService.isOnline(user.getUserId())));
         } catch (Exception ignored) {
             // user not found / already handled - safe to ignore for presence tracking
         }

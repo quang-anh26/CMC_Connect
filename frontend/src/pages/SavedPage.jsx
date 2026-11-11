@@ -1,12 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import Avatar from '../components/Avatar'
 import EmptyState from '../components/EmptyState'
 import LoadingState from '../components/LoadingState'
 import ErrorState from '../components/ErrorState'
 import { savedApi } from '../api/savedApi'
+import { feedApi } from '../api/feedApi'
 import { videoApi } from '../api/videoApi'
-import { BookmarkIcon, ClockIcon, ExternalLinkIcon, FileIcon, FolderIcon, GlobeIcon, ImageIcon, LinkIcon, MoreVerticalIcon, PlayIcon, SearchIcon } from '../components/Icons'
+import { BookmarkIcon, ClockIcon, CommentIcon, ExternalLinkIcon, FileIcon, FolderIcon, GlobeIcon, ImageIcon, LinkIcon, MoreVerticalIcon, PlayIcon, SearchIcon, ShareIcon, ThumbUpIcon } from '../components/Icons'
 import '../styles/saved.css'
 import '../styles/saved-redesign.css'
 
@@ -37,7 +39,7 @@ const formatDuration = (seconds) => {
   return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`
 }
 
-function Thumb({ item, href }) {
+function Thumb({ item, href, onOpen }) {
   const [duration, setDuration] = useState('')
   const [failed, setFailed] = useState(false)
   const src = item.previewUrl && !failed ? videoApi.resolveMediaUrl(item.previewUrl) : ''
@@ -51,9 +53,13 @@ function Thumb({ item, href }) {
     {isVideo && <span className="sv-play" aria-hidden="true"><PlayIcon size="1em" /></span>}
     {isVideo && duration && <span className="sv-duration">{duration}</span>}
   </>
-  return item.contentType === 'LINK' && item.targetUrl
-    ? <a className="sv-thumb" href={item.targetUrl} target="_blank" rel="noreferrer" aria-label="Mở liên kết">{content}</a>
-    : <Link className="sv-thumb" to={href} aria-label="Mở nội dung">{content}</Link>
+  if (item.contentType === 'LINK' && item.targetUrl) {
+    return <a className="sv-thumb" href={item.targetUrl} target="_blank" rel="noreferrer" aria-label="Mở liên kết">{content}</a>
+  }
+  if (item.contentType === 'POST' || item.contentType === 'VIDEO') {
+    return <button className="sv-thumb sv-thumb-button" type="button" onClick={() => onOpen(item)} aria-label="Mở bài viết đã lưu">{content}</button>
+  }
+  return <Link className="sv-thumb" to={href} aria-label="Mở nội dung">{content}</Link>
 }
 
 export default function SavedPage() {
@@ -72,8 +78,112 @@ export default function SavedPage() {
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [collectionBusy, setCollectionBusy] = useState(false)
+  const [collectionDialogOpen, setCollectionDialogOpen] = useState(false)
+  const [collectionNameDraft, setCollectionNameDraft] = useState('')
   const [itemBusy, setItemBusy] = useState(null)
   const [menu, setMenu] = useState(null)
+  const [activePost, setActivePost] = useState(null)
+  const [openingSavedId, setOpeningSavedId] = useState(null)
+  const [viewerComment, setViewerComment] = useState('')
+  const [shareTarget, setShareTarget] = useState(null)
+  const [shareCaption, setShareCaption] = useState('')
+  const [shareError, setShareError] = useState('')
+  const [sharing, setSharing] = useState(false)
+
+  useEffect(() => {
+    if (!activePost) return undefined
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const closeOnEscape = (event) => { if (event.key === 'Escape') setActivePost(null) }
+    window.addEventListener('keydown', closeOnEscape)
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [activePost])
+
+  useEffect(() => {
+    if (!collectionDialogOpen) return undefined
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape' && !collectionBusy) setCollectionDialogOpen(false)
+    }
+    window.addEventListener('keydown', closeOnEscape)
+    return () => window.removeEventListener('keydown', closeOnEscape)
+  }, [collectionDialogOpen, collectionBusy])
+
+  const openSavedPost = async (item) => {
+    if (openingSavedId) return
+    setOpeningSavedId(item.savedItemId)
+    const fallbackPost = {
+      postId: item.contentId,
+      authorId: item.authorId,
+      authorName: item.authorName,
+      authorAvatar: item.authorAvatar,
+      content: item.title || item.description || '',
+      imageUrl: item.previewUrl,
+      mediaType: item.contentType === 'VIDEO' ? 'VIDEO' : 'IMAGE',
+      privacy: 'PUBLIC',
+      comments: [],
+      likeCount: 0,
+      likedByViewer: false,
+      savedByViewer: true,
+    }
+    setActivePost(fallbackPost)
+    setViewerComment('')
+    try {
+      const { data } = await feedApi.get(item.contentId)
+      setActivePost(data)
+    } catch { /* Nội dung preview đã lưu vẫn mở được khi không tải được chi tiết bài đăng. */ }
+    finally { setOpeningSavedId(null) }
+  }
+
+  const reactToSavedPost = async () => {
+    if (!activePost) return
+    try {
+      const { data } = await feedApi.react(activePost.postId, 'LIKE')
+      setActivePost(data)
+    } catch (err) { announce(err.response?.data?.message || 'Không thể cập nhật lượt thích.') }
+  }
+
+  const commentOnSavedPost = async (event) => {
+    event.preventDefault()
+    const content = viewerComment.trim()
+    if (!activePost || !content) return
+    try {
+      const { data } = await feedApi.comment(activePost.postId, content)
+      setActivePost(data)
+      setViewerComment('')
+    } catch (err) { announce(err.response?.data?.message || 'Không thể gửi bình luận.') }
+  }
+
+  const toggleSavedFromViewer = async () => {
+    if (!activePost) return
+    const contentType = activePost.mediaType === 'VIDEO' ? 'VIDEO'
+      : /https?:\/\/[^\s<>()]+/i.test(activePost.content || '') ? 'LINK' : 'POST'
+    try {
+      const { data } = await savedApi.toggle(contentType, activePost.postId)
+      setActivePost((current) => current ? { ...current, savedByViewer: data.saved } : current)
+      if (!data.saved) {
+        setItems((current) => current.filter((item) => !(item.contentType === contentType && String(item.contentId) === String(activePost.postId))))
+        setTotalCount((current) => Math.max(0, current - 1))
+        announce('Đã bỏ lưu nội dung.')
+      } else announce('Đã lưu nội dung.')
+    } catch (err) { announce(err.response?.data?.message || 'Không thể cập nhật nội dung đã lưu.') }
+  }
+
+  const submitShare = async (event) => {
+    event.preventDefault()
+    if (!shareTarget || sharing) return
+    setSharing(true)
+    setShareError('')
+    try {
+      await feedApi.share(shareTarget.postId, shareCaption)
+      setShareTarget(null)
+      setShareCaption('')
+      announce('Đã chia sẻ bài viết lên trang chủ.')
+    } catch (err) { setShareError(err.response?.data?.message || 'Không thể chia sẻ bài viết.') }
+    finally { setSharing(false) }
+  }
 
   useEffect(() => {
     const timer = window.setTimeout(() => setQuery(searchInput.trim()), 250)
@@ -142,15 +252,17 @@ export default function SavedPage() {
     window.setTimeout(() => setNotice(''), 3500)
   }
 
-  const createCollection = async () => {
-    const name = window.prompt('Tên bộ sưu tập mới')
-    if (name == null) return
-    if (!name.trim()) { announce('Tên bộ sưu tập không được để trống.'); return }
+  const createCollection = async (event) => {
+    event.preventDefault()
+    const name = collectionNameDraft.trim()
+    if (!name || collectionBusy) return
     setCollectionBusy(true)
     try {
-      const { data } = await savedApi.createCollection(name.trim())
+      const { data } = await savedApi.createCollection(name)
       setCollections((current) => [...current, data])
       setCollectionId(data.collectionId)
+      setCollectionDialogOpen(false)
+      setCollectionNameDraft('')
       announce('Đã tạo bộ sưu tập.')
     } catch (err) { announce(err.response?.data?.message || 'Không thể tạo bộ sưu tập.') }
     finally { setCollectionBusy(false) }
@@ -213,6 +325,7 @@ export default function SavedPage() {
   }
 
   const activeCollection = useMemo(() => collections.find((item) => item.collectionId === collectionId), [collections, collectionId])
+  const viewerMedia = activePost?.sharedPost?.imageUrl ? activePost.sharedPost : activePost
   const heroTitle = activeCollection?.name || 'Tất cả nội dung đã lưu'
   const emptyTitle = query ? 'Không tìm thấy nội dung' : collectionId ? 'Bộ sưu tập này đang trống' : 'Chưa có nội dung đã lưu'
   const emptyDescription = query
@@ -235,7 +348,7 @@ export default function SavedPage() {
               <span aria-hidden="true"><BookmarkIcon size="1em" /></span>Tất cả<small>{totalCount}</small>
             </button>
             <div className="sv-side-divider" />
-            <div className="sv-collections-head"><strong>Bộ sưu tập</strong><button type="button" disabled={collectionBusy} onClick={createCollection} aria-label="Tạo bộ sưu tập" title="Tạo bộ sưu tập">＋</button></div>
+            <div className="sv-collections-head"><strong>Bộ sưu tập</strong><button type="button" disabled={collectionBusy} onClick={() => { setCollectionNameDraft(''); setCollectionDialogOpen(true) }} aria-label="Tạo bộ sưu tập" title="Tạo bộ sưu tập">＋</button></div>
             <div className="sv-collection-list">
               <div className={`sv-collection-row ${!collectionId ? 'active' : ''}`}>
                 <button type="button" className="sv-collection-select" onClick={() => setCollectionId(null)}><span className="sv-folder" aria-hidden="true"><FolderIcon size="1em" /></span><span className="sv-collection-name">Tất cả nội dung đã lưu</span><small>{totalCount}</small></button>
@@ -276,13 +389,13 @@ export default function SavedPage() {
               const rawTitle = item.title || item.description || 'Nội dung đã lưu'
               const title = isLink ? (rawTitle.replace(item.targetUrl, '').trim() || hostOf(item.targetUrl)) : rawTitle
               return <article className="sv-card" key={item.savedItemId}>
-                <Thumb item={item} href={href} />
+                <Thumb item={item} href={href} onOpen={openSavedPost} />
                 <div className="sv-info">
                   {item.contentType !== 'VIDEO' && item.contentType !== 'LINK' && <span className="sv-kind"><FileIcon size="1em" /> {typeLabel(item.contentType)}</span>}
                   <h3 className="sv-title" title={title}>{title}</h3>
                   <div className="sv-source">
-                    {isLink ? <span className="sv-globe" aria-hidden="true"><GlobeIcon size="1em" /></span> : <Avatar src={item.authorAvatar} name={item.authorName} size={22} />}
-                    <span>{isLink ? hostOf(item.targetUrl) : (item.authorName || 'Nội dung đã lưu')}</span>
+                    {isLink ? <span className="sv-globe" aria-hidden="true"><GlobeIcon size="1em" /></span> : item.authorId ? <Link className="sv-author-link" to={`/feed/profile/${item.authorId}`} aria-label={`Xem trang cá nhân ${item.authorName || 'người đăng'}`}><Avatar src={item.authorAvatar} name={item.authorName} size={22} /></Link> : <Avatar src={item.authorAvatar} name={item.authorName} size={22} />}
+                    {isLink ? <span>{hostOf(item.targetUrl)}</span> : item.authorId ? <Link className="sv-author-link" to={`/feed/profile/${item.authorId}`}>{item.authorName || 'Nội dung đã lưu'}</Link> : <span>{item.authorName || 'Nội dung đã lưu'}</span>}
                   </div>
                   <div className="sv-meta">
                     <span className="sv-saved-at"><i aria-hidden="true"><BookmarkIcon size="1em" filled /></i>Đã lưu {timeAgo(item.savedAt)}</span>
@@ -290,7 +403,9 @@ export default function SavedPage() {
                     <span className="sv-actions">
                       {isLink
                         ? <a className="sv-icon-btn" href={item.targetUrl} target="_blank" rel="noreferrer" aria-label="Mở liên kết" title="Mở liên kết"><ExternalLinkIcon size={17} /></a>
-                        : <Link className="sv-icon-btn" to={href} aria-label="Mở nội dung" title="Mở nội dung"><ExternalLinkIcon size={17} /></Link>}
+                        : item.contentType === 'POST' || item.contentType === 'VIDEO'
+                          ? <button type="button" className="sv-icon-btn" onClick={() => openSavedPost(item)} aria-label="Mở nội dung đã lưu" title="Mở nội dung đã lưu" disabled={openingSavedId === item.savedItemId}><ExternalLinkIcon size={17} /></button>
+                          : <Link className="sv-icon-btn" to={href} aria-label="Mở nội dung" title="Mở nội dung"><ExternalLinkIcon size={17} /></Link>}
                       <span className="sv-menu-wrap">
                         <button type="button" className="sv-icon-btn" aria-label="Tùy chọn" aria-expanded={menu === `i${item.savedItemId}`} disabled={itemBusy === item.savedItemId} onClick={() => setMenu(menu === `i${item.savedItemId}` ? null : `i${item.savedItemId}`)}><MoreVerticalIcon size={18} /></button>
                         {menu === `i${item.savedItemId}` && <div className="sv-menu sv-menu-item" role="menu">
@@ -309,6 +424,71 @@ export default function SavedPage() {
           </section>
         </div>
       </div>
+      {activePost && createPortal(
+        <div className="post-image-backdrop" role="dialog" aria-modal="true" aria-label="Bài viết đã lưu" onMouseDown={(event) => { if (event.target === event.currentTarget) setActivePost(null) }}>
+          <button className="post-image-viewer-close" type="button" onClick={() => setActivePost(null)} aria-label="Đóng bài viết">×</button>
+          <div className="post-media-viewer-stage">
+            {viewerMedia?.mediaType === 'VIDEO'
+              ? <video className="post-image-viewer" src={videoApi.resolveMediaUrl(viewerMedia.imageUrl)} controls autoPlay playsInline />
+              : viewerMedia?.imageUrl && <img className="post-image-viewer" src={viewerMedia.imageUrl} alt={viewerMedia.content || activePost.content || 'Ảnh trong bài viết'} />}
+          </div>
+          <aside className="post-media-viewer-details">
+            <header className="post-media-viewer-author">
+              <Link to={`/feed/profile/${activePost.authorId}`} onClick={() => setActivePost(null)}><Avatar src={activePost.authorAvatar} name={activePost.authorName} size={42} /></Link>
+              <div><Link to={`/feed/profile/${activePost.authorId}`} onClick={() => setActivePost(null)}><strong>{activePost.authorName || 'Người dùng'}</strong></Link><small>{activePost.createdAt ? new Date(activePost.createdAt).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' }) : ''} · {activePost.privacy === 'FRIENDS' ? 'Bạn bè' : 'Công khai'}</small></div>
+            </header>
+            {activePost.content && <p className="post-media-viewer-caption">{activePost.content}</p>}
+            <div className="post-media-viewer-stats">👍 {activePost.likeCount || 0} lượt thích <span>{activePost.comments?.length || 0} bình luận</span></div>
+            <div className="post-media-viewer-actions">
+              <button type="button" className={activePost.likedByViewer ? 'saved-action-active' : ''} onClick={reactToSavedPost}><ThumbUpIcon size={17} /> {activePost.likedByViewer ? 'Đã thích' : 'Thích'}</button>
+              <button type="button" onClick={() => document.getElementById('saved-post-viewer-comment')?.focus()}><CommentIcon size={17} /> Bình luận</button>
+              <button type="button" onClick={() => { setShareTarget(activePost); setShareCaption(''); setShareError(''); setActivePost(null) }}><ShareIcon size={17} /> Chia sẻ</button>
+              <button type="button" className={activePost.savedByViewer ? 'saved-action-active' : ''} onClick={toggleSavedFromViewer}><BookmarkIcon size={17} filled={!!activePost.savedByViewer} /> {activePost.savedByViewer ? 'Đã lưu' : 'Lưu'}</button>
+            </div>
+            <div className="post-media-viewer-comments">
+              {(activePost.comments || []).map((comment) => <div className="post-media-viewer-comment" key={comment.commentId}>
+                <Avatar src={comment.authorAvatar} name={comment.authorName} size={32} />
+                <div><strong>{comment.authorName}</strong><p>{comment.content}</p></div>
+              </div>)}
+              {!activePost.comments?.length && <p className="post-media-viewer-empty">Chưa có bình luận nào.</p>}
+            </div>
+            <form className="post-media-viewer-compose" onSubmit={commentOnSavedPost}>
+              <input id="saved-post-viewer-comment" value={viewerComment} onChange={(event) => setViewerComment(event.target.value)} placeholder="Viết bình luận..." maxLength={1000} />
+              <button type="submit" disabled={!viewerComment.trim()}>Gửi</button>
+            </form>
+          </aside>
+        </div>,
+        document.body,
+      )}
+      {shareTarget && <div className="share-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !sharing) { setShareTarget(null); setShareError('') } }}>
+        <form className="share-dialog" onSubmit={submitShare}>
+          <header className="share-dialog-header"><h2>Chia sẻ bài viết</h2><button type="button" onClick={() => { setShareTarget(null); setShareError('') }} disabled={sharing} aria-label="Đóng">×</button></header>
+          <textarea className="share-caption-input" value={shareCaption} onChange={(event) => setShareCaption(event.target.value)} placeholder="Viết điều gì đó về bài viết này..." maxLength={10000} rows={3} />
+          <div className="share-source-preview">
+            <div className="shared-post-heading"><Avatar src={shareTarget.authorAvatar} name={shareTarget.authorName} size={32} /><div><strong>{shareTarget.authorName}</strong><small>{shareTarget.createdAt ? new Date(shareTarget.createdAt).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' }) : ''}</small></div></div>
+            {shareTarget.content && <p>{shareTarget.content}</p>}
+            {shareTarget.imageUrl && (shareTarget.mediaType === 'VIDEO'
+              ? <video className="shared-post-media" src={videoApi.resolveMediaUrl(shareTarget.imageUrl)} controls playsInline preload="metadata" />
+              : <img className="shared-post-media" src={shareTarget.imageUrl} alt="Nội dung bài viết" />)}
+          </div>
+          {shareError && <div className="share-dialog-error">{shareError}</div>}
+          <button className="share-submit-button" type="submit" disabled={sharing}>{sharing ? 'Đang chia sẻ...' : 'Chia sẻ ngay'}</button>
+        </form>
+      </div>}
+      {collectionDialogOpen && <div className="sv-dialog-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !collectionBusy) setCollectionDialogOpen(false) }}>
+        <form className="sv-dialog" role="dialog" aria-modal="true" aria-labelledby="sv-create-collection-title" onSubmit={createCollection}>
+          <header className="sv-dialog-header">
+            <h2 id="sv-create-collection-title">Tạo bộ sưu tập</h2>
+            <button type="button" onClick={() => setCollectionDialogOpen(false)} disabled={collectionBusy} aria-label="Đóng">×</button>
+          </header>
+          <label htmlFor="sv-collection-name">Tên bộ sưu tập</label>
+          <input id="sv-collection-name" autoFocus value={collectionNameDraft} onChange={(event) => setCollectionNameDraft(event.target.value)} maxLength={80} placeholder="Ví dụ: Bài viết hay" />
+          <div className="sv-dialog-footer">
+            <button type="button" className="sv-dialog-cancel" onClick={() => setCollectionDialogOpen(false)} disabled={collectionBusy}>Hủy</button>
+            <button type="submit" className="sv-dialog-submit" disabled={collectionBusy || !collectionNameDraft.trim()}>{collectionBusy ? 'Đang tạo...' : 'Tạo'}</button>
+          </div>
+        </form>
+      </div>}
     </main>
   )
 }
