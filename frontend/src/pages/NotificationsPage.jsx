@@ -7,7 +7,7 @@ import { friendApi } from "../api/friendApi"
 import { groupApi } from "../api/groupApi"
 import { conversationApi } from "../api/conversationApi"
 import { getApiErrorMessage } from "../utils/apiError"
-import { dayLabel, timeAgo } from "../utils/format"
+import { timeAgo } from "../utils/format"
 
 const iconFor = (item) => {
   if (item.type === "friend") return "users"
@@ -21,19 +21,7 @@ const iconFor = (item) => {
   return "bell"
 }
 
-const isFriendish = (i) => i.type === "friend" || (i.type === "activity" && i.notification.type === "FRIEND_REQUEST_ACCEPTED")
-const isMessage = (i) => i.type === "activity" && i.notification.type === "MESSAGE"
-const isEvent = (i) => i.type === "activity" && String(i.notification.type).startsWith("EVENT_")
-const isActivity = (i) => i.type === "activity" && !isFriendish(i) && !isMessage(i) && !isEvent(i)
-
-const CATEGORIES = [
-  ["all", "Tất cả", () => true],
-  ["friend", "Kết bạn", isFriendish],
-  ["group", "Nhóm", (i) => i.type === "group"],
-  ["activity", "Bài viết", isActivity],
-  ["message", "Tin nhắn", isMessage],
-  ["event", "Sự kiện", isEvent],
-]
+const CATEGORIES = [["all", "Tất cả"], ["unread", "Chưa đọc"], ["invites", "Lời mời"]]
 
 export default function NotificationsPage() {
   const navigate = useNavigate()
@@ -42,7 +30,6 @@ export default function NotificationsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [category, setCategory] = useState("all")
-  const [unreadOnly, setUnreadOnly] = useState(false)
   const [busyId, setBusyId] = useState(null)
   const badge = () => window.dispatchEvent(new Event("cmctalk-notifications-updated"))
 
@@ -60,19 +47,12 @@ export default function NotificationsPage() {
     ...data.groups.map((n) => ({ id: `g${n.id}`, type: "group", createdAt: n.createdAt, unread: !n.read, notification: n })),
   ].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)), [data])
 
-  const filter = CATEGORIES.find((c) => c[0] === category)[2]
-  const visible = items.filter(filter).filter((i) => !unreadOnly || i.unread)
+  const visible = items.filter((i) => {
+    if (category === "unread") return i.unread
+    if (category === "invites") return i.type === "friend" || (i.type === "group" && i.notification.type === "INVITE")
+    return true
+  })
   const unreadCount = items.filter((i) => i.unread).length
-  const groupedByDay = useMemo(() => {
-    const map = new Map()
-    visible.forEach((i) => {
-      const label = dayLabel(i.createdAt) || "Trước đó"
-      if (!map.has(label)) map.set(label, [])
-      map.get(label).push(i)
-    })
-    return [...map.entries()]
-  }, [visible])
-
   const run = async (id, fn, fallback) => {
     setBusyId(id)
     try { await fn() } catch (e) { toast(getApiErrorMessage(e, fallback), "error") } finally { setBusyId(null) }
@@ -131,25 +111,18 @@ export default function NotificationsPage() {
 
   return (
     <div className="notifications-page">
-      <header className="page-title-row">
-        <div><h1>Thông báo</h1><p>Theo dõi các hoạt động mới nhất trên CMC Talk.</p></div>
-        <Button variant="secondary" disabled={unreadCount === 0 || busyId === "all"} onClick={markAll}>Đánh dấu tất cả đã đọc</Button>
+      <header className="page-title-row notifications-header">
+        <div><h1>Thông báo</h1><p>Cập nhật mới từ bạn bè, nhóm và hoạt động của bạn.</p></div>
+        <Button variant="secondary" disabled={unreadCount === 0 || busyId === "all"} onClick={markAll}>Đánh dấu đã đọc</Button>
       </header>
       <div className="notification-tabs">
-        {CATEGORIES.map(([key, label, fn]) => {
-          const n = items.filter((i) => i.unread && fn(i)).length
-          return <button key={key} className={category === key ? "active" : ""} onClick={() => setCategory(key)}>{label}{n > 0 ? ` (${n})` : ""}</button>
-        })}
-        <button className={`unread-toggle ${unreadOnly ? "active" : ""}`} onClick={() => setUnreadOnly(!unreadOnly)}>Chưa đọc</button>
+        {CATEGORIES.map(([key, label]) => <button key={key} className={category === key ? "active" : ""} onClick={() => setCategory(key)}>{label}</button>)}
       </div>
       <div className="notification-list">
         {loading && <Loading label="Đang tải thông báo..." />}
         {error && <ErrorBlock message={error} onRetry={() => { setLoading(true); load() }} />}
-        {!loading && !error && visible.length === 0 && <EmptyState title={unreadOnly ? "Bạn đã xem hết thông báo mới" : "Chưa có thông báo nào"} copy="Thông báo mới sẽ xuất hiện tại đây." icon="bell" />}
-        {groupedByDay.map(([label, list]) => (
-          <div key={label}>
-            <h3 className="notif-day">{label}</h3>
-            {list.map((item) => {
+        {!loading && !error && visible.length === 0 && <EmptyState title={category === "unread" ? "Bạn đã xem hết thông báo mới" : "Chưa có thông báo nào"} copy="Thông báo mới sẽ xuất hiện tại đây." icon="bell" />}
+        {visible.map((item) => {
               const busy = busyId === item.id
               if (item.type === "friend") {
                 const r = item.request
@@ -189,9 +162,7 @@ export default function NotificationsPage() {
                   <span className="notif-del" role="button" tabIndex={0} aria-label="Xóa thông báo" onClick={(e) => { e.stopPropagation(); removeActivity(n) }}><Icon name="close" size={16} /></span>
                 </button>
               )
-            })}
-          </div>
-        ))}
+        })}
       </div>
     </div>
   )
