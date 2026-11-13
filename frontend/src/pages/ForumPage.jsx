@@ -1,9 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom'
-import Avatar from '../components/Avatar'
-import { BookOpenIcon, SearchIcon, TopicIcon } from '../components/Icons'
+import React, { useEffect, useMemo, useState } from "react"
+import { useParams, useNavigate } from "react-router-dom"
+import { Icon } from "../components/Icon"
+import { Avatar, Button, EmptyState, ErrorBlock, Loading, Modal, useAsync, useToast } from "../components/ui"
 import {
   bookmarkForumTopic,
+  createForumTopic,
   createForumTopicWithAttachment,
   deleteForumTopic,
   downloadForumAttachment,
@@ -11,976 +12,491 @@ import {
   getForumTopic,
   getForumTopics,
   replyForumTopic,
-  reportForumTopic,
   updateForumTopic,
-} from '../api/forumApi'
-import { useAuth } from '../context/AuthContext'
-import './ForumPage.css'
+  reportForumTopic,
+} from "../api/forumApi"
+import { useAuth } from "../context/AuthContext"
+import { getApiErrorMessage } from "../utils/apiError"
+import { formatBytes, timeAgo } from "../utils/format"
 
-const PAGE_SIZE = 12
-const MAX_FILE_SIZE = 50 * 1024 * 1024
-const RESOURCE_TYPES = [
-  { value: 'CURRICULUM', label: 'Giáo trình' },
-  { value: 'STUDY_MATERIAL', label: 'Tài liệu học tập' },
-  { value: 'EXAM', label: 'Đề thi' },
-  { value: 'LECTURE', label: 'Bài giảng' },
-  { value: 'REFERENCE', label: 'Tài liệu tham khảo' },
+const TYPE_LABEL = {
+  QUESTION: "Câu hỏi",
+  DISCUSSION: "Thảo luận",
+  PROJECT: "Dự án",
+  EXPERIENCE: "Kinh nghiệm",
+  KNOWLEDGE: "Kiến thức",
+  RESOURCE: "Chia sẻ tài liệu",
+}
+const RESOURCE_KIND = {
+  CURRICULUM: "Chương trình học",
+  STUDY_MATERIAL: "Tài liệu học tập",
+  EXAM: "Đề thi",
+  LECTURE: "Bài giảng",
+  REFERENCE: "Tài liệu tham khảo",
+}
+const TABS = [
+  ["newest", "Mới nhất"],
+  ["unanswered", "Chưa trả lời"],
+  ["DISCUSSION", "Thảo luận"],
+  ["RESOURCE", "Tài liệu"],
 ]
-// Diễn đàn chỉ dùng để chia sẻ tài liệu học tập. Các loại bài cũ (hỏi đáp, đồ án, thảo luận…)
-// không còn tạo mới được nhưng dữ liệu cũ vẫn hiển thị bình thường với nhãn bên dưới.
-const TOPIC_TYPES = [
-  { value: '', label: 'Tất cả' },
-  { value: 'RESOURCE', label: 'Tài liệu' },
-]
-const LEGACY_TYPE_LABELS = {
-  QUESTION: 'Hỏi đáp',
-  PROJECT: 'Đồ án & nhóm',
-  DISCUSSION: 'Thảo luận',
-  KNOWLEDGE: 'Thảo luận',
-  EXPERIENCE: 'Thảo luận',
-}
-const RESOURCE_FORM = {
-  titleLabel: 'Tên tài liệu',
-  titlePlaceholder: 'Nhập tên giáo trình, đề thi hoặc tài liệu',
-  contentLabel: 'Mô tả tài liệu',
-  contentPlaceholder: 'Mô tả nội dung, môn học hoặc cách sử dụng tài liệu...',
-  footer: 'Hãy chia sẻ tài liệu bạn có quyền sử dụng và ghi rõ nguồn.',
-  submit: 'Chia sẻ tài liệu',
-}
 
-function normalizeType(value) {
-  return value === 'RESOURCE' ? 'RESOURCE' : value ? 'other' : ''
-}
+const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => ((Math.random() * 16) | 0).toString(16)))
 
-function typeLabel(value) {
-  if (value === 'RESOURCE') return 'Tài liệu'
-  return LEGACY_TYPE_LABELS[value] || value
-}
+function TopicDetail({ topicId, meId, onClose, onChanged }) {
+  const toast = useToast()
+  const { data: topic, loading, error, setData } = useAsync(() => getForumTopic(topicId), [topicId])
+  const [reply, setReply] = useState("")
+  const [busy, setBusy] = useState(false)
+  const [bookmarked, setBookmarked] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState({ title: "", content: "" })
 
-function resourceKindLabel(value) {
-  return RESOURCE_TYPES.find((item) => item.value === value)?.label || ''
-}
-
-function formatFileSize(size) {
-  if (!size) return 'Tệp đính kèm'
-  return size >= 1024 * 1024
-    ? `${(size / (1024 * 1024)).toFixed(1)} MB`
-    : `${Math.max(1, Math.round(size / 1024))} KB`
-}
-
-function formatDate(value) {
-  if (!value) return ''
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return ''
-  return date.toLocaleString('vi-VN', { dateStyle: 'medium', timeStyle: 'short' })
-}
-
-function getErrorMessage(error) {
-  return error.response?.data?.message || error.response?.data?.error || 'Có lỗi xảy ra. Vui lòng thử lại.'
-}
-
-function createSubmissionKey() {
-  if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID()
-  const hex = () => Math.floor(Math.random() * 0x10000).toString(16).padStart(4, '0')
-  return `${hex()}${hex()}-${hex()}-4${hex().slice(1)}-${((8 + Math.floor(Math.random() * 4)).toString(16))}${hex().slice(1)}-${hex()}${hex()}${hex()}`
-}
-
-function ConfirmDialog({ title, message, confirmLabel, busy, onConfirm, onCancel }) {
-  useEffect(() => {
-    const onKeyDown = (event) => {
-      if (event.key === 'Escape' && !busy) onCancel()
+  const startEdit = () => {
+    setDraft({ title: topic.title, content: topic.content })
+    setEditing(true)
+  }
+  const saveEdit = async () => {
+    if (!draft.title.trim() || !draft.content.trim()) return
+    setBusy(true)
+    try {
+      const updated = await updateForumTopic(topicId, {
+        title: draft.title.trim(),
+        content: draft.content.trim(),
+        type: topic.type,
+        resourceKind: topic.resourceKind || null,
+        source: topic.source || null,
+        categoryId: topic.categoryId || null,
+        courseId: topic.courseId || null,
+        facultyId: topic.facultyId || null,
+        majorId: topic.majorId || null,
+      })
+      setData({ ...topic, ...updated, replies: topic.replies })
+      setEditing(false)
+      toast("Đã cập nhật chủ đề.")
+      onChanged()
+    } catch (err) {
+      toast(getApiErrorMessage(err, "Không thể cập nhật chủ đề."), "error")
+    } finally {
+      setBusy(false)
     }
-    document.addEventListener('keydown', onKeyDown)
-    return () => document.removeEventListener('keydown', onKeyDown)
-  }, [busy, onCancel])
+  }
+
+  const sendReply = async (event) => {
+    event.preventDefault()
+    if (!reply.trim()) return
+    setBusy(true)
+    try {
+      const created = await replyForumTopic(topicId, reply.trim())
+      setData({ ...topic, replies: [...(topic.replies || []), created], replyCount: (topic.replyCount || 0) + 1 })
+      setReply("")
+      onChanged()
+    } catch (err) {
+      toast(getApiErrorMessage(err, "Không thể gửi trả lời."), "error")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const bookmark = async () => {
+    try {
+      await bookmarkForumTopic(topicId, !bookmarked)
+      setBookmarked(!bookmarked)
+      toast(!bookmarked ? "Đã lưu chủ đề." : "Đã bỏ lưu chủ đề.")
+    } catch (err) {
+      toast(getApiErrorMessage(err, "Không thể lưu chủ đề."), "error")
+    }
+  }
+
+  const report = async () => {
+    const reason = window.prompt("Lý do báo cáo chủ đề này:")
+    if (!reason?.trim()) return
+    try {
+      await reportForumTopic(topicId, reason.trim())
+      toast("Đã gửi báo cáo tới quản trị viên.")
+    } catch (err) {
+      toast(getApiErrorMessage(err, "Không thể gửi báo cáo."), "error")
+    }
+  }
+
+  const remove = async () => {
+    if (!window.confirm("Xóa chủ đề này?")) return
+    try {
+      await deleteForumTopic(topicId)
+      toast("Đã xóa chủ đề.")
+      onChanged()
+      onClose()
+    } catch (err) {
+      toast(getApiErrorMessage(err, "Không thể xóa chủ đề."), "error")
+    }
+  }
+
+  const download = async (attachment) => {
+    try {
+      const blob = await downloadForumAttachment(attachment.id)
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = attachment.name
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      toast(getApiErrorMessage(err, "Không thể tải tệp."), "error")
+    }
+  }
 
   return (
-    <div className="forum-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) onCancel() }}>
-      <div className="forum-modal" role="alertdialog" aria-modal="true" aria-labelledby="forum-modal-title" aria-describedby="forum-modal-message">
-        <span className="forum-modal-icon" aria-hidden="true">!</span>
-        <h2 id="forum-modal-title">{title}</h2>
-        <p id="forum-modal-message">{message}</p>
-        <div className="forum-modal-actions">
-          <button className="forum-button forum-button-secondary" type="button" onClick={onCancel} disabled={busy} autoFocus>Hủy</button>
-          <button className="forum-button forum-button-danger" type="button" onClick={onConfirm} disabled={busy}>
-            {busy ? 'Đang xóa...' : confirmLabel}
-          </button>
-        </div>
+    <Modal title={topic?.title || "Chủ đề"} close={onClose} wide>
+      <div className="topic-detail">
+        {loading && <Loading />}
+        {error && <ErrorBlock message={error} />}
+        {topic && (
+          <>
+            <div className="topic-detail-tags">
+              <span>{TYPE_LABEL[topic.type] || topic.type}</span>
+              {topic.faculty && <span>{topic.faculty}</span>}
+              {topic.course && <span>{topic.course}</span>}
+              {topic.resourceKind && <span>{RESOURCE_KIND[topic.resourceKind]}</span>}
+            </div>
+            <div className="topic-detail-author">
+              <Avatar name={topic.authorName} src={topic.authorAvatar} size="sm" />
+              <span>
+                <strong>{topic.authorName}</strong> · {timeAgo(topic.createdAt)} · {topic.viewCount} lượt xem
+              </span>
+            </div>
+            {editing ? (
+              <div className="form-grid" style={{ marginTop: 10 }}>
+                <label className="full">Tiêu đề<input value={draft.title} maxLength={180} onChange={(e) => setDraft({ ...draft, title: e.target.value })} /></label>
+                <label className="full">Nội dung<textarea rows={6} value={draft.content} maxLength={30000} onChange={(e) => setDraft({ ...draft, content: e.target.value })} /></label>
+                <div className="full" style={{ display: "flex", gap: 8 }}>
+                  <Button disabled={busy} onClick={saveEdit}>Lưu chỉnh sửa</Button>
+                  <Button variant="secondary" onClick={() => setEditing(false)}>Hủy</Button>
+                </div>
+              </div>
+            ) : (
+              <p className="topic-detail-body">{topic.content}</p>
+            )}
+            {topic.source && <p className="topic-detail-source">Nguồn: {topic.source}</p>}
+            {(topic.attachments || []).map((a) => (
+              <button type="button" key={a.id} className="attachment-row" onClick={() => download(a)}>
+                <Icon name="file" />
+                <span>
+                  <strong>{a.name}</strong>
+                  <small>{a.extension} · {formatBytes(a.size)}</small>
+                </span>
+                <Icon name="download" size={18} />
+              </button>
+            ))}
+            <div className="topic-detail-actions">
+              <Button variant="secondary" icon="bookmark" onClick={bookmark}>{bookmarked ? "Đã lưu" : "Lưu chủ đề"}</Button>
+              <Button variant="secondary" onClick={report}>Báo cáo</Button>
+              {String(topic.authorId) === String(meId) && !editing && <Button variant="secondary" icon="edit" onClick={startEdit}>Sửa</Button>}
+              {String(topic.authorId) === String(meId) && <Button variant="danger" icon="trash" onClick={remove}>Xóa</Button>}
+            </div>
+            <h3 style={{ marginTop: 18 }}>{(topic.replies || []).length} trả lời</h3>
+            <div className="reply-list">
+              {(topic.replies || []).map((r) => (
+                <div className="comment-preview comment-item" key={r.id}>
+                  <Avatar name={r.author} src={r.authorAvatar} size="sm" />
+                  <div>
+                    <strong>{r.author}</strong>
+                    <p>{r.content}</p>
+                    <span>{timeAgo(r.createdAt)}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <form className="comment-form" onSubmit={sendReply}>
+              <input value={reply} onChange={(e) => setReply(e.target.value)} placeholder="Viết câu trả lời của bạn..." maxLength={10000} />
+              <button className="button button-primary" disabled={busy || !reply.trim()}>Gửi</button>
+            </form>
+          </>
+        )}
       </div>
-    </div>
+    </Modal>
   )
 }
 
-function ForumHeader({ title = 'Diễn đàn học tập', description }) {
+function NewTopicModal({ taxonomy, onClose, onCreated, defaultType = "QUESTION" }) {
+  const toast = useToast()
+  const [form, setForm] = useState({ title: "", content: "", type: defaultType, facultyId: "", majorId: "", courseId: "", categoryId: "", resourceKind: "STUDY_MATERIAL", source: "" })
+  const [file, setFile] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const [submissionKey] = useState(uuid)
+  const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value, ...(key === "facultyId" ? { majorId: "" } : {}) }))
+  const majors = (taxonomy?.majors || []).filter((m) => String(m.facultyId) === String(form.facultyId))
+  const isResource = form.type === "RESOURCE"
+
+  const submit = async () => {
+    if (!form.title.trim() || !form.content.trim()) return
+    if (isResource && !file) {
+      toast("Bài chia sẻ tài liệu cần kèm một tệp.", "error")
+      return
+    }
+    setBusy(true)
+    try {
+      const payload = {
+        title: form.title.trim(),
+        content: form.content.trim(),
+        type: form.type,
+        facultyId: form.facultyId || null,
+        majorId: form.majorId || null,
+        courseId: form.courseId || null,
+        categoryId: form.categoryId || null,
+        resourceKind: isResource ? form.resourceKind : null,
+        source: form.source.trim() || null,
+      }
+      const created = isResource ? await createForumTopicWithAttachment(payload, file, submissionKey) : await createForumTopic(payload)
+      toast("Đã đăng chủ đề.")
+      onCreated(created)
+    } catch (err) {
+      toast(getApiErrorMessage(err, "Không thể đăng chủ đề."), "error")
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
-    <header className="forum-hero">
-      <div className="forum-hero-copy">
-        <span className="forum-eyebrow">STUDY FORUM · CMC</span>
-        <h1>{title}</h1>
-        <p>{description || 'Chia sẻ và tìm kiếm tài liệu học tập trong cộng đồng sinh viên CMC.'}</p>
+    <Modal title="Đăng chủ đề mới" close={onClose} wide>
+      <div className="form-grid">
+        <label className="full">
+          Tiêu đề
+          <input value={form.title} onChange={set("title")} maxLength={180} placeholder="Viết tiêu đề rõ ràng, cụ thể" />
+        </label>
+        <label>
+          Loại chủ đề
+          <select value={form.type} onChange={set("type")}>
+            {Object.entries(TYPE_LABEL).map(([value, label]) => (
+              <option key={value} value={value}>{label}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Danh mục
+          <select value={form.categoryId} onChange={set("categoryId")}>
+            <option value="">Không chọn</option>
+            {(taxonomy?.categories || []).map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Khoa
+          <select value={form.facultyId} onChange={set("facultyId")}>
+            <option value="">Không chọn</option>
+            {(taxonomy?.faculties || []).map((f) => (
+              <option key={f.id} value={f.id}>{f.name}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Chuyên ngành
+          <select value={form.majorId} onChange={set("majorId")} disabled={!form.facultyId}>
+            <option value="">Không chọn</option>
+            {majors.map((m) => (
+              <option key={m.id} value={m.id}>{m.name}</option>
+            ))}
+          </select>
+        </label>
+        <label className="full">
+          Môn học
+          <select value={form.courseId} onChange={set("courseId")}>
+            <option value="">Không chọn</option>
+            {(taxonomy?.courses || []).map((c) => (
+              <option key={c.id} value={c.id}>{c.code} · {c.name}</option>
+            ))}
+          </select>
+        </label>
+        {isResource && (
+          <>
+            <label>
+              Loại tài liệu
+              <select value={form.resourceKind} onChange={set("resourceKind")}>
+                {Object.entries(RESOURCE_KIND).map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Nguồn tài liệu
+              <input value={form.source} onChange={set("source")} maxLength={500} placeholder="Giảng viên, giáo trình..." />
+            </label>
+            <label className="full">
+              Tệp đính kèm
+              <input type="file" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+            </label>
+          </>
+        )}
+        <label className="full">
+          Nội dung
+          <textarea rows={6} value={form.content} onChange={set("content")} maxLength={30000} placeholder="Mô tả chi tiết vấn đề hoặc nội dung chia sẻ..." />
+        </label>
       </div>
-      <div className="forum-hero-actions">
-        <Link className="forum-button forum-button-primary" to="/forum/new">
-          <span aria-hidden="true">＋</span> Đăng bài
-        </Link>
+      <div className="modal-actions">
+        <Button variant="secondary" onClick={onClose}>Hủy</Button>
+        <Button disabled={busy || !form.title.trim() || !form.content.trim()} onClick={submit}>{busy ? "Đang đăng..." : "Đăng chủ đề"}</Button>
       </div>
-    </header>
-  )
-}
-
-function TopicCard({ topic, saved, onBookmark }) {
-  return (
-    <article className="forum-topic-card">
-      <Avatar
-        src={topic.authorAvatar}
-        name={topic.authorName}
-        size={44}
-        className="forum-topic-avatar"
-      />
-      <div className="forum-topic-content">
-        <div className="forum-topic-meta">
-          <span className={`forum-type-badge forum-type-${String(topic.type || '').toLowerCase()}`}>
-            {typeLabel(topic.type)}
-          </span>
-          {topic.resourceKind && (
-            <span className="forum-topic-kind">{resourceKindLabel(topic.resourceKind)}</span>
-          )}
-          {topic.category && (
-            <Link className="forum-topic-category" to={`/forum/categories/${topic.categoryId}`}>
-              {topic.category}
-            </Link>
-          )}
-          {topic.faculty && (
-            <Link className="forum-topic-category" to={`/forum/faculties/${topic.facultyId}`}>
-              {topic.faculty}
-            </Link>
-          )}
-          {topic.major && (
-            <Link className="forum-topic-category" to={`/forum/majors/${topic.majorId}`}>
-              {topic.major}
-            </Link>
-          )}
-        </div>
-        <h3><Link to={`/forum/topics/${topic.id}`}>{topic.title}</Link></h3>
-        <p className="forum-topic-excerpt">{topic.content}</p>
-        <div className="forum-topic-byline">
-          <strong>{topic.authorName}</strong>
-          <span aria-hidden="true">·</span>
-          <time dateTime={topic.createdAt}>{formatDate(topic.createdAt)}</time>
-        </div>
-      </div>
-      <div className="forum-topic-actions">
-        <div className="forum-topic-stats" aria-label="Thống kê chủ đề">
-          <span title="Lượt xem"><span aria-hidden="true">◉</span> {topic.viewCount || 0}</span>
-          <span title="Câu trả lời"><span aria-hidden="true">↩</span> {topic.replyCount || 0}</span>
-        </div>
-        <button
-          className={`forum-bookmark-button${saved ? ' is-saved' : ''}`}
-          type="button"
-          onClick={() => onBookmark(topic.id, !saved)}
-          aria-pressed={saved}
-        >
-          {saved ? 'Đã lưu' : 'Lưu'}
-        </button>
-      </div>
-    </article>
-  )
-}
-
-function ForumSidebar({ topics, showPopular = true }) {
-  const popular = [...topics].sort((a, b) => (b.viewCount || 0) - (a.viewCount || 0)).slice(0, 4)
-
-  return (
-    <aside className="forum-sidebar">
-      {showPopular && <TopicSidebarCard title="Được quan tâm" topics={popular} empty="Chưa có chủ đề nổi bật." />}
-
-      <section className="forum-sidebar-card forum-guidelines">
-        <BookOpenIcon size={20} />
-        <h2>Cùng xây dựng cộng đồng tốt</h2>
-        <p>Chỉ chia sẻ nội dung liên quan đến học tập, đặt tên rõ ràng và ghi nguồn khi chia sẻ tài liệu.</p>
-        <Link to="/forum/rules">Xem hướng dẫn cộng đồng <span aria-hidden="true">→</span></Link>
-      </section>
-    </aside>
-  )
-}
-
-function TopicSidebarCard({ title, topics, empty }) {
-  return (
-    <section className="forum-sidebar-card">
-      <h2>{title}</h2>
-      {topics.length ? (
-        <ul className="forum-sidebar-topic-list">
-          {topics.map((topic) => (
-            <li key={topic.id}>
-              <Link to={`/forum/topics/${topic.id}`}>{topic.title}</Link>
-              <span>{topic.replyCount || 0} trả lời · {topic.viewCount || 0} lượt xem</span>
-            </li>
-          ))}
-        </ul>
-      ) : <p className="forum-sidebar-empty">{empty}</p>}
-    </section>
-  )
-}
-
-function ForumLinkGrid({ items, label }) {
-  return (
-    <section className="forum-category-grid" aria-label={label}>
-      {items.map((item, index) => (
-        <Link className="forum-category-card" key={item.key} to={item.to}>
-          <span className={`forum-category-icon forum-category-icon-${index % 5}`} aria-hidden="true">
-            {index === 0 ? <TopicIcon size={20} /> : <BookOpenIcon size={20} />}
-          </span>
-          <span className="forum-category-card-copy">
-            <strong>{item.title}</strong>
-            <span>{item.description}</span>
-          </span>
-          <span className="forum-category-arrow" aria-hidden="true">↗</span>
-        </Link>
-      ))}
-    </section>
-  )
-}
-
-function ForumFilters({
-  q, type, facultyId, majorId, sort, faculties, majors, onChange, onSearch,
-}) {
-  return (
-    <form className="forum-filters" onSubmit={onSearch}>
-      <label className="forum-search-input">
-        <SearchIcon size={18} />
-        <span className="forum-sr-only">Tìm theo tiêu đề hoặc nội dung</span>
-        <input
-          value={q}
-          onChange={(event) => onChange('q', event.target.value)}
-          placeholder="Tìm tài liệu, chủ đề..."
-        />
-      </label>
-      <label className="forum-filter-select">
-        <span className="forum-sr-only">Lọc theo khoa</span>
-        <select value={facultyId} onChange={(event) => onChange('facultyId', event.target.value)}>
-          <option value="">Tất cả khoa</option>
-          {faculties.map((faculty) => <option key={faculty.id} value={faculty.id}>{faculty.name}</option>)}
-        </select>
-      </label>
-      <label className="forum-filter-select">
-        <span className="forum-sr-only">Lọc theo chuyên ngành</span>
-        <select
-          value={majorId}
-          onChange={(event) => onChange('majorId', event.target.value)}
-          disabled={!facultyId}
-        >
-          <option value="">{facultyId ? 'Tất cả chuyên ngành' : 'Chọn khoa trước'}</option>
-          {majors.filter((major) => String(major.facultyId) === String(facultyId))
-            .map((major) => <option key={major.id} value={major.id}>{major.name}</option>)}
-        </select>
-      </label>
-      <label className="forum-filter-select">
-        <span className="forum-sr-only">Sắp xếp chủ đề</span>
-        <select value={sort} onChange={(event) => onChange('sort', event.target.value)}>
-          <option value="newest">Mới nhất</option>
-          <option value="popular">Được xem nhiều</option>
-        </select>
-      </label>
-      <button className="forum-button forum-button-primary forum-search-submit" type="submit">Tìm kiếm</button>
-      <input type="hidden" name="type" value={type} />
-    </form>
+    </Modal>
   )
 }
 
 export default function ForumPage() {
-  const location = useLocation()
+  const splat = useParams()["*"] || ""
+  const topicId = splat.match(/^topics\/(\d+)/)?.[1]
+  const routeFilter = splat.match(/^(categories|faculties|majors)\/(\d+)/)
   const navigate = useNavigate()
-  const {
-    topicId,
-    categoryId: routeCategoryId,
-    facultyId: routeFacultyId,
-    majorId: routeMajorId,
-  } = useParams()
   const { user } = useAuth()
-  const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search])
-  const [topics, setTopics] = useState([])
-  const [categories, setCategories] = useState([])
-  const [faculties, setFaculties] = useState([])
-  const [majors, setMajors] = useState([])
+  const [query, setQuery] = useState("")
+  const [debounced, setDebounced] = useState("")
+  const [tab, setTab] = useState("newest")
+  const [faculty, setFaculty] = useState(routeFilter?.[1] === "faculties" ? routeFilter[2] : "")
+  const [category, setCategory] = useState(routeFilter?.[1] === "categories" ? routeFilter[2] : "")
+  const [major, setMajor] = useState(routeFilter?.[1] === "majors" ? routeFilter[2] : "")
+  const [sort, setSort] = useState("newest")
   const [page, setPage] = useState(0)
-  const [totalPages, setTotalPages] = useState(0)
-  const [totalElements, setTotalElements] = useState(0)
-  const [q, setQ] = useState(searchParams.get('q') || '')
-  const [type, setType] = useState(searchParams.get('type') === 'RESOURCE' ? 'RESOURCE' : '')
-  const [categoryFilter, setCategoryFilter] = useState(searchParams.get('categoryId') || '')
-  const [facultyFilter, setFacultyFilter] = useState(searchParams.get('facultyId') || '')
-  const [majorFilter, setMajorFilter] = useState(searchParams.get('majorId') || '')
-  const [sort, setSort] = useState(searchParams.get('sort') || 'newest')
-  const [loading, setLoading] = useState(false)
-  const [detailLoading, setDetailLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [notice, setNotice] = useState('')
-  const [detail, setDetail] = useState(null)
-  const [reply, setReply] = useState('')
-  const [reportReason, setReportReason] = useState('')
-  const [reporting, setReporting] = useState(false)
-  const [savedIds, setSavedIds] = useState(() => new Set())
-  const [busy, setBusy] = useState(false)
-  const [editing, setEditing] = useState(false)
-  const [confirmingDelete, setConfirmingDelete] = useState(false)
-  const [selectedFaculty, setSelectedFaculty] = useState('')
-  const [selectedMajor, setSelectedMajor] = useState('')
-  const submissionKey = useRef(null)
-
-  const isNew = location.pathname === '/forum/new' || location.pathname === '/forum/share-resource'
-  const isDetail = Boolean(topicId)
-  const isCategoryIndex = location.pathname === '/forum/categories' && !routeCategoryId
-  const isCourseRoute = location.pathname.startsWith('/forum/courses')
-  const isRulePage = location.pathname === '/forum/rules'
-  const isModerationRoute = location.pathname === '/forum/admin' || location.pathname === '/forum/moderation'
-  const activeCategoryId = routeCategoryId || categoryFilter
-  const majorFromRoute = majors.find((major) => String(major.id) === routeMajorId)
-  const activeFacultyId = routeFacultyId || facultyFilter || majorFromRoute?.facultyId || ''
-  const activeMajorId = routeMajorId || majorFilter
+  const [creating, setCreating] = useState(false)
+  const { data: taxonomy } = useAsync(() => getForumTaxonomy(), [])
 
   useEffect(() => {
-    setQ(searchParams.get('q') || '')
-    setType(searchParams.get('type') === 'RESOURCE' ? 'RESOURCE' : '')
-    setCategoryFilter(searchParams.get('categoryId') || '')
-    setFacultyFilter(searchParams.get('facultyId') || '')
-    setMajorFilter(searchParams.get('majorId') || '')
-    setSort(searchParams.get('sort') || 'newest')
-    setPage(0)
-  }, [searchParams])
+    const timer = setTimeout(() => {
+      setDebounced(query.trim())
+      setPage(0)
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [query])
 
-  const loadTaxonomy = useCallback(async () => {
-    try {
-      const taxonomy = await getForumTaxonomy()
-      setCategories(taxonomy.categories || [])
-      setFaculties(taxonomy.faculties || [])
-      setMajors(taxonomy.majors || [])
-      setError('')
-    } catch (requestError) {
-      setError(getErrorMessage(requestError))
-    }
-  }, [])
-
-  const loadTopics = useCallback(async () => {
-    setLoading(true)
-    setError('')
-    try {
-      const data = await getForumTopics({
-        q: location.pathname === '/forum/search' ? q.trim() : '',
-        type,
-        categoryId: activeCategoryId || undefined,
-        facultyId: activeFacultyId || undefined,
-        majorId: activeMajorId || undefined,
-        sort,
-        page,
-        size: PAGE_SIZE,
-      })
-      setTopics(data.items || [])
-      setTotalPages(data.totalPages || 0)
-      setTotalElements(data.totalElements || 0)
-    } catch (requestError) {
-      setTopics([])
-      setError(getErrorMessage(requestError))
-    } finally {
-      setLoading(false)
-    }
-  }, [activeCategoryId, activeFacultyId, activeMajorId, location.pathname, page, q, sort, type])
-
-  useEffect(() => {
-    loadTaxonomy()
-  }, [loadTaxonomy])
-
-  useEffect(() => {
-    if (!isNew && !isDetail && !isCategoryIndex && !isCourseRoute && !isRulePage && !isModerationRoute) {
-      loadTopics()
-    }
-  }, [isCategoryIndex, isCourseRoute, isDetail, isModerationRoute, isNew, isRulePage, loadTopics])
-
-  useEffect(() => {
-    if (!isDetail) {
-      setDetail(null)
-      return undefined
-    }
-    let active = true
-    setDetailLoading(true)
-    setError('')
-    getForumTopic(topicId)
-      .then((data) => {
-        if (active) setDetail(data)
-      })
-      .catch((requestError) => {
-        if (active) setError(getErrorMessage(requestError))
-      })
-      .finally(() => {
-        if (active) setDetailLoading(false)
-      })
-    return () => { active = false }
-  }, [isDetail, topicId])
-
-  async function handleBookmark(id, saved) {
-    setError('')
-    try {
-      await bookmarkForumTopic(id, saved)
-      setSavedIds((current) => {
-        const next = new Set(current)
-        if (saved) next.add(id)
-        else next.delete(id)
-        return next
-      })
-    } catch (requestError) {
-      setError(getErrorMessage(requestError))
-    }
-  }
-
-  function handleFilterChange(field, value) {
-    setPage(0)
-    if (field === 'q') setQ(value)
-    if (field === 'categoryId') {
-      setCategoryFilter(value)
-      if (routeCategoryId) {
-        navigate(value ? `/forum/categories/${value}` : '/forum')
-      }
-    }
-    if (field === 'facultyId') {
-      setFacultyFilter(value)
-      setMajorFilter('')
-      if (routeFacultyId || routeMajorId) navigate(value ? `/forum/faculties/${value}` : '/forum')
-    }
-    if (field === 'majorId') {
-      setMajorFilter(value)
-      if (routeMajorId) navigate(value ? `/forum/majors/${value}` : activeFacultyId ? `/forum/faculties/${activeFacultyId}` : '/forum')
-    }
-    if (field === 'sort') setSort(value)
-  }
-
-  function handleSearch(event) {
-    event.preventDefault()
-    const params = new URLSearchParams()
-    if (q.trim()) params.set('q', q.trim())
-    if (type) params.set('type', type)
-    if (activeCategoryId) params.set('categoryId', activeCategoryId)
-    if (activeFacultyId) params.set('facultyId', activeFacultyId)
-    if (activeMajorId) params.set('majorId', activeMajorId)
-    if (sort !== 'newest') params.set('sort', sort)
-    params.set('page', '0')
-    navigate(`/forum/search?${params.toString()}`)
-  }
-
-  async function handleCreateTopic(event) {
-    event.preventDefault()
-    setBusy(true)
-    setError('')
-    const form = new FormData(event.currentTarget)
-    const file = form.get('file')
-    if (!form.get('facultyId')) {
-      setError('Chọn khoa trước khi đăng bài.')
-      setBusy(false)
-      return
-    }
-    if (!file || !file.size) {
-      setError('Bài đăng loại Tài liệu bắt buộc phải có tệp đính kèm.')
-      setBusy(false)
-      return
-    }
-    if (file?.size > MAX_FILE_SIZE) {
-      setError('Tệp đính kèm vượt quá giới hạn 50 MB.')
-      setBusy(false)
-      return
-    }
-    try {
-      if (!submissionKey.current) {
-        submissionKey.current = createSubmissionKey()
-      }
-      const created = await createForumTopicWithAttachment({
-        title: form.get('title').trim(),
-        content: form.get('content').trim(),
-        type: 'RESOURCE',
-        resourceKind: form.get('resourceKind'),
-        facultyId: form.get('facultyId'),
-        majorId: form.get('majorId') || null,
-        source: (form.get('source') || '').trim() || null,
-      }, file?.size ? file : null, submissionKey.current)
-      navigate(`/forum/topics/${created.id}`)
-    } catch (requestError) {
-      setError(`Bài viết chưa được đăng. ${getErrorMessage(requestError)} Bạn có thể thử lại mà không tạo bài trùng.`)
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  async function handleReply(event) {
-    event.preventDefault()
-    if (!detail || !reply.trim()) return
-    setBusy(true)
-    setError('')
-    try {
-      await replyForumTopic(detail.id, reply.trim())
-      setReply('')
-      setDetail(await getForumTopic(detail.id))
-    } catch (requestError) {
-      setError(getErrorMessage(requestError))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  async function handleEdit(event) {
-    event.preventDefault()
-    if (!detail) return
-    const form = new FormData(event.currentTarget)
-    setBusy(true)
-    setError('')
-    try {
-      const updated = await updateForumTopic(detail.id, {
-        title: form.get('title').trim(),
-        content: form.get('content').trim(),
-        type: detail.type,
-        resourceKind: detail.resourceKind || null,
-        categoryId: detail.categoryId || null,
-        courseId: detail.courseId || null,
-        facultyId: detail.facultyId || null,
-        majorId: detail.majorId || null,
-        source: form.get('source').trim() || null,
-      })
-      setDetail((current) => ({ ...current, ...updated }))
-      setEditing(false)
-      setNotice('Chủ đề đã được cập nhật.')
-    } catch (requestError) {
-      setError(getErrorMessage(requestError))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  async function handleDelete() {
-    if (!detail) return
-    setBusy(true)
-    setError('')
-    try {
-      await deleteForumTopic(detail.id)
-      setConfirmingDelete(false)
-      navigate('/forum')
-    } catch (requestError) {
-      setConfirmingDelete(false)
-      setError(getErrorMessage(requestError))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  async function handleReport(event) {
-    event.preventDefault()
-    if (!detail || !reportReason.trim()) return
-    setBusy(true)
-    setError('')
-    try {
-      await reportForumTopic(detail.id, reportReason.trim())
-      setReporting(false)
-      setReportReason('')
-      setNotice('Cảm ơn bạn đã gửi báo cáo. Nội dung sẽ được xem xét.')
-    } catch (requestError) {
-      setError(getErrorMessage(requestError))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  async function handleDownload(attachment) {
-    setError('')
-    try {
-      const blob = await downloadForumAttachment(attachment.id)
-      const url = URL.createObjectURL(blob)
-      const anchor = document.createElement('a')
-      anchor.href = url
-      anchor.download = attachment.name
-      document.body.appendChild(anchor)
-      anchor.click()
-      anchor.remove()
-      window.setTimeout(() => URL.revokeObjectURL(url), 1000)
-    } catch (requestError) {
-      setError(getErrorMessage(requestError))
-    }
-  }
-
-  if (isModerationRoute || isCourseRoute) return <Navigate to="/forum" replace />
-
-  const title = routeCategoryId
-    ? categories.find((category) => String(category.id) === routeCategoryId)?.name || 'Chuyên mục'
-    : routeFacultyId
-        ? faculties.find((faculty) => String(faculty.id) === routeFacultyId)?.name || 'Khoa'
-        : routeMajorId
-          ? majors.find((major) => String(major.id) === routeMajorId)?.name || 'Chuyên ngành'
-          : 'Diễn đàn học tập'
+  const params = useMemo(
+    () => ({
+      q: debounced,
+      type: tab === "DISCUSSION" || tab === "RESOURCE" ? tab : "",
+      facultyId: faculty || undefined,
+      categoryId: category || undefined,
+      majorId: major || undefined,
+      sort,
+      page,
+      size: 15,
+    }),
+    [debounced, tab, faculty, category, major, sort, page],
+  )
+  const { data, loading, error, reload } = useAsync(() => getForumTopics(params), [JSON.stringify(params)])
+  const items = (data?.items || []).filter((t) => tab !== "unanswered" || t.replyCount === 0)
+  const facultyName = (taxonomy?.faculties || []).find((f) => String(f.id) === String(faculty))?.name
 
   return (
     <div className="forum-page">
-      <div className="forum-page-inner">
-        <nav className="forum-breadcrumb" aria-label="Điều hướng">
-          <Link to="/forum">Cộng đồng học tập</Link>
-          <span aria-hidden="true">/</span>
-          {isDetail ? <Link to="/forum">Diễn đàn</Link> : <span>{isNew ? 'Đăng bài' : title}</span>}
-          {isDetail && <><span aria-hidden="true">/</span><span>Chi tiết chủ đề</span></>}
-        </nav>
-
-        {isNew ? (
-          <>
-            <ForumHeader
-              title="Đăng bài mới"
-              description="Chia sẻ giáo trình, slide, đề thi và tài liệu học tập hữu ích cho sinh viên CMC."
-            />
-            <section className="forum-panel forum-editor-panel">
-              <div className="forum-section-heading">
-                <h2>Thông tin tài liệu</h2>
-                <p>Bài đăng sẽ xuất hiện ngay sau khi đăng. Chỉ chia sẻ tài liệu liên quan đến học tập.</p>
-              </div>
-              {error && <div className="forum-alert forum-alert-error" role="alert">{error}</div>}
-              {notice && <div className="forum-alert forum-alert-success" role="status">{notice}</div>}
-              <form className="forum-editor-form" onSubmit={handleCreateTopic}>
-                <div className="forum-form-row forum-form-row-two">
-                  <label className="forum-field">
-                    <span>Khoa</span>
-                    <select
-                      name="facultyId"
-                      value={selectedFaculty}
-                      required
-                      onChange={(event) => {
-                        setSelectedFaculty(event.target.value)
-                        setSelectedMajor('')
-                      }}
-                    >
-                      <option value="">Chọn khoa</option>
-                      {faculties.map((faculty) => (
-                        <option key={faculty.id} value={faculty.id}>{faculty.name}</option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="forum-field">
-                    <span>Chuyên ngành <small>(không bắt buộc)</small></span>
-                    <select
-                      name="majorId"
-                      value={selectedMajor}
-                      disabled={!selectedFaculty}
-                      onChange={(event) => setSelectedMajor(event.target.value)}
-                    >
-                      <option value="">{selectedFaculty ? 'Chọn chuyên ngành' : 'Chọn khoa trước'}</option>
-                      {majors.filter((major) => String(major.facultyId) === String(selectedFaculty))
-                        .map((major) => <option key={major.id} value={major.id}>{major.name}</option>)}
-                      {selectedFaculty && !majors.some((major) => String(major.facultyId) === String(selectedFaculty))
-                        && <option value="" disabled>Chưa có chuyên ngành cụ thể</option>}
-                    </select>
-                  </label>
-                </div>
-                {(
-                  <div className="forum-form-row forum-form-row-two">
-                    <label className="forum-field">
-                      <span>Loại tài liệu</span>
-                      <select name="resourceKind" required defaultValue="STUDY_MATERIAL">
-                        {RESOURCE_TYPES.map((resourceType) => (
-                          <option key={resourceType.value} value={resourceType.value}>{resourceType.label}</option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="forum-field">
-                      <span>Nguồn tài liệu <small>(không bắt buộc)</small></span>
-                      <input name="source" maxLength={500} placeholder="Link hoặc thông tin trích dẫn nguồn" />
-                    </label>
-                  </div>
-                )}
-                <label className="forum-field">
-                  <span>{RESOURCE_FORM.titleLabel}</span>
-                  <input
-                    name="title"
-                    required
-                    maxLength={180}
-                    placeholder={RESOURCE_FORM.titlePlaceholder}
-                  />
-                </label>
-                <label className="forum-field">
-                  <span>{RESOURCE_FORM.contentLabel}</span>
-                  <textarea
-                    name="content"
-                    required
-                    maxLength={30000}
-                    rows={9}
-                    placeholder={RESOURCE_FORM.contentPlaceholder}
-                  />
-                </label>
-                <label className="forum-field">
-                  <span>Tệp đính kèm (bắt buộc) <small>(PDF, DOC, DOCX, PPT, PPTX, XLS, XLSX, ZIP, MP4 · tối đa 50 MB)</small></span>
-                  <input
-                    name="file"
-                    type="file"
-                    required
-                    accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip,.mp4"
-                  />
-                </label>
-                <div className="forum-form-footer">
-                  <p>{RESOURCE_FORM.footer}</p>
-                  <div className="forum-form-actions">
-                    <Link className="forum-button forum-button-secondary" to="/forum">Hủy</Link>
-                    <button className="forum-button forum-button-primary" type="submit" disabled={busy}>
-                      {busy ? 'Đang đăng...' : RESOURCE_FORM.submit}
-                    </button>
-                  </div>
-                </div>
-              </form>
-            </section>
-          </>
-        ) : isDetail ? (
-          <section className="forum-detail-layout">
-            <main className="forum-detail-main">
-              {detailLoading ? <div className="forum-panel forum-loading">Đang tải chủ đề...</div> : null}
-              {error && !detailLoading && <div className="forum-alert forum-alert-error" role="alert">{error}</div>}
-              {notice && <div className="forum-alert forum-alert-success" role="status">{notice}</div>}
-              {detail && (
-                <>
-                  <article className="forum-panel forum-detail-card">
-                    <div className="forum-detail-topline">
-                      <span className={`forum-type-badge forum-type-${String(detail.type || '').toLowerCase()}`}>{typeLabel(detail.type)}</span>
-                      {detail.category && <Link to={`/forum/categories/${detail.categoryId}`}>{detail.category}</Link>}
-                      {detail.faculty && <Link to={`/forum/faculties/${detail.facultyId}`}>{detail.faculty}</Link>}
-                      {detail.major && <Link to={`/forum/majors/${detail.majorId}`}>{detail.major}</Link>}
-                      <time dateTime={detail.createdAt}>{formatDate(detail.createdAt)}</time>
-                    </div>
-                    {detail.resourceKind && (
-                      <span className="forum-type-badge forum-type-resource">
-                        {RESOURCE_TYPES.find((item) => item.value === detail.resourceKind)?.label || 'Tài liệu học tập'}
-                      </span>
-                    )}
-                    {editing ? (
-                      <form className="forum-editor-form forum-edit-form" onSubmit={handleEdit}>
-                        <label className="forum-field">
-                          <span>Tiêu đề</span>
-                          <input name="title" defaultValue={detail.title} required maxLength={180} />
-                        </label>
-                        <div className="forum-form-row">
-                        </div>
-                        <label className="forum-field">
-                          <span>Nội dung</span>
-                          <textarea name="content" defaultValue={detail.content} required maxLength={30000} rows={9} />
-                        </label>
-                        <label className="forum-field">
-                          <span>Nguồn tài liệu</span>
-                          <input name="source" defaultValue={detail.source || ''} maxLength={500} />
-                        </label>
-                        <div className="forum-form-actions">
-                          <button className="forum-button forum-button-secondary" type="button" onClick={() => setEditing(false)}>Hủy</button>
-                          <button className="forum-button forum-button-primary" type="submit" disabled={busy}>{busy ? 'Đang lưu...' : 'Lưu thay đổi'}</button>
-                        </div>
-                      </form>
-                    ) : (
-                      <>
-                        <h1 className="forum-detail-title">{detail.title}</h1>
-                        <div className="forum-author-line">
-                          <Avatar src={detail.authorAvatar} name={detail.authorName} size={42} />
-                          <div>
-                            <strong>{detail.authorName}</strong>
-                            <span>Thành viên cộng đồng · {formatDate(detail.createdAt)}</span>
-                          </div>
-                          {detail.authorId === user?.userId && (
-                            <div className="forum-owner-actions">
-                              <button type="button" onClick={() => setEditing(true)}>Chỉnh sửa</button>
-                              <button type="button" onClick={() => setConfirmingDelete(true)} disabled={busy}>Xóa</button>
-                            </div>
-                          )}
-                        </div>
-                        <div className="forum-detail-content">{detail.content}</div>
-                        {detail.source && <p className="forum-source"><strong>Nguồn:</strong> {detail.source}</p>}
-                        {!!detail.attachments?.length && (
-                          <div className="forum-attachments">
-                            <h2>Tệp đính kèm</h2>
-                            {detail.attachments.map((attachment) => (
-                              <button key={attachment.id} type="button" onClick={() => handleDownload(attachment)}>
-                                <span aria-hidden="true">↧</span>
-                                <span>{attachment.name}</span>
-                                <small>{(attachment.extension || attachment.name.split('.').pop()).toUpperCase()} · {formatFileSize(attachment.size)}</small>
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                        <div className="forum-detail-toolbar">
-                          <button type="button" onClick={() => handleBookmark(detail.id, !savedIds.has(detail.id))}>
-                            {savedIds.has(detail.id) ? 'Đã lưu chủ đề' : '☆ Lưu chủ đề'}
-                          </button>
-                          <span>{detail.viewCount || 0} lượt xem</span>
-                          <button type="button" onClick={() => setReporting((current) => !current)}>Báo cáo</button>
-                        </div>
-                        {reporting && (
-                          <form className="forum-report-form" onSubmit={handleReport}>
-                            <label className="forum-field">
-                              <span>Lý do báo cáo</span>
-                              <textarea value={reportReason} onChange={(event) => setReportReason(event.target.value)} required maxLength={500} rows={3} />
-                            </label>
-                            <button className="forum-button forum-button-secondary" type="submit" disabled={busy}>Gửi báo cáo</button>
-                          </form>
-                        )}
-                      </>
-                    )}
-                  </article>
-
-                  {!editing && (
-                    <section className="forum-panel forum-replies">
-                      <div className="forum-section-heading">
-                        <h2>Thảo luận <span>{detail.replies?.length || 0}</span></h2>
-                        <p>Cùng nhau trao đổi để tìm câu trả lời tốt nhất.</p>
-                      </div>
-                      <form className="forum-reply-form" onSubmit={handleReply}>
-                        <Avatar name={user?.displayName || user?.username} size={38} />
-                        <label className="forum-field">
-                          <span className="forum-sr-only">Nội dung trả lời</span>
-                          <textarea value={reply} onChange={(event) => setReply(event.target.value)} placeholder="Viết câu trả lời hoặc chia sẻ góc nhìn của bạn..." required maxLength={10000} rows={3} />
-                        </label>
-                        <button className="forum-button forum-button-primary" type="submit" disabled={busy || !reply.trim()}>
-                          {busy ? 'Đang gửi...' : 'Gửi trả lời'}
-                        </button>
-                      </form>
-                      <div className="forum-reply-list">
-                        {detail.replies?.map((item) => (
-                          <article className="forum-reply" key={item.id}>
-                            <Avatar src={item.authorAvatar} name={item.author} size={38} />
-                            <div>
-                              <div className="forum-reply-meta"><strong>{item.author}</strong><time>{formatDate(item.createdAt)}</time></div>
-                              <p>{item.content}</p>
-                            </div>
-                          </article>
-                        ))}
-                        {!detail.replies?.length && <p className="forum-empty-inline">Chưa có câu trả lời. Hãy bắt đầu cuộc thảo luận.</p>}
-                      </div>
-                    </section>
-                  )}
-                </>
-              )}
-            </main>
-            <ForumSidebar topics={[]} showPopular={false} />
-            {confirmingDelete && (
-              <ConfirmDialog
-                title="Xóa bài đăng?"
-                message="Bài đăng sẽ bị xóa khỏi diễn đàn và bạn không thể hoàn tác thao tác này."
-                confirmLabel="Xóa bài"
-                busy={busy}
-                onConfirm={handleDelete}
-                onCancel={() => setConfirmingDelete(false)}
-              />
-            )}
-          </section>
-        ) : isCategoryIndex ? (
-          <>
-            <ForumHeader title="Khám phá diễn đàn" description="Tìm tài liệu học tập theo khoa hoặc chuyên ngành của bạn." />
-            <section className="forum-panel forum-categories-panel">
-              <div className="forum-section-heading">
-                <h2>Theo khoa và chuyên ngành</h2>
-                <p>Xem bài đăng của khoa hoặc chuyên ngành bạn đang học.</p>
-              </div>
-              <div className="forum-faculty-list">
-                {faculties.map((faculty) => {
-                  const facultyMajors = majors.filter((major) => String(major.facultyId) === String(faculty.id))
-                  return (
-                    <article className="forum-faculty-item" key={faculty.id}>
-                      <h3><Link to={`/forum/faculties/${faculty.id}`}>{faculty.name}</Link></h3>
-                      {!!facultyMajors.length && (
-                        <ul>
-                          {facultyMajors.map((major) => (
-                            <li key={major.id}><Link to={`/forum/majors/${major.id}`}>{major.name}</Link></li>
-                          ))}
-                        </ul>
-                      )}
-                    </article>
-                  )
-                })}
-                {!faculties.length && <p className="forum-empty-inline">Danh sách khoa đang được khởi tạo. Vui lòng tải lại sau ít phút.</p>}
-              </div>
-            </section>
-          </>
-        ) : isRulePage ? (
-          <section className="forum-panel forum-rules">
-            <ForumHeader title="Hướng dẫn cộng đồng" description="Một cộng đồng học tập hữu ích bắt đầu từ sự tôn trọng và chia sẻ có trách nhiệm." />
-            <h2>Quy định diễn đàn</h2>
-            <ul>
-              <li>Chỉ chia sẻ nội dung liên quan đến học tập; bài không phù hợp có thể bị gỡ.</li>
-              <li>Trao đổi lịch sự, tập trung vào nội dung và tôn trọng sự khác biệt.</li>
-              <li>Đặt tên và mô tả tài liệu rõ ràng để mọi người dễ tìm.</li>
-              <li>Trích dẫn nguồn và chỉ chia sẻ tài liệu bạn có quyền sử dụng.</li>
-              <li>Không đăng thông tin cá nhân, nội dung spam hoặc nội dung vi phạm pháp luật.</li>
-            </ul>
-          </section>
-        ) : (
-          <>
-            <ForumHeader title={title} />
-            <div className="forum-home-layout">
-              <main className="forum-main-column">
-                <section className="forum-panel forum-topics-panel">
-                  <nav className="forum-topic-tabs" aria-label="Lọc loại bài đăng">
-                    {TOPIC_TYPES.map((item) => {
-                      const params = new URLSearchParams(location.search)
-                      if (item.value) params.set('type', item.value)
-                      else params.delete('type')
-                      params.delete('page')
-                      return (
-                        <Link
-                          key={item.value || 'all'}
-                          className={type === item.value ? 'is-active' : ''}
-                          to={`${location.pathname}${params.toString() ? `?${params.toString()}` : ''}`}
-                        >
-                          {item.label}
-                        </Link>
-                      )
-                    })}
-                    <Link className={isCategoryIndex ? 'is-active' : ''} to="/forum/categories">Khám phá</Link>
-                  </nav>
-                  <div className="forum-topics-body">
-                    <ForumFilters
-                      q={q}
-                      type={type}
-                      facultyId={activeFacultyId}
-                      majorId={activeMajorId}
-                      sort={sort}
-                      faculties={faculties}
-                      majors={majors}
-                      onChange={handleFilterChange}
-                      onSearch={handleSearch}
-                    />
-                    <div className="forum-section-heading forum-topics-heading">
-                      <div>
-                        <span className="forum-section-kicker">{location.pathname === '/forum/search' ? 'TÌM KIẾM' : 'CỘNG ĐỒNG CMC'}</span>
-                        <h2>{location.pathname === '/forum/search' ? 'Kết quả tìm kiếm' : type ? typeLabel(type) : 'Bài đăng mới nhất'}</h2>
-                      </div>
-                      <span className="forum-result-count">{totalElements} bài đăng</span>
-                    </div>
-                    {error && <div className="forum-alert forum-alert-error" role="alert">{error}</div>}
-                    {notice && <div className="forum-alert forum-alert-success" role="status">{notice}</div>}
-                    {loading ? (
-                      <div className="forum-loading" role="status"><span className="forum-spinner" /> Đang tải chủ đề...</div>
-                    ) : topics.length ? (
-                      <div className="forum-topic-list">
-                        {topics.map((topic) => (
-                          <TopicCard
-                            key={topic.id}
-                            topic={topic}
-                            saved={savedIds.has(topic.id)}
-                            onBookmark={handleBookmark}
-                          />
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="forum-empty-state">
-                        <span className="forum-empty-icon"><BookOpenIcon size={25} /></span>
-                        <h3>Chưa có chủ đề phù hợp</h3>
-                        <p>Thử đổi từ khóa hoặc bộ lọc, hoặc đăng bài đầu tiên để khởi động cuộc trò chuyện.</p>
-                        <Link className="forum-button forum-button-primary" to={`/forum/new${type ? `?type=${type}` : ''}`}>Đăng bài</Link>
-                      </div>
-                    )}
-                    <div className="forum-pagination">
-                      <button type="button" disabled={page <= 0 || loading} onClick={() => setPage((value) => value - 1)}>←</button>
-                      <span>Trang {totalPages ? page + 1 : 0} / {totalPages || 0}</span>
-                      <button type="button" disabled={page + 1 >= totalPages || loading} onClick={() => setPage((value) => value + 1)}>→</button>
-                    </div>
-                  </div>
-                </section>
-              </main>
-              <ForumSidebar topics={topics} />
-            </div>
-          </>
-        )}
+      <header className="forum-header">
+        <div>
+          <span className="eyebrow">Không gian học tập</span>
+          <h1>Hỏi đáp, thảo luận và chia sẻ tài liệu</h1>
+          <p>Kết nối kiến thức giữa các khoa, tìm lời giải từ cộng đồng sinh viên CMC.</p>
+        </div>
+        <Button icon="plus" onClick={() => setCreating(true)}>Đăng chủ đề</Button>
+      </header>
+      <div className="forum-toolbar panel">
+        <label>
+          <Icon name="search" />
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Tìm câu hỏi, môn học hoặc tài liệu..." />
+        </label>
+        <select className="toolbar-select" value={category} onChange={(e) => { setCategory(e.target.value); setPage(0) }}>
+          <option value="">Mọi danh mục</option>
+          {(taxonomy?.categories || []).map((c) => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+        </select>
+        <select className="toolbar-select" value={faculty} onChange={(e) => { setFaculty(e.target.value); setMajor(""); setPage(0) }}>
+          <option value="">Tất cả khoa</option>
+          {(taxonomy?.faculties || []).map((f) => (
+            <option key={f.id} value={f.id}>{f.name}</option>
+          ))}
+        </select>
+        <select className="toolbar-select" value={major} disabled={!faculty} onChange={(e) => { setMajor(e.target.value); setPage(0) }}>
+          <option value="">{faculty ? "Tất cả chuyên ngành" : "Chọn khoa trước"}</option>
+          {(taxonomy?.majors || []).filter((m) => String(m.facultyId) === String(faculty)).map((m) => (
+            <option key={m.id} value={m.id}>{m.name}</option>
+          ))}
+        </select>
+        <select className="toolbar-select" value={sort} onChange={(e) => { setSort(e.target.value); setPage(0) }}>
+          <option value="newest">Mới nhất</option>
+          <option value="popular">Xem nhiều</option>
+        </select>
       </div>
+      <div className="forum-layout">
+        <main className="topic-section">
+          <div className="topic-tabs">
+            {TABS.map(([key, label]) => (
+              <button key={key} className={tab === key ? "active" : ""} onClick={() => { setTab(key); setPage(0) }}>{label}</button>
+            ))}
+          </div>
+          <div className="topic-list">
+            {loading && <Loading label="Đang tải chủ đề..." />}
+            {error && <ErrorBlock message={error} onRetry={reload} />}
+            {!loading && !error && items.length === 0 && (
+              <EmptyState title="Không tìm thấy chủ đề" copy="Thử dùng từ khóa khác hoặc bỏ bớt bộ lọc." />
+            )}
+            {!loading &&
+              items.map((t) => (
+                <article className="topic-row" key={t.id} style={{ cursor: "pointer" }} onClick={() => navigate(`/forum/topics/${t.id}`)}>
+                  <div className={`topic-type ${t.type === "RESOURCE" ? "resource" : ""}`}>
+                    <Icon name={t.type === "RESOURCE" ? "file" : "forum"} />
+                  </div>
+                  <div className="topic-main">
+                    <div>
+                      <span>{TYPE_LABEL[t.type] || t.type}</span>
+                      {(t.faculty || t.category) && <span>{t.faculty || t.category}</span>}
+                    </div>
+                    <h3>{t.title}</h3>
+                    <p>{t.authorName} · {timeAgo(t.createdAt)}</p>
+                  </div>
+                  <div className="topic-stats">
+                    <strong>{t.type === "RESOURCE" ? "Tệp" : t.replyCount}</strong>
+                    <span>{t.type === "RESOURCE" ? "Đính kèm" : "Trả lời"}</span>
+                  </div>
+                  <Icon name="chevron" />
+                </article>
+              ))}
+          </div>
+          {data && data.totalPages > 1 && (
+            <div className="pager">
+              <Button variant="secondary" disabled={page === 0} onClick={() => setPage(page - 1)}>Trang trước</Button>
+              <span>Trang {page + 1}/{data.totalPages}</span>
+              <Button variant="secondary" disabled={page + 1 >= data.totalPages} onClick={() => setPage(page + 1)}>Trang sau</Button>
+            </div>
+          )}
+        </main>
+        <aside className="forum-aside">
+          <section className="panel">
+            <h3>Khám phá theo khoa</h3>
+            {(taxonomy?.faculties || []).length === 0 && <p className="aside-empty">Chưa có khoa nào.</p>}
+            {(taxonomy?.faculties || []).map((f, i) => (
+              <button key={f.id} onClick={() => { setFaculty(String(f.id) === String(faculty) ? "" : String(f.id)); setPage(0) }}>
+                <span className={`faculty f${i % 4}`}>{f.name[0]}</span>
+                <span style={{ fontWeight: String(f.id) === String(faculty) ? 700 : 400 }}>{f.name}</span>
+                <Icon name="chevron" />
+              </button>
+            ))}
+            {facultyName && <p className="aside-empty" style={{ marginTop: 8 }}>Đang lọc theo: {facultyName}</p>}
+          </section>
+          <section className="rule-card">
+            <Icon name="check" />
+            <div>
+              <h3>Quy định cộng đồng</h3>
+              <p>Viết tiêu đề rõ ràng, ghi nguồn tài liệu và trao đổi tôn trọng.</p>
+            </div>
+          </section>
+        </aside>
+      </div>
+      {topicId && <TopicDetail topicId={topicId} meId={user?.userId} onClose={() => navigate("/forum")} onChanged={reload} />}
+      {creating && (
+        <NewTopicModal
+          taxonomy={taxonomy}
+          onClose={() => setCreating(false)}
+          onCreated={(created) => {
+            setCreating(false)
+            reload()
+            if (created?.id) navigate(`/forum/topics/${created.id}`)
+          }}
+        />
+      )}
     </div>
   )
 }

@@ -1,28 +1,26 @@
-import React from 'react'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { AuthProvider } from './context/AuthContext'
-import { SocketProvider } from './context/SocketContext'
-import ProtectedRoute from './components/ProtectedRoute'
-import LoadingState from './components/LoadingState'
+import React from "react"
+import { BrowserRouter, Navigate, Route, Routes, useParams } from "react-router-dom"
+import { AuthProvider } from "./context/AuthContext"
+import { SocketProvider } from "./context/SocketContext"
+import ProtectedRoute from "./components/ProtectedRoute"
+import Layout from "./components/Layout"
+import LoginPage from "./pages/LoginPage"
+import RegisterPage from "./pages/RegisterPage"
+import ForgotPasswordPage from "./pages/ForgotPasswordPage"
+import FeedPage from "./pages/FeedPage"
+import MessagesPage from "./pages/MessagesPage"
+import ForumPage from "./pages/ForumPage"
+import EventsPage from "./pages/EventsPage"
+import FriendsPage from "./pages/FriendsPage"
+import GroupsPage from "./pages/GroupsPage"
+import VideoPage from "./pages/VideoPage"
+import SavedPage from "./pages/SavedPage"
+import NotificationsPage from "./pages/NotificationsPage"
+import ProfilePage from "./pages/ProfilePage"
+import AdminPage from "./pages/AdminPage"
 
-import LoginPage from './pages/LoginPage'
-import RegisterPage from './pages/RegisterPage'
-import ForgotPasswordPage from './pages/ForgotPasswordPage'
-import MainLayout from './pages/MainLayout'
-import EmptyChatPage from './pages/EmptyChatPage'
-import ChatWindow from './pages/ChatWindow'
-import FriendsPage from './pages/FriendsPage'
-import ProfilePage from './pages/ProfilePage'
-import FeedPage from './pages/FeedPage'
-import EventsPage from './pages/EventsPage'
-import AdminDashboardPage from './pages/admin/AdminDashboardPage'
-import GroupsPage from './pages/GroupsPage'
-import GroupDetailPage from './pages/GroupDetailPage'
-import NotificationsPage from './pages/NotificationsPage'
-import ForumPage from './pages/ForumPage'
-
-const VideosPage = React.lazy(() => import('./pages/VideosPage'))
-const SavedPage = React.lazy(() => import('./pages/SavedPage'))
+const ChatRedirect = () => <Navigate to={`/messages/${useParams().conversationId}`} replace />
+const ProfileRedirect = () => <Navigate to={`/profile/${useParams().profileUserId}`} replace />
 
 export default function App() {
   return (
@@ -33,57 +31,24 @@ export default function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-
-            <Route
-              path="/admin"
-              element={
-                <ProtectedRoute adminOnly>
-                  <AdminDashboardPage />
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="/"
-              element={
-                <ProtectedRoute>
-                  <MainLayout />
-                </ProtectedRoute>
-              }
-            >
+            <Route path="/admin" element={<ProtectedRoute adminOnly><AdminPage /></ProtectedRoute>} />
+            <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
               <Route index element={<Navigate to="/feed" replace />} />
-              <Route path="messages" element={<EmptyChatPage />} />
               <Route path="feed" element={<FeedPage />} />
-              <Route path="video" element={<React.Suspense fallback={<main className="video-page"><LoadingState label="Đang mở video..." /></main>}><VideosPage /></React.Suspense>} />
-              <Route path="saved" element={<React.Suspense fallback={<main className="saved-page"><LoadingState label="Đang tải nội dung đã lưu..." /></main>}><SavedPage /></React.Suspense>} />
-              <Route path="events" element={<EventsPage />} />
-              <Route path="events/:eventId" element={<EventsPage />} />
-              <Route path="groups" element={<GroupsPage />} />
-              <Route path="groups/:groupId" element={<GroupDetailPage />} />
-              <Route path="notifications" element={<NotificationsPage />} />
-              <Route path="forum" element={<ForumPage />} />
-              <Route path="forum/rules" element={<ForumPage />} />
-              <Route path="forum/categories" element={<ForumPage />} />
-              <Route path="forum/categories/:categoryId" element={<ForumPage />} />
-              <Route path="forum/faculties/:facultyId" element={<ForumPage />} />
-              <Route path="forum/majors/:majorId" element={<ForumPage />} />
-              <Route path="forum/courses" element={<ForumPage />} />
-              <Route path="forum/courses/:courseId" element={<ForumPage />} />
-              <Route path="forum/topics/:topicId" element={<ForumPage />} />
-              <Route path="forum/new" element={<ForumPage />} />
-              <Route path="forum/share-resource" element={<ForumPage />} />
-              <Route path="forum/search" element={<ForumPage />} />
-              <Route path="forum/admin" element={<ForumPage />} />
-              <Route path="forum/moderation" element={<ForumPage />} />
-              <Route path="feed/profile" element={<ProfilePage />} />
-              <Route path="feed/profile/:profileUserId" element={<ProfilePage />} />
-              <Route path="chat/:conversationId" element={<ChatWindow />} />
-              <Route path="friends/suggestions" element={<FriendsPage />} />
+              <Route path="messages/:conversationId?" element={<MessagesPage />} />
+              <Route path="forum/*" element={<ForumPage />} />
               <Route path="friends" element={<FriendsPage />} />
-              <Route path="message-requests" element={<Navigate to="/messages" replace />} />
-              <Route path="profile" element={<Navigate to="/feed/profile" replace />} />
+              <Route path="groups/:groupId?" element={<GroupsPage />} />
+              <Route path="video" element={<VideoPage />} />
+              <Route path="events/:eventId?" element={<EventsPage />} />
+              <Route path="saved" element={<SavedPage />} />
+              <Route path="notifications" element={<NotificationsPage />} />
+              <Route path="profile" element={<ProfilePage />} />
+              <Route path="profile/:profileUserId" element={<ProfilePage />} />
+              <Route path="feed/profile" element={<Navigate to="/profile" replace />} />
+              <Route path="feed/profile/:profileUserId" element={<ProfileRedirect />} />
+              <Route path="chat/:conversationId" element={<ChatRedirect />} />
             </Route>
-
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </BrowserRouter>
