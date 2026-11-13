@@ -1,377 +1,198 @@
-import React, { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { friendApi } from '../api/friendApi'
-import { groupApi } from '../api/groupApi'
-import { conversationApi } from '../api/conversationApi'
-import { notificationApi } from '../api/notificationApi'
-import Avatar from '../components/Avatar'
-import ErrorState from '../components/ErrorState'
-import LoadingState from '../components/LoadingState'
-import { BellIcon, CalendarIcon, ChatIcon, CheckIcon, CommentIcon, FriendsIcon, GroupIcon } from '../components/Icons'
-import './NotificationsPage.styles.css'
+import React, { useCallback, useEffect, useMemo, useState } from "react"
+import { useNavigate } from "react-router-dom"
+import { Icon } from "../components/Icon"
+import { Avatar, Button, EmptyState, ErrorBlock, Loading, useToast } from "../components/ui"
+import { notificationApi } from "../api/notificationApi"
+import { friendApi } from "../api/friendApi"
+import { groupApi } from "../api/groupApi"
+import { conversationApi } from "../api/conversationApi"
+import { getApiErrorMessage } from "../utils/apiError"
+import { dayLabel, timeAgo } from "../utils/format"
 
-function formatNotificationDate(value) {
-  if (!value) return ''
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return ''
-  return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+const iconFor = (item) => {
+  if (item.type === "friend") return "users"
+  if (item.type === "group") return "group"
+  const t = item.notification.type || ""
+  if (t === "MESSAGE") return "comment"
+  if (t.startsWith("EVENT_")) return "calendar"
+  if (t === "FRIEND_REQUEST_ACCEPTED") return "users"
+  if (t === "POST_SHARED") return "share"
+  if (t === "POST_REACTION") return "heart"
+  return "bell"
 }
 
-function getNotificationDateGroup(value) {
-  const date = value ? new Date(value) : null
-  if (!date || Number.isNaN(date.getTime())) return 'Trước đó'
+const isFriendish = (i) => i.type === "friend" || (i.type === "activity" && i.notification.type === "FRIEND_REQUEST_ACCEPTED")
+const isMessage = (i) => i.type === "activity" && i.notification.type === "MESSAGE"
+const isEvent = (i) => i.type === "activity" && String(i.notification.type).startsWith("EVENT_")
+const isActivity = (i) => i.type === "activity" && !isFriendish(i) && !isMessage(i) && !isEvent(i)
 
-  const now = new Date()
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
-  const startOfDate = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime()
-  const daysAgo = Math.round((startOfToday - startOfDate) / 86400000)
-
-  if (daysAgo === 0) return 'Hôm nay'
-  if (daysAgo === 1) return 'Hôm qua'
-  return 'Trước đó'
-}
-
-function getGroupNotificationMessage(notification) {
-  // Một số thông báo cũ trong database có thể đã lưu dấu tiếng Việt thành dấu '?'.
-  // Dựa vào loại thông báo để hiển thị lại câu chuẩn mà không cần sửa/xóa dữ liệu cũ.
-  const knownMessages = {
-    JOIN_REQUEST: 'Có yêu cầu tham gia nhóm mới',
-    MEMBER_JOINED: 'Một thành viên mới đã tham gia nhóm',
-    REACTION: 'Có cảm xúc mới trên bài viết của bạn',
-    COMMENT: 'Có bình luận mới trên bài viết của bạn',
-    ROLE_CHANGED: 'Vai trò của bạn trong nhóm đã được cập nhật',
-    BANNED: 'Bạn đã bị cấm khỏi nhóm',
-    REMOVED: 'Bạn đã bị xóa khỏi nhóm',
-    REPORT: 'Có nội dung mới được báo cáo',
-  }
-  const message = notification?.message || ''
-  if (knownMessages[notification?.type] && (notification.type === 'JOIN_REQUEST' || message.includes('?'))) {
-    return knownMessages[notification.type]
-  }
-  return message
-}
-
-function NotificationMark({ type }) {
-  const Icon = type === 'friend' ? FriendsIcon : type === 'message' ? ChatIcon : type === 'event' ? CalendarIcon : type === 'post' ? CommentIcon : GroupIcon
-  return <span className={`notifications-mark notifications-mark--${type}`} aria-hidden="true"><Icon size="1em" /></span>
-}
+const CATEGORIES = [
+  ["all", "Tất cả", () => true],
+  ["friend", "Kết bạn", isFriendish],
+  ["group", "Nhóm", (i) => i.type === "group"],
+  ["activity", "Bài viết", isActivity],
+  ["message", "Tin nhắn", isMessage],
+  ["event", "Sự kiện", isEvent],
+]
 
 export default function NotificationsPage() {
   const navigate = useNavigate()
-  const [friendRequests, setFriendRequests] = useState([])
-  const [groupNotifications, setGroupNotifications] = useState([])
-  const [activityNotifications, setActivityNotifications] = useState([])
-  const [tab, setTab] = useState('all')
-  const [category, setCategory] = useState('all')
+  const toast = useToast()
+  const [data, setData] = useState({ friends: [], groups: [], activities: [] })
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [actionError, setActionError] = useState('')
-  const [menuOpen, setMenuOpen] = useState(false)
+  const [error, setError] = useState("")
+  const [category, setCategory] = useState("all")
+  const [unreadOnly, setUnreadOnly] = useState(false)
   const [busyId, setBusyId] = useState(null)
+  const badge = () => window.dispatchEvent(new Event("cmctalk-notifications-updated"))
 
-  const loadNotifications = () => {
-    setError('')
+  const load = useCallback(() => {
     Promise.all([friendApi.received(), groupApi.notifications(), notificationApi.list()])
-      .then(([friends, groups, activities]) => {
-        setFriendRequests(friends.data || [])
-        setGroupNotifications(groups.data || [])
-        setActivityNotifications(activities.data || [])
-      })
-      .catch((err) => setError(err.response?.data?.message || 'Không thể tải thông báo. Vui lòng thử lại.'))
+      .then(([f, g, a]) => { setData({ friends: f.data || [], groups: g.data || [], activities: a.data || [] }); setError("") })
+      .catch((e) => setError(getApiErrorMessage(e, "Không thể tải thông báo. Vui lòng thử lại.")))
       .finally(() => setLoading(false))
-  }
-
-  useEffect(() => { loadNotifications() }, [])
+  }, [])
+  useEffect(() => { load() }, [load])
 
   const items = useMemo(() => [
-    ...activityNotifications.map((notification) => ({
-      id: `activity-${notification.id}`,
-      type: 'activity',
-      createdAt: notification.createdAt,
-      unread: !notification.read,
-      notification,
-    })),
-    ...friendRequests.map((request) => ({
-      id: `friend-${request.id}`,
-      type: 'friend',
-      createdAt: request.createdAt,
-      unread: true,
-      request,
-    })),
-    ...groupNotifications.map((notification) => ({
-      id: `group-${notification.id}`,
-      type: 'group',
-      createdAt: notification.createdAt,
-      unread: !notification.read,
-      notification,
-    })),
-  ].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)), [activityNotifications, friendRequests, groupNotifications])
+    ...data.activities.map((n) => ({ id: `a${n.id}`, type: "activity", createdAt: n.createdAt, unread: !n.read, notification: n })),
+    ...data.friends.map((r) => ({ id: `f${r.id}`, type: "friend", createdAt: r.createdAt, unread: true, request: r })),
+    ...data.groups.map((n) => ({ id: `g${n.id}`, type: "group", createdAt: n.createdAt, unread: !n.read, notification: n })),
+  ].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)), [data])
 
-  const categoryItems = category === 'all'
-    ? items
-    : category === 'friend'
-      ? items.filter((item) => item.type === 'friend' || (item.type === 'activity' && item.notification.type === 'FRIEND_REQUEST_ACCEPTED'))
-      : category === 'activity'
-        ? items.filter((item) => item.type === 'activity' && !['FRIEND_REQUEST_ACCEPTED', 'MESSAGE'].includes(item.notification.type) && !String(item.notification.type).startsWith('EVENT_'))
-        : category === 'message'
-          ? items.filter((item) => item.type === 'activity' && item.notification.type === 'MESSAGE')
-          : category === 'event'
-            ? items.filter((item) => item.type === 'activity' && String(item.notification.type).startsWith('EVENT_'))
-            : items.filter((item) => item.type === category)
-  const visibleItems = (tab === 'unread' ? categoryItems.filter((item) => item.unread) : categoryItems)
-  const unreadCount = items.filter((item) => item.unread).length
-  const friendCount = items.filter((item) => item.unread && (item.type === 'friend' || (item.type === 'activity' && item.notification.type === 'FRIEND_REQUEST_ACCEPTED'))).length
-  const groupCount = items.filter((item) => item.type === 'group' && item.unread).length
-  const activityCount = items.filter((item) => item.type === 'activity' && !['FRIEND_REQUEST_ACCEPTED', 'MESSAGE'].includes(item.notification.type) && !String(item.notification.type).startsWith('EVENT_') && item.unread).length
-  const messageCount = items.filter((item) => item.type === 'activity' && item.notification.type === 'MESSAGE' && item.unread).length
-  const eventCount = items.filter((item) => item.type === 'activity' && String(item.notification.type).startsWith('EVENT_') && item.unread).length
-  const categoryFilters = [
-    { id: 'all', label: 'Tất cả thông báo', icon: <BellIcon size="1em" />, count: unreadCount },
-    { id: 'friend', label: 'Lời mời kết bạn', icon: <FriendsIcon size="1em" />, count: friendCount },
-    { id: 'group', label: 'Hoạt động nhóm', icon: <GroupIcon size="1em" />, count: groupCount },
-    { id: 'activity', label: 'Hoạt động bài viết', icon: <FriendsIcon size="1em" />, count: activityCount },
-    { id: 'message', label: 'Tin nhắn', icon: <BellIcon size="1em" />, count: messageCount },
-    { id: 'event', label: 'Sự kiện', icon: <GroupIcon size="1em" />, count: eventCount },
-  ]
-  const groupedItems = useMemo(() => {
-    const groups = new Map()
-    visibleItems.forEach((item) => {
-      const label = getNotificationDateGroup(item.createdAt)
-      if (!groups.has(label)) groups.set(label, [])
-      groups.get(label).push(item)
+  const filter = CATEGORIES.find((c) => c[0] === category)[2]
+  const visible = items.filter(filter).filter((i) => !unreadOnly || i.unread)
+  const unreadCount = items.filter((i) => i.unread).length
+  const groupedByDay = useMemo(() => {
+    const map = new Map()
+    visible.forEach((i) => {
+      const label = dayLabel(i.createdAt) || "Trước đó"
+      if (!map.has(label)) map.set(label, [])
+      map.get(label).push(i)
     })
-    return [...groups.entries()]
-  }, [visibleItems])
+    return [...map.entries()]
+  }, [visible])
 
-  const respondToFriendRequest = async (request, accept) => {
-    setBusyId(`friend-${request.id}`)
-    setActionError('')
-    try {
-      if (accept) {
-        await friendApi.accept(request.id)
-        setFriendRequests((current) => current.filter((item) => item.id !== request.id))
-        window.dispatchEvent(new Event('cmctalk-conversations-updated'))
-        window.dispatchEvent(new Event('cmctalk-notifications-updated'))
-        try {
-          const { data } = await conversationApi.getOrCreatePrivate(request.senderId)
-          navigate(`/chat/${data.conversationId}`)
-        } catch (err) {
-          setActionError(err.response?.data?.message || 'Lời mời đã được chấp nhận nhưng không thể mở cuộc trò chuyện.')
-        }
-      } else {
-        await friendApi.reject(request.id)
-        setFriendRequests((current) => current.filter((item) => item.id !== request.id))
-        window.dispatchEvent(new Event('cmctalk-notifications-updated'))
-      }
-    } catch (err) {
-      setActionError(err.response?.data?.message || 'Không thể xử lý lời mời. Vui lòng thử lại.')
-    } finally {
-      setBusyId(null)
-    }
+  const run = async (id, fn, fallback) => {
+    setBusyId(id)
+    try { await fn() } catch (e) { toast(getApiErrorMessage(e, fallback), "error") } finally { setBusyId(null) }
   }
 
-  const markRead = async (notification) => {
-    if (notification.read) {
-      navigate(`/groups/${notification.groupId}`)
-      return
-    }
-    setBusyId(`group-${notification.id}`)
-    setActionError('')
-    try {
-      await groupApi.markNotificationRead(notification.id)
-      setGroupNotifications((current) => current.map((item) => item.id === notification.id ? { ...item, read: true } : item))
-      window.dispatchEvent(new Event('cmctalk-notifications-updated'))
-      navigate(`/groups/${notification.groupId}`)
-    } catch (err) {
-      setActionError(err.response?.data?.message || 'Không thể cập nhật thông báo. Vui lòng thử lại.')
-    } finally {
-      setBusyId(null)
-    }
-  }
+  const respondFriend = (r, accept) => run(`f${r.id}`, async () => {
+    if (accept) {
+      await friendApi.accept(r.id)
+      try { await conversationApi.getOrCreatePrivate(r.senderId) } catch { /* không bắt buộc */ }
+      window.dispatchEvent(new Event("cmctalk-conversations-updated"))
+      toast("Đã chấp nhận lời mời kết bạn.")
+    } else await friendApi.reject(r.id)
+    setData((d) => ({ ...d, friends: d.friends.filter((x) => x.id !== r.id) }))
+    badge()
+  }, "Không thể xử lý lời mời kết bạn.")
 
-  const respondToGroupInvite = async (notification, approved) => {
-    setBusyId(`group-${notification.id}`)
-    setActionError('')
-    try {
-      await groupApi.respondInvite(notification.referenceId, approved)
-      setGroupNotifications((current) => current.filter((item) => item.id !== notification.id))
-      window.dispatchEvent(new Event('cmctalk-notifications-updated'))
-    } catch (err) {
-      setActionError(err.response?.data?.message || 'Không thể xử lý lời mời vào nhóm. Vui lòng thử lại.')
-    } finally {
-      setBusyId(null)
+  const openGroup = (n) => run(`g${n.id}`, async () => {
+    if (!n.read) {
+      await groupApi.markNotificationRead(n.id)
+      setData((d) => ({ ...d, groups: d.groups.map((x) => (x.id === n.id ? { ...x, read: true } : x)) }))
+      badge()
     }
-  }
+    navigate(`/groups/${n.groupId}`)
+  }, "Không thể cập nhật thông báo.")
 
-  const markAllRead = async () => {
-    const unreadGroups = groupNotifications.filter((item) => !item.read)
-    setBusyId('mark-all')
-    setActionError('')
-    try {
-      await Promise.all([
-        ...unreadGroups.map((item) => groupApi.markNotificationRead(item.id)),
-        notificationApi.markAllRead(),
-      ])
-      setGroupNotifications((current) => current.map((item) => ({ ...item, read: true })))
-      setActivityNotifications((current) => current.map((item) => ({ ...item, read: true })))
-      window.dispatchEvent(new Event('cmctalk-notifications-updated'))
-      setMenuOpen(false)
-    } catch (err) {
-      setActionError(err.response?.data?.message || 'Không thể đánh dấu thông báo đã đọc. Vui lòng thử lại.')
-    } finally {
-      setBusyId(null)
+  const respondInvite = (n, approved) => run(`g${n.id}`, async () => {
+    await groupApi.respondInvite(n.referenceId, approved)
+    setData((d) => ({ ...d, groups: d.groups.filter((x) => x.id !== n.id) }))
+    badge()
+    toast(approved ? "Đã tham gia nhóm." : "Đã từ chối lời mời.")
+  }, "Không thể xử lý lời mời vào nhóm.")
+
+  const openActivity = (n) => run(`a${n.id}`, async () => {
+    if (!n.read) {
+      await notificationApi.markRead(n.id)
+      setData((d) => ({ ...d, activities: d.activities.map((x) => (x.id === n.id ? { ...x, read: true } : x)) }))
+      badge()
     }
-  }
+    if (n.referenceType === "USER" && n.actorId) navigate(`/profile/${n.actorId}`)
+    else if (n.referenceType === "POST") navigate(`/feed?postId=${n.referenceId || ""}`)
+    else if (n.referenceType === "CONVERSATION" && n.referenceId) navigate(`/messages/${n.referenceId}`)
+    else if (n.referenceType === "EVENT" && n.referenceId) navigate(`/events/${n.referenceId}`)
+    else if (n.actorId) navigate(`/profile/${n.actorId}`)
+  }, "Không thể mở thông báo.")
+
+  const removeActivity = (n) => run(`a${n.id}`, async () => {
+    await notificationApi.remove(n.id)
+    setData((d) => ({ ...d, activities: d.activities.filter((x) => x.id !== n.id) }))
+    badge()
+  }, "Không thể xóa thông báo.")
+
+  const markAll = () => run("all", async () => {
+    await Promise.all([...data.groups.filter((g) => !g.read).map((g) => groupApi.markNotificationRead(g.id)), notificationApi.markAllRead()])
+    load(); badge()
+  }, "Không thể đánh dấu đã đọc.")
 
   return (
-    <main className="notifications-page">
-      <div className="notifications-content">
-        <div className="notifications-layout">
-          <aside className="notifications-sidebar">
-            <header className="notifications-sidebar-heading">
-              <span className="notifications-sidebar-icon" aria-hidden="true"><BellIcon size="1em" /></span>
-              <div><h1>Thông báo</h1><p>Theo dõi các hoạt động mới nhất trên CMC Talk.</p></div>
-            </header>
-            <nav aria-label="Lọc theo loại thông báo">
-              {categoryFilters.map((filter) => (
-                <button key={filter.id} type="button" className={category === filter.id ? 'active' : ''} onClick={() => { setCategory(filter.id); setTab('all') }}>
-                  <span className="notifications-filter-icon" aria-hidden="true">{filter.icon}</span>
-                  <span>{filter.label}</span><small>{filter.count}</small>
-                </button>
-              ))}
-              <button type="button" className={tab === 'unread' ? 'active' : ''} onClick={() => setTab((current) => current === 'unread' ? 'all' : 'unread')}>
-                <span className="notifications-filter-icon" aria-hidden="true">●</span>
-                <span>Chưa đọc</span><small>{unreadCount}</small>
-              </button>
-            </nav>
-          </aside>
-
-          <section className="notifications-main">
-            <div className="notifications-panel">
-              <header className="notifications-list-header">
-                <h2>{tab === 'unread' ? 'Chưa đọc' : category === 'friend' ? 'Lời mời kết bạn' : category === 'group' ? 'Hoạt động nhóm' : category === 'activity' ? 'Hoạt động bài viết' : category === 'message' ? 'Tin nhắn' : category === 'event' ? 'Sự kiện' : 'Tất cả thông báo'}</h2>
-                <div className="notifications-list-header-actions">
-                  <span className="notifications-count">{visibleItems.length}</span>
-                  <button type="button" className="notifications-mark-all" disabled={busyId === 'mark-all' || (!groupNotifications.some((item) => !item.read) && !activityNotifications.some((item) => !item.read))} onClick={markAllRead}>
-                    <CheckIcon size="1em" /><span>Đánh dấu tất cả đã đọc</span>
-                  </button>
-                  <div className="notifications-menu-wrap">
-                    <button type="button" className="notifications-menu-trigger" aria-label="Tùy chọn thông báo" aria-expanded={menuOpen} onClick={() => setMenuOpen((open) => !open)}>···</button>
-                    {menuOpen && <div className="notifications-menu">
-                      <button type="button" disabled={busyId === 'mark-all' || (!groupNotifications.some((item) => !item.read) && !activityNotifications.some((item) => !item.read))} onClick={markAllRead}>Đánh dấu tất cả đã đọc</button>
-                      <button type="button" onClick={() => { setMenuOpen(false); window.dispatchEvent(new Event('cmctalk-open-settings')) }}>Cài đặt thông báo</button>
-                    </div>}
-                  </div>
-                </div>
-              </header>
-
-              {actionError && <div className="notifications-action-error" role="alert">{actionError}</div>}
-              {loading && <div className="notifications-state"><LoadingState label="Đang tải thông báo..." /></div>}
-              {!loading && error && <div className="notifications-state"><ErrorState title="Không tải được thông báo" message={error} onRetry={() => { setLoading(true); loadNotifications() }} /></div>}
-              {!loading && !error && visibleItems.length === 0 && (
-                <div className="notifications-empty">
-                  <CheckIcon size="1em" />
-                  <strong>{tab === 'unread' ? 'Bạn đã xem hết thông báo mới' : 'Chưa có thông báo nào'}</strong>
-                  <p>Khi có lời mời kết bạn, lượt tương tác với bài viết hoặc hoạt động nhóm liên quan đến bạn, thông báo sẽ xuất hiện ở đây.</p>
-                </div>
-              )}
-
-              {!loading && !error && visibleItems.length > 0 && (
-                <section className="notifications-list" aria-label="Danh sách thông báo">
-            {groupedItems.map(([dateLabel, group]) => (
-              <div className="notifications-date-group" key={dateLabel}>
-                <h3>{dateLabel}</h3>
-                {group.map((item) => {
-              if (item.type === 'friend') {
-                const request = item.request
-                const busy = busyId === item.id
-                return (
-                  <article className={`notification-card ${item.unread ? 'is-unread' : ''}`} key={item.id}>
-                    <div className="notification-identity">
-                      <Avatar src={request.senderAvatar} name={request.senderDisplayName} size={42} />
-                      <NotificationMark type="friend" />
-                    </div>
-                    <div className="notification-copy">
-                      <p><strong>{request.senderDisplayName}</strong> đã gửi cho bạn lời mời kết bạn.</p>
-                      <time>{formatNotificationDate(request.createdAt)}</time>
-                      <div className="notification-actions">
-                        <button type="button" className="ui-button ui-button--primary notification-accept" disabled={busy} onClick={() => respondToFriendRequest(request, true)}>Xác nhận</button>
-                        <button type="button" className="ui-button ui-button--quiet notification-dismiss" disabled={busy} onClick={() => respondToFriendRequest(request, false)}>Xóa</button>
-                      </div>
-                    </div>
-                    {item.unread && <span className="notification-unread-dot" aria-label="Chưa đọc" />}
-                  </article>
-                )
-              }
-
-              const notification = item.notification
+    <div className="notifications-page">
+      <header className="page-title-row">
+        <div><h1>Thông báo</h1><p>Theo dõi các hoạt động mới nhất trên CMC Talk.</p></div>
+        <Button variant="secondary" disabled={unreadCount === 0 || busyId === "all"} onClick={markAll}>Đánh dấu tất cả đã đọc</Button>
+      </header>
+      <div className="notification-tabs">
+        {CATEGORIES.map(([key, label, fn]) => {
+          const n = items.filter((i) => i.unread && fn(i)).length
+          return <button key={key} className={category === key ? "active" : ""} onClick={() => setCategory(key)}>{label}{n > 0 ? ` (${n})` : ""}</button>
+        })}
+        <button className={`unread-toggle ${unreadOnly ? "active" : ""}`} onClick={() => setUnreadOnly(!unreadOnly)}>Chưa đọc</button>
+      </div>
+      <div className="notification-list">
+        {loading && <Loading label="Đang tải thông báo..." />}
+        {error && <ErrorBlock message={error} onRetry={() => { setLoading(true); load() }} />}
+        {!loading && !error && visible.length === 0 && <EmptyState title={unreadOnly ? "Bạn đã xem hết thông báo mới" : "Chưa có thông báo nào"} copy="Thông báo mới sẽ xuất hiện tại đây." icon="bell" />}
+        {groupedByDay.map(([label, list]) => (
+          <div key={label}>
+            <h3 className="notif-day">{label}</h3>
+            {list.map((item) => {
               const busy = busyId === item.id
-              if (item.type === 'activity') {
-                const actorName = notification.actorDisplayName || notification.actorUsername || 'Một người dùng';
-                const openActivity = async () => {
-                  setBusyId(item.id)
-                  setActionError('')
-                  try {
-                    if (!notification.read) {
-                      await notificationApi.markRead(notification.id)
-                      setActivityNotifications((current) => current.map((entry) => entry.id === notification.id ? { ...entry, read: true } : entry))
-                      window.dispatchEvent(new Event('cmctalk-notifications-updated'))
-                    }
-                    if (notification.referenceType === 'USER' && notification.actorId) navigate(`/feed/profile/${notification.actorId}`)
-                    else if (notification.referenceType === 'POST') navigate(`/feed?postId=${notification.referenceId || ''}`)
-                    else if (notification.referenceType === 'CONVERSATION' && notification.referenceId) navigate(`/chat/${notification.referenceId}`)
-                    else if (notification.referenceType === 'EVENT' && notification.referenceId) navigate(`/events/${notification.referenceId}`)
-                    else if (notification.actorId) navigate(`/feed/profile/${notification.actorId}`)
-                  } catch (err) {
-                    setActionError(err.response?.data?.message || 'Không thể mở thông báo. Vui lòng thử lại.')
-                  } finally { setBusyId(null) }
-                }
-                const removeActivity = async (event) => {
-                  event.stopPropagation()
-                  setBusyId(item.id)
-                  try {
-                    await notificationApi.remove(notification.id)
-                    setActivityNotifications((current) => current.filter((entry) => entry.id !== notification.id))
-                    window.dispatchEvent(new Event('cmctalk-notifications-updated'))
-                  } catch (err) { setActionError(err.response?.data?.message || 'Không thể xóa thông báo.') }
-                  finally { setBusyId(null) }
-                }
+              if (item.type === "friend") {
+                const r = item.request
                 return (
-                  <article className={`notification-card notification-card--clickable ${item.unread ? 'is-unread' : ''}`} key={item.id} role="button" tabIndex={0} onClick={openActivity} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openActivity() } }}>
-                    <div className="notification-identity"><Avatar src={notification.actorAvatar} name={actorName} size={42} /><NotificationMark type={notification.type === 'MESSAGE' ? 'message' : String(notification.type).startsWith('EVENT_') ? 'event' : notification.type === 'FRIEND_REQUEST_ACCEPTED' ? 'friend' : 'post'} /></div>
-                    <div className="notification-copy"><p><strong>{actorName}</strong> {notification.message}</p><time>{formatNotificationDate(notification.createdAt)}</time></div>
-                    <button type="button" className="notification-remove" aria-label="Xóa thông báo" disabled={busy} onClick={removeActivity}>×</button>
-                    {item.unread && <span className="notification-unread-dot" aria-label="Chưa đọc" />}
-                  </article>
+                  <div className="notif-request unread" key={item.id}>
+                    <span className="note-avatar"><Avatar name={r.senderDisplayName} src={r.senderAvatar} /><i><Icon name="users" size={14} /></i></span>
+                    <span><strong>{r.senderDisplayName}</strong><p>đã gửi cho bạn lời mời kết bạn · {timeAgo(r.createdAt)}</p></span>
+                    <Button disabled={busy} onClick={() => respondFriend(r, true)}>Xác nhận</Button>
+                    <Button variant="secondary" disabled={busy} onClick={() => respondFriend(r, false)}>Xóa</Button>
+                  </div>
                 )
               }
-              const isInvite = notification.type === 'INVITE'
-              return (
-                <article className={`notification-card ${item.unread ? 'is-unread' : ''}`} key={item.id}>
-                  <NotificationMark type="group" />
-                  <div className="notification-copy">
-                    <p><strong>{notification.groupName}</strong> {getGroupNotificationMessage(notification)}</p>
-                    <time>{formatNotificationDate(notification.createdAt)}</time>
-                    {isInvite && (
-                      <div className="notification-actions">
-                        <button type="button" className="ui-button ui-button--primary notification-accept" disabled={busy} onClick={() => respondToGroupInvite(notification, true)}>Tham gia</button>
-                        <button type="button" className="ui-button ui-button--quiet notification-dismiss" disabled={busy} onClick={() => respondToGroupInvite(notification, false)}>Từ chối</button>
-                      </div>
+              if (item.type === "group") {
+                const n = item.notification
+                const invite = n.type === "INVITE"
+                return (
+                  <div className={`notif-request ${item.unread ? "unread" : ""}`} key={item.id}>
+                    <span className="note-avatar"><Avatar name={n.groupName} /><i><Icon name="group" size={14} /></i></span>
+                    <span style={{ cursor: invite ? "default" : "pointer" }} onClick={() => !invite && openGroup(n)}><strong>{n.groupName}</strong><p>{n.message} · {timeAgo(n.createdAt)}</p></span>
+                    {invite ? (
+                      <>
+                        <Button disabled={busy} onClick={() => respondInvite(n, true)}>Tham gia</Button>
+                        <Button variant="secondary" disabled={busy} onClick={() => respondInvite(n, false)}>Từ chối</Button>
+                      </>
+                    ) : (
+                      <Button variant="secondary" disabled={busy} onClick={() => openGroup(n)}>Xem nhóm</Button>
                     )}
                   </div>
-                  {!isInvite && <button type="button" className="notification-open" disabled={busy} onClick={() => markRead(notification)}>Mở nhóm</button>}
-                  {item.unread && <span className="notification-unread-dot" aria-label="Chưa đọc" />}
-                </article>
+                )
+              }
+              const n = item.notification
+              return (
+                <button className={item.unread ? "unread" : ""} key={item.id} disabled={busy} onClick={() => openActivity(n)}>
+                  <span className="note-avatar"><Avatar name={n.actorDisplayName || n.actorUsername} src={n.actorAvatar} /><i><Icon name={iconFor(item)} size={14} /></i></span>
+                  <span><strong>{n.message}</strong><small>{timeAgo(n.createdAt)}</small></span>
+                  {item.unread && <em />}
+                  <span className="notif-del" role="button" tabIndex={0} aria-label="Xóa thông báo" onClick={(e) => { e.stopPropagation(); removeActivity(n) }}><Icon name="close" size={16} /></span>
+                </button>
               )
-                })}
-              </div>
-            ))}
-                </section>
-              )}
-            </div>
-          </section>
-        </div>
+            })}
+          </div>
+        ))}
       </div>
-    </main>
+    </div>
   )
 }

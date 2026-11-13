@@ -1,304 +1,232 @@
-import React, { useEffect, useMemo, useState } from 'react'
-import './EventsPage.styles.css'
-import { Link, useNavigate, useParams } from 'react-router-dom'
-import Avatar from '../components/Avatar'
-import EmptyState from '../components/EmptyState'
-import LoadingState from '../components/LoadingState'
-import ErrorState from '../components/ErrorState'
-import { ArrowLeftIcon, CalendarIcon, FriendsIcon, GlobeIcon, LocationPinIcon, LockIcon } from '../components/Icons'
-import { eventApi } from '../api/eventApi'
-import { useAuth } from '../context/AuthContext'
+import React, { useState } from "react"
+import { useNavigate, useParams } from "react-router-dom"
+import { Icon } from "../components/Icon"
+import { Avatar, Button, EmptyState, ErrorBlock, Loading, Modal, useAsync, useToast } from "../components/ui"
+import { eventApi } from "../api/eventApi"
+import { useAuth } from "../context/AuthContext"
+import { getApiErrorMessage } from "../utils/apiError"
+import { eventTimeRange, mediaUrl, monthShort } from "../utils/format"
 
-const filters = [
-  { value: 'ALL', label: 'Tất cả' },
-  { value: 'UPCOMING', label: 'Sắp diễn ra' },
-  { value: 'JOINED', label: 'Đã tham gia' },
-  { value: 'MINE', label: 'Sự kiện của tôi' },
-]
+const FILTERS = [["ALL", "Tất cả"], ["UPCOMING", "Sắp diễn ra"], ["JOINED", "Đã tham gia"], ["MINE", "Do tôi tổ chức"]]
+const PRIVACY = { PUBLIC: "Công khai", FRIENDS: "Bạn bè", PRIVATE: "Chỉ mình tôi" }
 
-const blankForm = {
-  title: '',
-  imageUrl: '',
-  startsAt: '',
-  location: '',
-  description: '',
-  privacy: 'PUBLIC',
+function Cover({ event }) {
+  return event.imageUrl ? <img src={mediaUrl(event.imageUrl)} alt={event.title} /> : <div className="cover-fallback"><Icon name="calendar" size={36} /></div>
 }
 
-function localDateTimeValue(value) {
-  if (value) return value.slice(0, 16)
-  const now = new Date(Date.now() - new Date().getTimezoneOffset() * 60000)
-  return now.toISOString().slice(0, 16)
-}
-
-function formatEventDate(value) {
-  const date = new Date(value)
-  return {
-    day: new Intl.DateTimeFormat('vi-VN', { day: '2-digit' }).format(date),
-    month: new Intl.DateTimeFormat('vi-VN', { month: 'short' }).format(date).replace('.', ''),
-    full: new Intl.DateTimeFormat('vi-VN', {
-      weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit',
-    }).format(date),
-  }
-}
-
-function getErrorMessage(error) {
-  return error.response?.data?.message || error.response?.data?.error || 'Có lỗi xảy ra. Vui lòng thử lại.'
-}
-
-function AttendanceButtons({ event, onChange, compact = false }) {
+function EventForm({ initial, onClose, onSaved }) {
+  const toast = useToast()
+  const start = initial?.startsAt ? new Date(initial.startsAt) : null
+  const pad = (n) => String(n).padStart(2, "0")
+  const [form, setForm] = useState({
+    title: initial?.title || "",
+    date: start ? `${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}` : "",
+    time: start ? `${pad(start.getHours())}:${pad(start.getMinutes())}` : "",
+    location: initial?.location || "",
+    description: initial?.description || "",
+    privacy: initial?.privacy || "PUBLIC",
+    imageUrl: initial?.imageUrl || "",
+  })
   const [busy, setBusy] = useState(false)
-  const hasStarted = new Date(event.startsAt).getTime() < Date.now()
-  const submit = async (status) => {
-    if (busy) return
+  const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }))
+  const valid = form.title.trim() && form.date && form.time && form.location.trim()
+
+  const upload = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    try {
+      const { data } = await eventApi.uploadImage(file)
+      setForm((f) => ({ ...f, imageUrl: data.url }))
+    } catch (err) {
+      toast(getApiErrorMessage(err, "Không thể tải ảnh lên."), "error")
+    }
+  }
+
+  const submit = async () => {
     setBusy(true)
     try {
-      const { data } = await eventApi.attendance(event.eventId, status)
-      onChange(data)
-    } catch (error) {
-      window.alert(getErrorMessage(error))
+      const payload = {
+        title: form.title.trim(),
+        imageUrl: form.imageUrl || null,
+        startsAt: `${form.date}T${form.time}:00`,
+        location: form.location.trim(),
+        description: form.description.trim(),
+        privacy: form.privacy,
+      }
+      const { data } = initial ? await eventApi.update(initial.eventId, payload) : await eventApi.create(payload)
+      toast(initial ? "Đã cập nhật sự kiện." : "Đã tạo sự kiện.")
+      onSaved(data)
+    } catch (err) {
+      toast(getApiErrorMessage(err, "Không thể lưu sự kiện."), "error")
     } finally {
       setBusy(false)
     }
   }
 
   return (
-    <div className={`event-attendance-actions ${compact ? 'compact' : ''}`}>
-      <button type="button" className={`ui-button ui-button--primary event-going-button ${event.viewerStatus === 'GOING' ? 'selected' : ''}`} disabled={busy || hasStarted} onClick={() => submit('GOING')}>
-        {hasStarted ? 'Đã diễn ra' : event.viewerStatus === 'GOING' ? 'Đã tham gia' : 'Tham gia'}
-      </button>
-      <button type="button" className={`ui-button ui-button--secondary event-interested-button ${event.viewerStatus === 'INTERESTED' ? 'selected' : ''}`} disabled={busy || hasStarted} onClick={() => submit('INTERESTED')}>
-        {hasStarted ? 'Đã kết thúc' : event.viewerStatus === 'INTERESTED' ? 'Đang quan tâm' : 'Quan tâm'}
-      </button>
-    </div>
+    <Modal title={initial ? "Chỉnh sửa sự kiện" : "Tạo sự kiện mới"} close={onClose}>
+      <div className="form-grid">
+        <label className="full">Tên sự kiện<input value={form.title} onChange={set("title")} maxLength={120} placeholder="Ví dụ: Workshop kỹ năng thuyết trình" /></label>
+        <label>Ngày tổ chức<input type="date" value={form.date} onChange={set("date")} /></label>
+        <label>Thời gian<input type="time" value={form.time} onChange={set("time")} /></label>
+        <label className="full">Địa điểm<input value={form.location} onChange={set("location")} maxLength={180} placeholder="Nhập phòng hoặc địa điểm" /></label>
+        <label>Quyền riêng tư
+          <select value={form.privacy} onChange={set("privacy")}>
+            {Object.entries(PRIVACY).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          </select>
+        </label>
+        <label>Ảnh bìa<input type="file" accept="image/*" onChange={upload} /></label>
+        {form.imageUrl && <img className="full form-preview" src={mediaUrl(form.imageUrl)} alt="Ảnh bìa" />}
+        <label className="full">Mô tả<textarea rows={4} value={form.description} onChange={set("description")} maxLength={5000} placeholder="Giới thiệu ngắn về sự kiện..." /></label>
+      </div>
+      <div className="modal-actions">
+        <Button variant="secondary" onClick={onClose}>Hủy</Button>
+        <Button disabled={busy || !valid} onClick={submit}>{initial ? "Lưu thay đổi" : "Tạo sự kiện"}</Button>
+      </div>
+    </Modal>
+  )
+}
+
+function EventDetail({ eventId, meId, onClose, onChanged, onEdit }) {
+  const toast = useToast()
+  const { data: event, loading, error, setData } = useAsync(() => eventApi.get(eventId).then((r) => r.data), [eventId])
+  const attend = async (status) => {
+    try {
+      const { data } = await eventApi.attendance(eventId, status)
+      setData(data)
+      onChanged()
+    } catch (err) {
+      toast(getApiErrorMessage(err, "Không thể cập nhật trạng thái tham gia."), "error")
+    }
+  }
+  const cancel = async () => {
+    if (!window.confirm("Hủy sự kiện này?")) return
+    try {
+      await eventApi.cancel(eventId)
+      toast("Đã hủy sự kiện.")
+      onChanged()
+      onClose()
+    } catch (err) {
+      toast(getApiErrorMessage(err, "Không thể hủy sự kiện."), "error")
+    }
+  }
+  return (
+    <Modal title={event?.title || "Sự kiện"} close={onClose} wide>
+      {loading && <Loading />}
+      {error && <ErrorBlock message={error} />}
+      {event && (
+        <div className="topic-detail">
+          <div className="event-detail-cover"><Cover event={event} /></div>
+          <p className="event-meta"><Icon name="clock" size={16} /> {eventTimeRange(event.startsAt)}</p>
+          <p className="event-meta"><Icon name="location" size={16} /> {event.location}</p>
+          <p className="event-meta"><Icon name="users" size={16} /> {event.goingCount} tham gia · {event.interestedCount} quan tâm · {PRIVACY[event.privacy]}</p>
+          <p className="event-meta">Tổ chức bởi <strong>{event.organizerName}</strong></p>
+          {event.description && <p className="topic-detail-body">{event.description}</p>}
+          <div className="topic-detail-actions">
+            <Button variant={event.viewerStatus === "GOING" ? "primary" : "secondary"} onClick={() => attend("GOING")}>{event.viewerStatus === "GOING" ? "Đã tham gia" : "Tham gia"}</Button>
+            <Button variant={event.viewerStatus === "INTERESTED" ? "primary" : "secondary"} onClick={() => attend("INTERESTED")}>{event.viewerStatus === "INTERESTED" ? "Đang quan tâm" : "Quan tâm"}</Button>
+            {String(event.organizerId) === String(meId) && (
+              <>
+                <Button variant="secondary" icon="edit" onClick={() => onEdit(event)}>Chỉnh sửa</Button>
+                <Button variant="danger" icon="trash" onClick={cancel}>Hủy sự kiện</Button>
+              </>
+            )}
+          </div>
+          {(event.attendees || []).length > 0 && (
+            <>
+              <h3 style={{ marginTop: 16 }}>Người tham gia</h3>
+              <div className="attendee-list">
+                {event.attendees.map((a) => (
+                  <span key={a.userId}><Avatar name={a.name} src={a.avatar} size="sm" /> {a.name}</span>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </Modal>
   )
 }
 
 export default function EventsPage() {
-  const navigate = useNavigate()
   const { eventId } = useParams()
+  const navigate = useNavigate()
   const { user } = useAuth()
-  const [filter, setFilter] = useState('ALL')
-  const [events, setEvents] = useState([])
-  const [selectedEvent, setSelectedEvent] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
-  const [loadError, setLoadError] = useState('')
-  const [retryKey, setRetryKey] = useState(0)
-  const [formOpen, setFormOpen] = useState(false)
-  const [editing, setEditing] = useState(false)
-  const [form, setForm] = useState(blankForm)
-  const [imageFile, setImageFile] = useState(null)
-  const [imagePreview, setImagePreview] = useState('')
-
-  useEffect(() => {
-    if (!imageFile) {
-      setImagePreview('')
-      return undefined
-    }
-    const previewUrl = URL.createObjectURL(imageFile)
-    setImagePreview(previewUrl)
-    return () => URL.revokeObjectURL(previewUrl)
-  }, [imageFile])
-
-  useEffect(() => {
-    let active = true
-    setLoading(true)
-    setError('')
-    setLoadError('')
-    if (eventId) {
-      setSelectedEvent(null)
-      eventApi.get(eventId)
-        .then(({ data }) => { if (active) setSelectedEvent(data) })
-        .catch((requestError) => { if (active) setLoadError(getErrorMessage(requestError)) })
-        .finally(() => { if (active) setLoading(false) })
-    } else {
-      setSelectedEvent(null)
-      eventApi.list(filter)
-        .then(({ data }) => { if (active) setEvents(data) })
-        .catch((requestError) => { if (active) { setEvents([]); setLoadError(getErrorMessage(requestError)) } })
-        .finally(() => { if (active) setLoading(false) })
-    }
-    return () => { active = false }
-  }, [eventId, filter, retryKey])
-
-  const isOrganizer = selectedEvent && String(selectedEvent.organizerId) === String(user?.userId)
-  const listTitle = useMemo(() => filters.find((item) => item.value === filter)?.label || 'Sự kiện', [filter])
-
-  const updateEventInList = (nextEvent) => {
-    setEvents((current) => current.map((item) => item.eventId === nextEvent.eventId ? nextEvent : item))
-    if (eventId) setSelectedEvent(nextEvent)
-  }
-
-  const openCreateForm = () => {
-    setEditing(false)
-    setForm(blankForm)
-    setImageFile(null)
-    setFormOpen(true)
-  }
-
-  const openEditForm = () => {
-    setEditing(true)
-    setImageFile(null)
-    setForm({
-      title: selectedEvent.title,
-      imageUrl: selectedEvent.imageUrl || '',
-      startsAt: localDateTimeValue(selectedEvent.startsAt),
-      location: selectedEvent.location,
-      description: selectedEvent.description || '',
-      privacy: selectedEvent.privacy || 'PUBLIC',
-    })
-    setFormOpen(true)
-  }
-
-  const saveEvent = async (submitEvent) => {
-    submitEvent.preventDefault()
-    setSaving(true)
-    setError('')
-    try {
-      let imageUrl = form.imageUrl
-      if (imageFile) {
-        const uploaded = await eventApi.uploadImage(imageFile)
-        imageUrl = uploaded.data.url
-      }
-      const payload = { ...form, imageUrl, startsAt: form.startsAt }
-      const response = editing
-        ? await eventApi.update(selectedEvent.eventId, payload)
-        : await eventApi.create(payload)
-      setFormOpen(false)
-      setImageFile(null)
-      if (editing) {
-        setSelectedEvent(response.data)
-        setEvents((current) => current.map((item) => item.eventId === response.data.eventId ? response.data : item))
-      } else {
-        navigate(`/events/${response.data.eventId}`)
-      }
-    } catch (saveError) {
-      setError(getErrorMessage(saveError))
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const cancelEvent = async () => {
-    if (!selectedEvent || !window.confirm('Bạn có chắc muốn hủy sự kiện này?')) return
-    try {
-      await eventApi.cancel(selectedEvent.eventId)
-      navigate('/events')
-      setFilter('MINE')
-    } catch (cancelError) {
-      setError(getErrorMessage(cancelError))
-    }
-  }
-
-  const eventCover = (item, className = '') => (
-    item.imageUrl
-      ? <img className={`event-cover-image ${className}`} src={item.imageUrl} alt={item.title} />
-      : <div className={`event-cover-placeholder ${className}`}><CalendarIcon size={42} /></div>
-  )
+  const [filter, setFilter] = useState("ALL")
+  const [form, setForm] = useState(null)
+  const { data, loading, error, reload } = useAsync(() => eventApi.list(filter).then((r) => r.data || []), [filter])
+  const events = data || []
+  const featured = events.find((e) => new Date(e.startsAt) >= new Date()) || events[0]
+  const rest = events.filter((e) => e !== featured)
 
   return (
     <div className="events-page">
-      <header className="events-topbar">
-        <div className="events-topbar-label">Sự kiện</div>
+      <header className="page-title-row">
+        <div>
+          <h1>Sự kiện trong trường</h1>
+          <p>Khám phá hoạt động học thuật, câu lạc bộ và kết nối sinh viên.</p>
+        </div>
+        <Button icon="plus" onClick={() => setForm({})}>Tạo sự kiện</Button>
       </header>
-
-      <main className="events-content">
-        {eventId && (
-          <button type="button" className="events-back-link" onClick={() => navigate('/events')}><ArrowLeftIcon size="1em" /> Tất cả sự kiện</button>
-        )}
-
-        {eventId ? (
-          <>
-            {loading && <LoadingState label="Đang tải sự kiện..." />}
-            {!loading && loadError && <ErrorState title="Không tải được sự kiện" message={loadError} onRetry={() => setRetryKey((current) => current + 1)} />}
-            {error && <div className="events-error" role="alert">{error}</div>}
-            {!loading && selectedEvent && (
-              <article className="event-detail-card ui-card">
-                {eventCover(selectedEvent, 'event-detail-cover')}
-                <div className="event-detail-body">
-                  <div className="event-detail-heading">
-                    <div>
-                      <h1>{selectedEvent.title}</h1>
-                    </div>
-                    {isOrganizer && <div className="event-owner-actions"><button type="button" className="ui-button ui-button--secondary" onClick={openEditForm}>Chỉnh sửa</button><button type="button" className="ui-button ui-button--danger danger" onClick={cancelEvent}>Hủy sự kiện</button></div>}
-                  </div>
-                  <div className="event-detail-grid">
-                    <section className="event-detail-main">
-                      <div className="event-facts">
-                        <div><span className="event-fact-icon"><CalendarIcon size={19} /></span><div><strong>{formatEventDate(selectedEvent.startsAt).full}</strong><small>Ngày và giờ bắt đầu</small></div></div>
-                        <div><span className="event-fact-icon location-icon"><LocationPinIcon size={20} /></span><div><strong>{selectedEvent.location}</strong><small>Địa điểm tổ chức</small></div></div>
-                      </div>
-                      <section className="event-description-section"><h2>Giới thiệu</h2><p>{selectedEvent.description || 'Người tổ chức chưa thêm mô tả cho sự kiện này.'}</p></section>
-                      <section className="event-attendees-section">
-                        <div className="event-section-heading"><h2>Người tham gia</h2></div>
-                        {selectedEvent.attendees?.length ? <div className="event-attendee-list">
-                          {selectedEvent.attendees.map((attendee) => <div className="event-attendee" key={attendee.userId}><Avatar src={attendee.avatar} name={attendee.name} size={38} /><div><strong>{attendee.name}</strong><small>{attendee.status === 'GOING' ? 'Sẽ tham gia' : 'Đang quan tâm'}</small></div></div>)}
-                        </div> : <EmptyState compact description="Chưa có ai phản hồi. Hãy là người đầu tiên!" />}
-                      </section>
-                    </section>
-                    <aside className="event-detail-sidebar">
-                      <section className="event-organizer-card"><span className="event-card-label">Người tổ chức</span><div><Avatar src={selectedEvent.organizerAvatar} name={selectedEvent.organizerName} size={44} /><strong>{selectedEvent.organizerName}</strong></div></section>
-                      <section className="event-count-card"><div><strong>{selectedEvent.goingCount}</strong><span>Sẽ tham gia</span></div><div><strong>{selectedEvent.interestedCount}</strong><span>Quan tâm</span></div></section>
-                      <div className="event-privacy-note">{selectedEvent.privacy === 'PUBLIC' ? <><GlobeIcon size="1em" /> Công khai</> : selectedEvent.privacy === 'FRIENDS' ? <><FriendsIcon size="1em" /> Bạn bè</> : <><LockIcon size="1em" /> Riêng tư</>}</div>
-                      <AttendanceButtons event={selectedEvent} onChange={setSelectedEvent} />
-                    </aside>
+      <div className="event-filters">
+        {FILTERS.map(([key, label]) => (
+          <button key={key} className={filter === key ? "active" : ""} onClick={() => setFilter(key)}>{label}</button>
+        ))}
+      </div>
+      {loading && <Loading label="Đang tải sự kiện..." />}
+      {error && <ErrorBlock message={error} onRetry={reload} />}
+      {!loading && !error && events.length === 0 && <EmptyState title="Chưa có sự kiện" copy="Hãy tạo sự kiện đầu tiên cho cộng đồng." icon="calendar" />}
+      {featured && !loading && (
+        <div className="featured-event">
+          <Cover event={featured} />
+          <div className="featured-copy">
+            <span>Sự kiện nổi bật · {new Date(featured.startsAt).toLocaleDateString("vi-VN")}</span>
+            <h2>{featured.title}</h2>
+            <p>{featured.description || `${eventTimeRange(featured.startsAt)} · ${featured.location}`}</p>
+            <div>
+              <Button onClick={() => navigate(`/events/${featured.eventId}`)}>Xem chi tiết</Button>
+            </div>
+          </div>
+        </div>
+      )}
+      {rest.length > 0 && (
+        <>
+          <div className="event-section-head"><h2>Tất cả sự kiện</h2><span>{events.length} sự kiện</span></div>
+          <div className="event-grid">
+            {rest.map((e) => (
+              <article className="event-card" key={e.eventId} style={{ cursor: "pointer" }} onClick={() => navigate(`/events/${e.eventId}`)}>
+                <div className="event-cover">
+                  <Cover event={e} />
+                  <span><b>{new Date(e.startsAt).getDate()}</b><small>{monthShort(e.startsAt)}</small></span>
+                </div>
+                <div className="event-card-body">
+                  <span>{PRIVACY[e.privacy]}</span>
+                  <h3>{e.title}</h3>
+                  <p><Icon name="clock" />{eventTimeRange(e.startsAt)}</p>
+                  <p><Icon name="location" />{e.location}</p>
+                  <div>
+                    <span className="avatar-stack">
+                      {(e.attendees || []).slice(0, 3).map((a) => <Avatar key={a.userId} name={a.name} src={a.avatar} size="sm" />)}
+                    </span>
+                    <small>{e.goingCount} người tham gia</small>
                   </div>
                 </div>
               </article>
-            )}
-          </>
-        ) : (
-          <>
-            <section className="events-hero">
-              <div><span className="events-eyebrow">CMC TALK · KẾT NỐI NGOÀI ĐỜI</span><h1>Sự kiện nổi bật</h1><p>Tìm hoạt động thú vị, gặp gỡ bạn bè và cùng tạo nên những kỷ niệm mới.</p></div>
-              <button type="button" className="ui-button ui-button--primary event-create-button" onClick={openCreateForm}><span>＋</span> Tạo sự kiện</button>
-            </section>
-            <nav className="event-filter-tabs ui-tabs" aria-label="Lọc sự kiện">
-              {filters.map((item) => <button key={item.value} type="button" className={`ui-tab${filter === item.value ? ' active' : ''}`} aria-selected={filter === item.value} onClick={() => setFilter(item.value)}>{item.label}</button>)}
-            </nav>
-            <div className="events-list-heading"><div><h2>{listTitle}</h2><span>{events.length} sự kiện</span></div></div>
-            {error && <div className="events-error" role="alert">{error}</div>}
-            {loading ? <LoadingState variant="skeleton" lines={3} skeletonHeight={120} label="Đang tải sự kiện..." /> : loadError ? <ErrorState title="Không tải được sự kiện" message={loadError} onRetry={() => setRetryKey((current) => current + 1)} /> : events.length ? (
-              <div className="events-grid">
-                {events.map((item) => {
-                  const date = formatEventDate(item.startsAt)
-                  return <article className="event-card ui-card" key={item.eventId}>
-                    <Link className="event-card-cover-link" to={`/events/${item.eventId}`}>
-                      {eventCover(item, 'event-card-cover')}
-                      <span className="event-date-badge ui-badge"><strong>{date.day}</strong><small>{date.month}</small></span>
-                    </Link>
-                    <div className="event-card-body">
-                      <Link to={`/events/${item.eventId}`} className="event-card-title"><h3>{item.title}</h3></Link>
-                      <p className="event-card-date"><CalendarIcon size={15} /> {date.full}</p>
-                      <p className="event-card-location"><LocationPinIcon size={15} />{item.location}</p>
-                      <div className="event-card-organizer"><Avatar src={item.organizerAvatar} name={item.organizerName} size={27} /><span>{item.organizerName}</span></div>
-                      <div className="event-card-footer"><span>{item.goingCount} tham gia · {item.interestedCount} quan tâm</span><span className="event-privacy-chip ui-badge">{item.privacy === 'PUBLIC' ? 'Công khai' : item.privacy === 'FRIENDS' ? 'Bạn bè' : 'Riêng tư'}</span></div>
-                      <AttendanceButtons event={item} compact onChange={updateEventInList} />
-                    </div>
-                  </article>
-                })}
-              </div>
-            ) : (
-              <EmptyState icon={<CalendarIcon size={26} />} title="Chưa có sự kiện nào" description={filter === 'JOINED' ? 'Các sự kiện bạn tham gia sẽ xuất hiện ở đây.' : 'Tạo một sự kiện để rủ bạn bè cùng tham gia nhé.'} action={<button type="button" className="ui-state__action" onClick={openCreateForm}>＋ Tạo sự kiện</button>} />
-            )}
-          </>
-        )}
-      </main>
-
-      {formOpen && <div className="event-form-backdrop ui-modal-backdrop" onMouseDown={(click) => { if (click.target === click.currentTarget) setFormOpen(false) }}>
-        <form className="event-form-dialog ui-modal" onSubmit={saveEvent}>
-          <header><div><span className="events-eyebrow">CMC TALK EVENTS</span><h2>{editing ? 'Chỉnh sửa sự kiện' : 'Tạo sự kiện mới'}</h2></div><button type="button" className="event-form-close" onClick={() => setFormOpen(false)} aria-label="Đóng">×</button></header>
-          <label className="event-image-picker">{imagePreview || form.imageUrl ? <img src={imagePreview || form.imageUrl} alt="Ảnh bìa sự kiện" /> : <span className="event-image-placeholder"><CalendarIcon size={28} /><strong>Thêm ảnh sự kiện</strong><small>Chọn ảnh JPG, PNG hoặc WebP</small></span>}<input type="file" accept="image/*" onChange={(change) => setImageFile(change.target.files?.[0] || null)} /></label>
-          <label>Tên sự kiện<input className="ui-input" required maxLength={120} value={form.title} onChange={(change) => setForm({ ...form, title: change.target.value })} placeholder="Ví dụ: Gặp mặt cộng đồng CMC Talk" /></label>
-          <div className="event-form-row"><label>Ngày và giờ<input className="ui-input" required type="datetime-local" min={localDateTimeValue()} value={form.startsAt} onChange={(change) => setForm({ ...form, startsAt: change.target.value })} /></label><label>Địa điểm<input className="ui-input" required maxLength={180} value={form.location} onChange={(change) => setForm({ ...form, location: change.target.value })} placeholder="Thành phố, địa điểm cụ thể" /></label></div>
-          <label>Mô tả<textarea className="ui-input" maxLength={5000} rows={4} value={form.description} onChange={(change) => setForm({ ...form, description: change.target.value })} placeholder="Chia sẻ thêm thông tin về sự kiện..." /></label>
-          <label>Quyền riêng tư<select className="ui-input" value={form.privacy} onChange={(change) => setForm({ ...form, privacy: change.target.value })}><option value="PUBLIC">Công khai — mọi người có thể xem</option><option value="FRIENDS">Bạn bè — chỉ bạn bè của bạn</option><option value="PRIVATE">Riêng tư — chỉ bạn và người tham gia</option></select></label>
-          {error && <div className="events-error" role="alert">{error}</div>}
-          <footer><button type="button" className="ui-button ui-button--quiet event-cancel-button" onClick={() => setFormOpen(false)}>Đóng</button><button type="submit" className="ui-button ui-button--primary event-save-button" disabled={saving}>{saving ? 'Đang lưu...' : editing ? 'Lưu thay đổi' : 'Tạo sự kiện'}</button></footer>
-        </form>
-      </div>}
+            ))}
+          </div>
+        </>
+      )}
+      {eventId && !form && <EventDetail eventId={eventId} meId={user?.userId} onClose={() => navigate("/events")} onChanged={reload} onEdit={(ev) => setForm(ev)} />}
+      {form && (
+        <EventForm
+          initial={form.eventId ? form : null}
+          onClose={() => setForm(null)}
+          onSaved={() => {
+            setForm(null)
+            reload()
+          }}
+        />
+      )}
     </div>
   )
 }

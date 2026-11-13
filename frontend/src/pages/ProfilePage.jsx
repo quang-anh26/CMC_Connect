@@ -1,526 +1,143 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
-import Avatar from '../components/Avatar'
-import PostMenu from '../components/PostMenu'
-import EmptyState from '../components/EmptyState'
-import LoadingState from '../components/LoadingState'
-import { conversationApi } from '../api/conversationApi'
-import { feedApi } from '../api/feedApi'
-import { friendApi } from '../api/friendApi'
-import { storyApi } from '../api/storyApi'
-import { userApi } from '../api/userApi'
-import { useAuth } from '../context/AuthContext'
-import { ChatIcon, CheckIcon, ClockIcon, CommentIcon, FriendsIcon, GroupIcon, ImageIcon, PencilIcon, ShareIcon, ThumbUpIcon, UserIcon, UserPlusIcon } from '../components/Icons'
+import React, { useRef, useState } from "react"
+import { useNavigate, useOutletContext, useParams } from "react-router-dom"
+import { Icon } from "../components/Icon"
+import { Avatar, Button, EmptyState, ErrorBlock, Loading, Modal, useAsync, useToast } from "../components/ui"
+import { Composer, PostCard } from "../components/Posts"
+import { userApi } from "../api/userApi"
+import { feedApi } from "../api/feedApi"
+import { friendApi } from "../api/friendApi"
+import { conversationApi } from "../api/conversationApi"
+import { useAuth } from "../context/AuthContext"
+import { getApiErrorMessage } from "../utils/apiError"
+import { mediaUrl } from "../utils/format"
 
-const profileTabs = ['Bài viết', 'Giới thiệu', 'Bạn bè', 'Ảnh', 'Video', 'Nhóm', 'Sự kiện']
-
-function formatProfileTime(value) {
-  if (!value) return ''
-  return new Date(value).toLocaleString('vi-VN', { dateStyle: 'medium', timeStyle: 'short' })
-}
-
-function formatJoinedDate(value) {
-  if (!value) return 'Chưa rõ thời gian tham gia'
-  return new Date(value).toLocaleDateString('vi-VN', { month: 'long', year: 'numeric' })
-}
-
-function formatBirthDate(value) {
-  if (!value) return ''
-  const date = new Date(`${value}T00:00:00`)
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString('vi-VN')
-}
-
-function getFriendInfo(friend, userId) {
-  const isSender = String(friend.senderId) === String(userId)
-  return {
-    id: isSender ? friend.receiverId : friend.senderId,
-    name: (isSender ? friend.receiverDisplayName : friend.senderDisplayName)
-      || (isSender ? friend.receiverUsername : friend.senderUsername)
-      || 'Bạn bè',
-    avatar: isSender ? friend.receiverAvatar : friend.senderAvatar,
+function EditModal({ profile, onClose, onSaved }) {
+  const toast = useToast()
+  const [form, setForm] = useState({ displayName: profile.displayName || "", bio: profile.bio || "", education: profile.education || "", location: profile.location || "" })
+  const [busy, setBusy] = useState(false)
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
+  const submit = async () => {
+    setBusy(true)
+    try { await userApi.updateProfile(form); toast("Đã cập nhật trang cá nhân."); onSaved() } catch (err) { toast(getApiErrorMessage(err, "Không thể cập nhật."), "error") } finally { setBusy(false) }
   }
+  return (
+    <Modal title="Chỉnh sửa trang cá nhân" close={onClose}>
+      <div className="form-grid">
+        <label className="full">Tên hiển thị<input value={form.displayName} maxLength={100} onChange={set("displayName")} /></label>
+        <label className="full">Giới thiệu<textarea rows={3} value={form.bio} onChange={set("bio")} /></label>
+        <label>Học tập<input value={form.education} onChange={set("education")} placeholder="Ngành, khóa..." /></label>
+        <label>Nơi sống<input value={form.location} onChange={set("location")} /></label>
+      </div>
+      <div className="modal-actions"><Button variant="secondary" onClick={onClose}>Hủy</Button><Button disabled={busy || !form.displayName.trim()} onClick={submit}>Lưu thay đổi</Button></div>
+    </Modal>
+  )
 }
 
 export default function ProfilePage() {
-  const { user, setUser } = useAuth()
   const { profileUserId } = useParams()
   const navigate = useNavigate()
-  const isOwnProfile = !profileUserId || String(profileUserId) === String(user?.userId)
-  const mediaInputRef = useRef(null)
-  const [displayName, setDisplayName] = useState(user?.displayName || '')
-  const [bio, setBio] = useState('')
-  const [education, setEducation] = useState('')
-  const [location, setLocation] = useState('')
-  const [relationshipStatus, setRelationshipStatus] = useState('')
-  const [birthDate, setBirthDate] = useState('')
-  const [createdAt, setCreatedAt] = useState(user?.createdAt || '')
-  const [avatar, setAvatar] = useState(user?.avatar || '')
-  const [coverImage, setCoverImage] = useState(user?.coverImage || '')
-  const [profileUsername, setProfileUsername] = useState(user?.username || '')
-  const [profileOnline, setProfileOnline] = useState(false)
-  const [posts, setPosts] = useState([])
-  const [friends, setFriends] = useState([])
-  const [groups, setGroups] = useState([])
-  const [relationship, setRelationship] = useState({ status: 'NONE', requestId: null })
-  const [relationshipBusy, setRelationshipBusy] = useState(false)
-  const [activeTab, setActiveTab] = useState('Bài viết')
-  const [editOpen, setEditOpen] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [notice, setNotice] = useState('')
-  const [composerText, setComposerText] = useState('')
-  const [composerPrivacy, setComposerPrivacy] = useState('PUBLIC')
-  const [composerFile, setComposerFile] = useState(null)
-  const [posting, setPosting] = useState(false)
-  const [commentDrafts, setCommentDrafts] = useState({})
-  const [oldPassword, setOldPassword] = useState('')
-  const [newPassword, setNewPassword] = useState('')
-  const [passwordMessage, setPasswordMessage] = useState('')
-  const [passwordError, setPasswordError] = useState('')
+  const toast = useToast()
+  const { user } = useAuth()
+  const { me } = useOutletContext()
+  const coverRef = useRef(null)
+  const avatarRef = useRef(null)
+  const [tab, setTab] = useState("posts")
+  const [editing, setEditing] = useState(false)
+  const targetId = profileUserId || user?.userId
+  const mine = String(targetId) === String(user?.userId)
+  const profile = useAsync(() => userApi.getById(targetId).then((r) => r.data), [targetId])
+  const feed = useAsync(() => feedApi.list().then((r) => r.data || []), [targetId])
+  const p = profile.data
+  const posts = (feed.data || []).filter((x) => String(x.authorId) === String(targetId))
+  const photos = posts.filter((x) => x.imageUrl && String(x.mediaType).toUpperCase() !== "VIDEO")
 
-  useEffect(() => {
-    let active = true
-    setLoading(true)
-    setError('')
-    setActiveTab('Bài viết')
-    setDisplayName('')
-    setBio('')
-    setEducation('')
-    setLocation('')
-    setRelationshipStatus('')
-    setBirthDate('')
-    setCreatedAt('')
-    setAvatar('')
-    setCoverImage('')
-    setProfileUsername('')
-    setProfileOnline(false)
-    setPosts([])
-    setFriends([])
-    setGroups([])
-    setRelationship({ status: 'NONE', requestId: null })
-    const profileRequest = isOwnProfile ? userApi.me() : userApi.getById(profileUserId)
-    const friendsRequest = isOwnProfile ? friendApi.accepted() : Promise.resolve({ data: [] })
-    const groupsRequest = isOwnProfile ? conversationApi.list() : Promise.resolve({ data: [] })
-    const relationshipRequests = isOwnProfile
-      ? [Promise.resolve({ data: [] }), Promise.resolve({ data: [] }), Promise.resolve({ data: [] })]
-      : [friendApi.accepted(), friendApi.sent(), friendApi.received()]
-    Promise.allSettled([profileRequest, feedApi.list(), friendsRequest, groupsRequest, ...relationshipRequests]).then((results) => {
-      if (!active) return
-      const [profileResult, postsResult, friendsResult, groupsResult, acceptedResult, sentResult, receivedResult] = results
-      if (profileResult.status === 'fulfilled') {
-        const profile = profileResult.value.data
-        setProfileUsername(profile.username || '')
-        setProfileOnline(profile.online === true)
-        setDisplayName(profile.displayName || '')
-        setBio(profile.bio || '')
-        setEducation(profile.education || '')
-        setLocation(profile.location || '')
-        setRelationshipStatus(profile.relationshipStatus || '')
-        setBirthDate(profile.birthDate || '')
-        setCreatedAt(profile.createdAt || '')
-        setAvatar(profile.avatar || '')
-        setCoverImage(profile.coverImage || '')
-        if (isOwnProfile) setUser((current) => ({ ...current, ...profile }))
-      } else {
-        setError('Không thể tải thông tin trang cá nhân này.')
-      }
-      if (postsResult.status === 'fulfilled') {
-        setPosts((postsResult.value.data || [])
-          .filter((post) => String(post.authorId) === String(profileUserId || user?.userId))
-          .sort((first, second) => new Date(second.createdAt) - new Date(first.createdAt)))
-      }
-      if (friendsResult.status === 'fulfilled') setFriends(friendsResult.value.data || [])
-      if (groupsResult.status === 'fulfilled') {
-        setGroups((groupsResult.value.data || []).filter((conversation) => conversation.type === 'GROUP'))
-      }
-      if (!isOwnProfile) {
-        const targetId = String(profileUserId)
-        const accepted = acceptedResult.status === 'fulfilled'
-          && (acceptedResult.value.data || []).some((item) => {
-            const otherId = String(item.senderId) === String(user?.userId) ? item.receiverId : item.senderId
-            return String(otherId) === targetId
-          })
-        const sentRequest = sentResult.status === 'fulfilled'
-          ? (sentResult.value.data || []).find((item) => String(item.receiverId) === targetId)
-          : null
-        const receivedRequest = receivedResult.status === 'fulfilled'
-          ? (receivedResult.value.data || []).find((item) => String(item.senderId) === targetId)
-          : null
-        if (accepted) setRelationship({ status: 'FRIENDS', requestId: null })
-        else if (receivedRequest) setRelationship({ status: 'RECEIVED', requestId: receivedRequest.id })
-        else if (sentRequest) setRelationship({ status: 'SENT', requestId: sentRequest.id })
-      }
-      setLoading(false)
-    })
-    return () => { active = false }
-  }, [isOwnProfile, profileUserId, setUser, user?.userId])
-
-  const imagePosts = useMemo(() => posts.filter((post) => post.imageUrl && post.mediaType !== 'VIDEO'), [posts])
-  const videoPosts = useMemo(() => posts.filter((post) => post.mediaType === 'VIDEO'), [posts])
-  const composerPreview = useMemo(() => composerFile ? URL.createObjectURL(composerFile) : '', [composerFile])
-  useEffect(() => () => { if (composerPreview) URL.revokeObjectURL(composerPreview) }, [composerPreview])
-  useEffect(() => {
-    if (!error) return undefined
-    const timeoutId = window.setTimeout(() => setError(''), 4500)
-    return () => window.clearTimeout(timeoutId)
-  }, [error])
-
-  const saveProfile = async (event) => {
-    event.preventDefault()
-    setSaving(true)
-    setError('')
-    try {
-      const savedEducation = education.trim()
-      const savedLocation = location.trim()
-      const savedRelationshipStatus = relationshipStatus.trim()
-      const { data } = await userApi.updateProfile({
-        displayName: displayName.trim(),
-        bio: bio.trim(),
-        avatar,
-        coverImage,
-        education: savedEducation,
-        location: savedLocation,
-        relationshipStatus: savedRelationshipStatus,
-        birthDate: birthDate || null,
-      })
-      if ((data.education || '') !== savedEducation
-        || (data.location || '') !== savedLocation
-        || (data.relationshipStatus || '') !== savedRelationshipStatus
-        || (data.birthDate || '') !== (birthDate || '')) {
-        setError('Hệ thống gặp lỗi nên chưa thể cập nhật thông tin. Vui lòng thử lại.')
-        return
-      }
-      setUser((current) => ({ ...current, ...data }))
-      setDisplayName(data.displayName || '')
-      setBio(data.bio || '')
-      setEducation(data.education ?? savedEducation)
-      setLocation(data.location ?? savedLocation)
-      setRelationshipStatus(data.relationshipStatus ?? savedRelationshipStatus)
-      setBirthDate(data.birthDate ?? birthDate)
-      setCreatedAt(data.createdAt || createdAt)
-      setAvatar(data.avatar || '')
-      setCoverImage(data.coverImage || '')
-      setEditOpen(false)
-      setNotice('Đã lưu thay đổi trang cá nhân.')
-      window.setTimeout(() => setNotice(''), 2500)
-    } catch (err) {
-      setError('Hệ thống gặp lỗi nên chưa thể cập nhật thông tin. Vui lòng thử lại.')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const uploadProfileImage = async (event, kind) => {
-    const file = event.target.files?.[0]
+  const upload = async (fn, e, ok) => {
+    const file = e.target.files?.[0]
+    e.target.value = ""
     if (!file) return
-    setError('')
-    try {
-      const upload = kind === 'avatar' ? userApi.uploadAvatar : userApi.uploadCover
-      const { data } = await upload(file)
-      if (kind === 'avatar') {
-        setAvatar(data.url)
-        setUser((current) => ({ ...current, avatar: data.url }))
-      } else {
-        setCoverImage(data.url)
-        setUser((current) => ({ ...current, coverImage: data.url }))
-      }
-    } catch (err) {
-      setError(err.response?.data?.message || 'Không thể tải ảnh lên.')
-    }
-    event.target.value = ''
+    try { await fn(file); toast(ok); profile.reload(); window.dispatchEvent(new Event("cmctalk-profile-updated")) } catch (err) { toast(getApiErrorMessage(err, "Không thể tải ảnh lên."), "error") }
   }
-
-  const publishProfilePost = async (event) => {
-    event.preventDefault()
-    if (!composerText.trim() && !composerFile) return
-    setPosting(true)
-    setError('')
-    try {
-      let imageUrl = null
-      let mediaType = null
-      if (composerFile) {
-        const upload = await storyApi.upload(composerFile)
-        imageUrl = upload.data.url
-        mediaType = upload.data.mediaType
-      }
-      const { data } = await feedApi.create({ content: composerText.trim() || null, imageUrl, mediaType, privacy: composerPrivacy })
-      setPosts((current) => [data, ...current])
-      setComposerText('')
-      setComposerPrivacy('PUBLIC')
-      setComposerFile(null)
-      if (mediaInputRef.current) mediaInputRef.current.value = ''
-      setNotice('Bài viết đã được đăng.')
-      window.setTimeout(() => setNotice(''), 2500)
-    } catch (err) {
-      setError(err.response?.data?.message || 'Không thể đăng bài viết.')
-    } finally {
-      setPosting(false)
-    }
+  const message = async () => {
+    try { const { data } = await conversationApi.getOrCreatePrivate(targetId); navigate(`/messages/${data.conversationId}`) } catch (err) { toast(getApiErrorMessage(err, "Không thể mở cuộc trò chuyện."), "error") }
   }
-
-  const reactToPost = async (postId) => {
-    try {
-      const { data } = await feedApi.react(postId, 'LIKE')
-      setPosts((current) => current.map((post) => post.postId === postId ? data : post))
-    } catch {
-      setError('Không thể cập nhật cảm xúc.')
-    }
+  const addFriend = async () => {
+    try { await friendApi.send(targetId); toast("Đã gửi lời mời kết bạn."); profile.reload() } catch (err) { toast(getApiErrorMessage(err, "Không thể gửi lời mời."), "error") }
   }
+  const replacePost = (post) => feed.setData((feed.data || []).map((x) => (x.postId === post.postId ? post : x)))
 
-  const shareToFeed = async (post) => {
-    try {
-      const { data } = await feedApi.share(post.postId, '')
-      const originalPostId = post.sharedPost?.postId || post.postId
-      setPosts((current) => {
-        const updated = current.map((item) => (
-          item.postId === originalPostId || item.sharedPost?.postId === originalPostId
-            ? { ...item, shareCount: data.shareCount }
-            : item
-        ))
-        return isOwnProfile ? [data, ...updated.filter((item) => item.postId !== data.postId)] : updated
-      })
-      setNotice('Bài viết đã được chia sẻ lên trang chủ của bạn.')
-      window.setTimeout(() => setNotice(''), 3000)
-    } catch (err) {
-      setError(err.response?.data?.message || 'Không thể chia sẻ bài viết.')
-    }
-  }
-
-  const addComment = async (postId) => {
-    const content = commentDrafts[postId]?.trim()
-    if (!content) return
-    try {
-      const { data } = await feedApi.comment(postId, content)
-      setPosts((current) => current.map((post) => post.postId === postId ? data : post))
-      setCommentDrafts((current) => ({ ...current, [postId]: '' }))
-    } catch {
-      setError('Không thể gửi bình luận.')
-    }
-  }
-
-  const changePassword = async (event) => {
-    event.preventDefault()
-    setPasswordError('')
-    try {
-      await userApi.changePassword({ oldPassword, newPassword })
-      setPasswordMessage('Đã đổi mật khẩu.')
-      setOldPassword('')
-      setNewPassword('')
-    } catch (err) {
-      setPasswordError(err.response?.data?.message || 'Đổi mật khẩu thất bại.')
-    }
-  }
-
-  const sendFriendRequest = async () => {
-    setRelationshipBusy(true)
-    setError('')
-    try {
-      await friendApi.send(profileUserId)
-      setRelationship({ status: 'SENT', requestId: null })
-    } catch (err) {
-      setError(err.response?.data?.message || 'Không thể gửi lời mời kết bạn. Vui lòng thử lại.')
-    } finally {
-      setRelationshipBusy(false)
-    }
-  }
-
-  const respondToFriendRequest = async (accept) => {
-    if (!relationship.requestId) return
-    setRelationshipBusy(true)
-    setError('')
-    try {
-      if (accept) {
-        await friendApi.accept(relationship.requestId)
-        setRelationship({ status: 'FRIENDS', requestId: null })
-      } else {
-        await friendApi.reject(relationship.requestId)
-        setRelationship({ status: 'NONE', requestId: null })
-      }
-      window.dispatchEvent(new Event('cmctalk-conversations-updated'))
-    } catch (err) {
-      setError(err.response?.data?.message || 'Không thể xử lý lời mời kết bạn. Vui lòng thử lại.')
-    } finally {
-      setRelationshipBusy(false)
-    }
-  }
-
-  const openConversation = async () => {
-    setRelationshipBusy(true)
-    setError('')
-    try {
-      const { data } = await conversationApi.getOrCreatePrivate(profileUserId)
-      navigate(`/chat/${data.conversationId}`)
-    } catch (err) {
-      setError(err.response?.data?.message || 'Không thể mở cuộc trò chuyện. Vui lòng thử lại.')
-    } finally {
-      setRelationshipBusy(false)
-    }
-  }
-
-  const tabPosts = activeTab === 'Ảnh' ? imagePosts : activeTab === 'Video' ? videoPosts : posts
-  const profileName = displayName || (isOwnProfile ? user?.displayName : '') || profileUsername || 'Trang cá nhân'
-  const visibleProfileTabs = profileTabs.filter((tab) => isOwnProfile || !['Bạn bè', 'Nhóm', 'Sự kiện'].includes(tab))
+  if (profile.loading) return <Loading />
+  if (profile.error) return <ErrorBlock message={profile.error} onRetry={profile.reload} />
+  if (!p) return null
 
   return (
-    <div className="chat-area profile-page">
-      <div className="chat-header"><strong>Trang cá nhân</strong></div>
-      <div className="profile-page-content">
-        <div className={`profile-layout ${isOwnProfile ? '' : 'profile-viewing-other'}`}>
-          <div className="profile-main-column">
-            <section className="profile-hero">
-              <div className="profile-hero-cover" style={coverImage ? { backgroundImage: `linear-gradient(180deg, rgba(12, 24, 48, .02), rgba(12, 24, 48, .58)), url(${coverImage})` } : undefined}>
-                {isOwnProfile && <button className="profile-cover-edit" type="button" onClick={() => setEditOpen(true)}><ImageIcon size="1.1em" /> <span>Chỉnh sửa ảnh bìa</span></button>}
-              </div>
-              <div className="profile-hero-details">
-                <Avatar className="profile-hero-avatar" src={avatar} name={profileName} size={136} />
-                <div className="profile-hero-copy">
-                  <h1>{profileName} <span className="profile-verified" title="Tài khoản của bạn"><CheckIcon size="0.8em" strokeWidth={3} /></span></h1>
-                  <p>@{profileUsername}</p>
-                  <div className={`profile-hero-status ${profileOnline ? 'is-online' : ''}`}><i />{profileOnline ? 'Đang hoạt động' : 'CMC Talk'}</div>
-                  {bio && <small className="profile-hero-bio">{bio}</small>}
-                  {isOwnProfile && <div className="profile-hero-stats">
-                    <span><b>{posts.length}</b>Bài viết</span>
-                    <span><b>{friends.length}</b>Bạn bè</span>
-                    <span><b>{groups.length}</b>Nhóm chat</span>
-                  </div>}
-                </div>
-                <div className={`profile-hero-actions ${isOwnProfile ? '' : 'profile-viewing-other-actions'}`}>
-                  {isOwnProfile ? <>
-                    <button className="profile-edit-button" type="button" onClick={() => { setError(''); setEditOpen(true) }}><PencilIcon size="1.1em" /> <span>Chỉnh sửa trang cá nhân</span></button>
-                    <button className="profile-more-button" type="button" aria-label="Tùy chọn khác">···</button>
-                  </> : <>
-                    <button className="profile-message-button" type="button" onClick={openConversation} disabled={relationshipBusy}>
-                      <ChatIcon size={17} /> Nhắn tin
-                    </button>
-                    {relationship.status === 'NONE' && <button className="profile-friend-action" type="button" onClick={sendFriendRequest} disabled={relationshipBusy}>
-                      <UserPlusIcon size={17} /> Thêm bạn bè
-                    </button>}
-                    {relationship.status === 'SENT' && <button className="profile-friend-action is-pending" type="button" disabled>
-                      <ClockIcon size={17} /> Đã gửi lời mời
-                    </button>}
-                    {relationship.status === 'RECEIVED' && <>
-                      <button className="profile-friend-action" type="button" onClick={() => respondToFriendRequest(true)} disabled={relationshipBusy}>Chấp nhận lời mời</button>
-                      <button className="profile-more-button" type="button" onClick={() => respondToFriendRequest(false)} disabled={relationshipBusy} aria-label="Từ chối lời mời">×</button>
-                    </>}
-                    {relationship.status === 'FRIENDS' && <button className="profile-friend-action is-pending" type="button" disabled>
-                      <FriendsIcon size={17} /> Bạn bè
-                    </button>}
-                  </>}
-                </div>
-              </div>
-              <nav className="profile-tabs" aria-label="Mục trang cá nhân">
-                {visibleProfileTabs.map((tab) => <button key={tab} className={activeTab === tab ? 'active' : ''} type="button" onClick={() => setActiveTab(tab)}>{tab}</button>)}
-              </nav>
-            </section>
-
-            {notice && <div className="profile-notice">{notice}</div>}
-            {error && <div className="profile-system-error" role="alert">{error}</div>}
-
-            <div className={`profile-columns ${isOwnProfile ? '' : 'profile-viewing-other'}`}>
-              <aside className="profile-left-column">
-            <section className="profile-panel profile-intro-panel">
-              <h2>Giới thiệu</h2>
-              <div className="profile-info-row"><span className="profile-school-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21h18M5 21V8l7-4 7 4v13M9 21v-5h6v5M8 10h2m4 0h2m-8 3h2m4 0h2" /></svg></span><span>{education || 'Chưa cập nhật trường học'}</span></div>
-              <div className="profile-info-row"><span className="profile-home-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.6 12 3l9 7.6v9.1a1.3 1.3 0 0 1-1.3 1.3h-5.1v-6.2H9.4V21H4.3A1.3 1.3 0 0 1 3 19.7z" /></svg></span><span>{location || 'Chưa cập nhật nơi ở'}</span></div>
-              <div className="profile-info-row"><span className="profile-relationship-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.2 20.3 4.1 16.2a3.1 3.1 0 0 1 4.4-4.4l1.2 1.2 1.2-1.2a3.1 3.1 0 0 1 4.4 4.4l-4.1 4.1a2.1 2.1 0 0 1-3 0ZM15.1 12.1l-1.4-1.4a4.4 4.4 0 0 1 6.2-6.2 4.4 4.4 0 0 1 0 6.2l-5 5" /></svg></span><span>{relationshipStatus || 'Chưa cập nhật'}</span></div>
-              <div className="profile-info-row"><span className="profile-birthday-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 8V4m5 4V3m5 5V5M6 10h12a2 2 0 0 1 2 2v7H4v-7a2 2 0 0 1 2-2Zm-2 4c2 0 2 1 4 1s2-1 4-1 2 1 4 1 2-1 4-1M3 21h18" /></svg></span><span>Ngày sinh: {formatBirthDate(birthDate) || 'Chưa cập nhật'}</span></div>
-              {isOwnProfile && <button type="button" className="profile-secondary-button" onClick={() => setEditOpen(true)}>Chỉnh sửa phần giới thiệu</button>}
-            </section>
-            {isOwnProfile && <details className="profile-panel profile-security-panel">
-              <summary>Bảo mật tài khoản</summary>
-              <form onSubmit={changePassword}>
-                <label>Mật khẩu cũ<input type="password" value={oldPassword} onChange={(event) => setOldPassword(event.target.value)} required /></label>
-                <label>Mật khẩu mới<input type="password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} required minLength={6} /></label>
-                <button type="submit" className="profile-secondary-button">Đổi mật khẩu</button>
-                {passwordMessage && <small className="profile-success">{passwordMessage}</small>}
-                {passwordError && <small className="profile-error">{passwordError}</small>}
-              </form>
-            </details>}
-          </aside>
-
-          <main className="profile-center-column">
-            {(activeTab === 'Bài viết' || activeTab === 'Ảnh' || activeTab === 'Video') && (
-              <>
-                {activeTab === 'Bài viết' && isOwnProfile && (
-                  <form className="create-post-card profile-composer" onSubmit={publishProfilePost}>
-                    <Avatar src={avatar} name={profileName} size={42} />
-                    <div className="create-post-main">
-                      <textarea value={composerText} onChange={(event) => setComposerText(event.target.value)} placeholder={`${profileName} ơi, bạn đang nghĩ gì?`} rows={1} maxLength={10000} />
-                      {composerPreview && <div className="post-composer-preview profile-composer-preview">{composerFile?.type.startsWith('video/') ? <video src={composerPreview} controls /> : <img src={composerPreview} alt="Ảnh xem trước" />}<button type="button" onClick={() => { setComposerFile(null); if (mediaInputRef.current) mediaInputRef.current.value = '' }} aria-label="Bỏ tệp đã chọn">×</button></div>}
-                      <input ref={mediaInputRef} type="file" accept="image/*,video/*" hidden onChange={(event) => setComposerFile(event.target.files?.[0] || null)} />
-                      <div className="composer-actions profile-composer-actions">
-                        <label className="post-privacy-picker" title="Ai có thể xem bài viết này?"><span aria-hidden="true">{composerPrivacy === 'PUBLIC' ? '🌐' : composerPrivacy === 'FRIENDS' ? '👥' : '🔒'}</span><select aria-label="Quyền riêng tư bài viết" value={composerPrivacy} onChange={(event) => setComposerPrivacy(event.target.value)}><option value="PUBLIC">Công khai</option><option value="FRIENDS">Bạn bè</option><option value="PRIVATE">Chỉ mình tôi</option></select></label>
-                        <div className="composer-tools"><button type="button" onClick={() => mediaInputRef.current?.click()}><ImageIcon size="1.05em" /> <span>Ảnh / Video</span></button></div>
-                        <button className="publish-button" type="submit" disabled={posting || (!composerText.trim() && !composerFile)}>{posting ? 'Đang đăng...' : 'Đăng bài'}</button>
-                      </div>
-                    </div>
-                  </form>
-                )}
-                {loading && <LoadingState variant="skeleton" lines={2} skeletonHeight={110} label="Đang tải bài viết..." />}
-                {!loading && tabPosts.length === 0 && <EmptyState title={activeTab === 'Ảnh' ? 'Chưa có ảnh' : activeTab === 'Video' ? 'Chưa có video' : 'Chưa có bài viết'} description={isOwnProfile ? 'Bài viết của bạn sẽ hiển thị tại đây.' : 'Bài viết của người dùng sẽ hiển thị tại đây.'} />}
-                {tabPosts.map((post) => (
-                  <article className="profile-post-card post-card" key={post.postId}>
-                    <header><Avatar src={post.authorAvatar || avatar} name={post.authorName || profileName} size={42} /><div className="profile-post-author"><strong>{post.authorName || profileName}</strong><small>{formatProfileTime(post.createdAt)} · <span className="post-privacy-indicator">{post.privacy === 'FRIENDS' ? '👥 Bạn bè' : post.privacy === 'PRIVATE' ? '🔒 Chỉ mình tôi' : '🌐 Công khai'}</span></small></div><PostMenu post={post} currentUserId={user?.userId} onPostUpdated={(updated) => setPosts((current) => current.map((item) => item.postId === updated.postId ? updated : item))} onPostDeleted={(deleted) => setPosts((current) => current.filter((item) => item.postId !== deleted.postId))} onError={setError} /></header>
-                    {post.content && <p className="profile-post-content">{post.content}</p>}
-                    {post.sharedPost && <div className="shared-post-preview"><div className="shared-post-heading"><Avatar src={post.sharedPost.authorAvatar} name={post.sharedPost.authorName} size={32} /><div><strong>{post.sharedPost.authorName}</strong><small>{formatProfileTime(post.sharedPost.createdAt)}</small></div></div>{post.sharedPost.content && <p>{post.sharedPost.content}</p>}{post.sharedPost.mediaType === 'VIDEO' ? <video className="shared-post-media" src={post.sharedPost.imageUrl} controls /> : post.sharedPost.imageUrl && <img className="shared-post-media" src={post.sharedPost.imageUrl} alt="Shared post" />}</div>}
-                    {post.mediaType === 'VIDEO' ? <video className="profile-post-media" src={post.imageUrl} controls /> : post.imageUrl && <img className="profile-post-media" src={post.imageUrl} alt="Ảnh trong bài viết" />}
-                    <div className="profile-post-summary"><span><ThumbUpIcon size="1em" /> {post.likeCount || 0}</span><span>{post.comments?.length || 0} bình luận</span></div>
-                    <div className="profile-post-actions"><button type="button" className={post.likedByViewer ? 'liked' : ''} onClick={() => reactToPost(post.postId)}><ThumbUpIcon size="1.1em" /> Thích</button><button type="button" onClick={() => document.getElementById(`profile-comment-${post.postId}`)?.focus()}><CommentIcon size="1.1em" /> Bình luận</button><button type="button" onClick={() => shareToFeed(post)}><ShareIcon size="1.1em" /> {post.shareCount > 0 && <span className="action-count">{post.shareCount}</span>} Chia sẻ</button></div>
-                    {post.comments?.slice(-2).map((comment) => <div className="profile-post-comment" key={comment.commentId}><strong>{comment.authorName}</strong><span>{comment.content}</span></div>)}
-                    <form className="profile-comment-form" onSubmit={(event) => { event.preventDefault(); addComment(post.postId) }}><Avatar src={avatar} name={profileName} size={30} /><input id={`profile-comment-${post.postId}`} value={commentDrafts[post.postId] || ''} onChange={(event) => setCommentDrafts((current) => ({ ...current, [post.postId]: event.target.value }))} placeholder="Viết bình luận..." /><button type="submit">Gửi</button></form>
-                  </article>
-                ))}
-              </>
-            )}
-            {activeTab === 'Giới thiệu' && <section className="profile-panel profile-tab-panel"><h2>Giới thiệu</h2><p>{bio || 'Chưa có phần giới thiệu.'}</p><p>{education || 'Chưa cập nhật trường học'}</p><p>{location || 'Chưa cập nhật nơi ở'}</p><p>Tình trạng mối quan hệ: {relationshipStatus || 'Chưa cập nhật'}</p><p>Ngày sinh: {formatBirthDate(birthDate) || 'Chưa cập nhật'}</p><p>Tên người dùng: @{profileUsername}</p></section>}
-            {isOwnProfile && activeTab === 'Bạn bè' && <section className="profile-panel profile-tab-panel"><h2>Bạn bè ({friends.length})</h2><div className="profile-friend-grid">{friends.map((friend) => { const item = getFriendInfo(friend, user?.userId); return <button type="button" className="profile-friend-card profile-user-link" key={friend.id} onClick={() => navigate(`/feed/profile/${item.id}`)}><Avatar src={item.avatar} name={item.name} size={54} /><strong>{item.name}</strong></button> })}</div></section>}
-            {isOwnProfile && activeTab === 'Nhóm' && <section className="profile-panel profile-tab-panel"><h2>Nhóm ({groups.length})</h2>{groups.length ? groups.map((group) => <div className="profile-group-row" key={group.conversationId}><span className="profile-group-icon"><GroupIcon size="1em" /></span><div><strong>{group.name || 'Nhóm chat'}</strong><small>Nhóm trò chuyện</small></div></div>) : <p className="profile-muted">Bạn chưa tham gia nhóm nào.</p>}</section>}
-            {activeTab === 'Sự kiện' && <EmptyState title="Chưa có hoạt động sự kiện" description="Các sự kiện bạn tham gia sẽ xuất hiện tại đây." />}
-          </main>
-          </div>
-          </div>
-
-          {isOwnProfile && <aside className="profile-right-column">
-            <section className="profile-panel profile-right-friends">
-              <div className="profile-panel-heading"><div><h2>Bạn bè</h2><small>{friends.length} người bạn</small></div><button type="button" onClick={() => setActiveTab('Bạn bè')}>Xem tất cả</button></div>
-              <div className="profile-friend-strip">{friends.slice(0, 4).map((friend) => { const item = getFriendInfo(friend, user?.userId); return <button type="button" className="profile-user-link" key={friend.id} onClick={() => navigate(`/feed/profile/${item.id}`)}><Avatar src={item.avatar} name={item.name} size={42} /><span>{item.name}</span></button> })}</div>
-              {friends.length === 0 && <p className="profile-muted">Danh sách bạn bè sẽ hiển thị tại đây.</p>}
-            </section>
-            <section className="profile-panel">
-              <div className="profile-panel-heading"><h2>Ảnh</h2><button type="button" onClick={() => setActiveTab('Ảnh')}>Xem tất cả</button></div>
-              {imagePosts.length ? (
-                <div className="profile-photo-grid">
-                  {imagePosts.slice(0, 5).map((post) => <button type="button" key={post.postId} onClick={() => setActiveTab('Ảnh')}><img src={post.imageUrl} alt="Ảnh trong bài viết" /></button>)}
-                </div>
-              ) : <p className="profile-muted">Ảnh bạn chia sẻ sẽ xuất hiện ở đây.</p>}
-            </section>
-            <section className="profile-panel">
-              <div className="profile-panel-heading"><h2>Nhóm tham gia</h2><button type="button" onClick={() => setActiveTab('Nhóm')}>Xem tất cả</button></div>
-              {groups.slice(0, 3).map((group) => <div className="profile-group-row" key={group.conversationId}><span className="profile-group-icon"><GroupIcon size="1em" /></span><div><strong>{group.name || 'Nhóm chat'}</strong><small>Nhóm trò chuyện</small></div></div>)}
-              {groups.length === 0 && <p className="profile-muted">Nhóm bạn tham gia sẽ hiển thị tại đây.</p>}
-            </section>
-            <section className="profile-panel profile-account-panel"><h2>Thông tin liên hệ</h2><div className="profile-info-row"><span>@</span><span>{profileUsername || '—'}</span></div><div className="profile-info-row"><span><UserIcon size="1em" /></span><span>{profileOnline ? 'Đang hoạt động' : 'CMC Talk'}</span></div></section>
-          </aside>}
-        </div>
+    <div className="profile-page">
+      <div className="profile-hero">
+        {p.coverImage ? <img src={mediaUrl(p.coverImage)} alt="Ảnh bìa" /> : <div className="cover-fallback" />}
+        {mine && (
+          <>
+            <input ref={coverRef} type="file" accept="image/*" hidden onChange={(e) => upload(userApi.uploadCover, e, "Đã đổi ảnh bìa.")} />
+            <button onClick={() => coverRef.current?.click()}><Icon name="image" />Đổi ảnh bìa</button>
+          </>
+        )}
       </div>
-
-      {isOwnProfile && editOpen && (
-        <div className="profile-edit-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setEditOpen(false) }}>
-          <form className="profile-edit-dialog" onSubmit={saveProfile}>
-            <div className="profile-edit-header"><h2>Chỉnh sửa trang cá nhân</h2><button type="button" aria-label="Đóng" onClick={() => setEditOpen(false)}>×</button></div>
-            <label className="profile-cover-picker"><span className="profile-cover-preview" style={coverImage ? { backgroundImage: `url(${coverImage})` } : undefined} /><span>Đổi ảnh bìa</span><input type="file" accept="image/*" onChange={(event) => uploadProfileImage(event, 'cover')} /></label>
-            <label className="profile-avatar-picker"><Avatar src={avatar} name={profileName} size={68} /><span>Đổi ảnh đại diện</span><input type="file" accept="image/*" onChange={(event) => uploadProfileImage(event, 'avatar')} /></label>
-            <div className="field"><label>Tên hiển thị</label><input value={displayName} onChange={(event) => setDisplayName(event.target.value)} maxLength={100} required /></div>
-            <div className="field"><label>Giới thiệu</label><textarea value={bio} onChange={(event) => setBio(event.target.value)} maxLength={255} rows={3} /></div>
-            <div className="field"><label>Trường học</label><input value={education} onChange={(event) => setEducation(event.target.value)} maxLength={120} placeholder="Ví dụ: Đại học Công nghệ" /></div>
-            <div className="field"><label>Nơi ở</label><input value={location} onChange={(event) => setLocation(event.target.value)} maxLength={120} placeholder="Ví dụ: Hà Nội" /></div>
-            <div className="field"><label>Tình trạng mối quan hệ</label><select value={relationshipStatus} onChange={(event) => setRelationshipStatus(event.target.value)}><option value="">Chưa cập nhật</option><option value="Độc thân">Độc thân</option><option value="Đang hẹn hò">Đang hẹn hò</option><option value="Đã kết hôn">Đã kết hôn</option><option value="Không muốn công khai">Không muốn công khai</option></select></div>
-            <div className="field"><label>Ngày sinh</label><input type="date" value={birthDate} onChange={(event) => setBirthDate(event.target.value)} /></div>
-            <button className="primary profile-save-button" type="submit" disabled={saving}>{saving ? 'Đang lưu...' : 'Lưu thay đổi'}</button>
-          </form>
+      <section className="profile-summary">
+        <span style={{ position: "relative", cursor: mine ? "pointer" : "default", marginTop: -45 }} onClick={() => mine && avatarRef.current?.click()} title={mine ? "Đổi ảnh đại diện" : undefined}>
+          <Avatar name={p.displayName} src={p.avatar} size="xl" />
+        </span>
+        <input ref={avatarRef} type="file" accept="image/*" hidden onChange={(e) => upload(userApi.uploadAvatar, e, "Đã đổi ảnh đại diện.")} />
+        <div>
+          <h1>{p.displayName}</h1>
+          <p>{p.education || `@${p.username}`}</p>
+          <span>{p.location || "Thành viên CMC Talk"}{p.online ? " · Đang hoạt động" : ""}</span>
         </div>
-      )}
+        <div>
+          {mine ? (
+            <Button variant="secondary" icon="edit" onClick={() => setEditing(true)}>Chỉnh sửa trang cá nhân</Button>
+          ) : (
+            <>
+              <Button icon="message" onClick={message}>Nhắn tin</Button>
+              {p.friendshipStatus === "ACCEPTED" ? <Button variant="secondary" icon="check" disabled>Bạn bè</Button>
+                : p.friendshipStatus === "PENDING" ? <Button variant="secondary" disabled>Đã gửi lời mời</Button>
+                : <Button variant="secondary" icon="user_plus" onClick={addFriend}>Kết bạn</Button>}
+            </>
+          )}
+        </div>
+      </section>
+      <div className="profile-tabs">
+        {[["posts", "Bài viết"], ["about", "Giới thiệu"], ["photos", "Ảnh"]].map(([k, l]) => <button key={k} className={tab === k ? "active" : ""} onClick={() => setTab(k)}>{l}</button>)}
+      </div>
+      <div className="profile-content">
+        <aside>
+          <section className="panel intro-panel">
+            <h3>Giới thiệu</h3>
+            <p>{p.bio || "Chưa có giới thiệu."}</p>
+            {p.education && <span><Icon name="forum" />{p.education}</span>}
+            {p.location && <span><Icon name="location" />{p.location}</span>}
+            {p.birthDate && <span><Icon name="calendar" />{new Date(p.birthDate).toLocaleDateString("vi-VN")}</span>}
+            <span><Icon name="clock" />Tham gia {new Date(p.createdAt).toLocaleDateString("vi-VN")}</span>
+          </section>
+        </aside>
+        <main>
+          {tab === "posts" && (
+            <>
+              {mine && <Composer me={me || p} onPosted={(post) => feed.setData([post, ...(feed.data || [])])} />}
+              {feed.loading && <Loading />}
+              {!feed.loading && posts.length === 0 && <EmptyState title="Chưa có bài viết" copy="Các bài viết bạn có quyền xem sẽ hiển thị tại đây." icon="home" />}
+              {posts.map((post) => <PostCard key={post.postId} post={post} meId={user?.userId} onChange={replacePost} onRemove={(id) => feed.setData((feed.data || []).filter((x) => x.postId !== id))} onShared={(c) => feed.setData([c, ...(feed.data || [])])} />)}
+            </>
+          )}
+          {tab === "about" && (
+            <section className="panel intro-panel" style={{ padding: 20 }}>
+              <h3>Thông tin</h3>
+              <p>Tên hiển thị: {p.displayName}</p><p>Username: @{p.username}</p>
+              {p.relationshipStatus && <p>Tình trạng: {p.relationshipStatus}</p>}
+              <p>{p.bio || "Chưa có giới thiệu."}</p>
+            </section>
+          )}
+          {tab === "photos" && (photos.length === 0 ? <EmptyState title="Chưa có ảnh" icon="image" /> : <div className="photo-grid">{photos.map((x) => <img key={x.postId} src={mediaUrl(x.imageUrl)} alt="" />)}</div>)}
+        </main>
+      </div>
+      {editing && <EditModal profile={p} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); profile.reload(); window.dispatchEvent(new Event("cmctalk-profile-updated")) }} />}
     </div>
   )
 }

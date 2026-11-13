@@ -1,7 +1,7 @@
 {
-  "name": "messaging-system-frontend",
+  "name": "cmc-talk-frontend",
   "private": true,
-  "version": "1.0.0",
+  "version": "2.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -17,8 +17,10 @@
     "sockjs-client": "^1.6.1"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "^4.0.0",
     "@vitejs/plugin-basic-ssl": "^1.1.0",
     "@vitejs/plugin-react": "^4.3.1",
-    "vite": "^5.4.8"
+    "tailwindcss": "^4.0.0",
+    "vite": "^6.0.0"
   }
 }

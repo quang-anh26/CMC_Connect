@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useEffect, useState } from 'react'
-import { authApi } from '../api/authApi'
-import { userApi } from '../api/userApi'
+import React, { createContext, useContext, useEffect, useState } from "react"
+import { authApi } from "../api/authApi"
+import { userApi } from "../api/userApi"
 
 const AuthContext = createContext(null)
 
@@ -9,16 +9,16 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const token = localStorage.getItem('accessToken')
+    const token = localStorage.getItem("accessToken")
     if (!token) {
       setLoading(false)
       return
     }
-    // Session restore on app reopen (plan section 4): if the access/refresh token is
-    // still valid, the user is taken straight back in without re-entering credentials.
+    // Khôi phục phiên khi mở lại ứng dụng: token còn hạn thì vào thẳng, không cần đăng nhập lại.
+    // /api/users/me không trả về role nên role được lưu cùng phiên đăng nhập.
     userApi
       .me()
-      .then((res) => setUser(res.data))
+      .then((res) => setUser({ ...res.data, role: localStorage.getItem("userRole") || "USER" }))
       .catch(() => {
         localStorage.clear()
       })
@@ -37,8 +37,9 @@ export function AuthProvider({ children }) {
   }
 
   const persistSession = (data) => {
-    localStorage.setItem('accessToken', data.accessToken)
-    localStorage.setItem('refreshToken', data.refreshToken)
+    localStorage.setItem("accessToken", data.accessToken)
+    localStorage.setItem("refreshToken", data.refreshToken)
+    localStorage.setItem("userRole", data.role || "USER")
     setUser({
       userId: data.userId,
       username: data.username,
@@ -51,9 +52,11 @@ export function AuthProvider({ children }) {
     try {
       await authApi.logout()
     } catch (e) {
-      // ignore network errors on logout - clear local session regardless
+      // lỗi mạng khi đăng xuất: vẫn xóa phiên cục bộ
     }
+    const theme = localStorage.getItem("messenger-theme")
     localStorage.clear()
+    if (theme) localStorage.setItem("messenger-theme", theme)
     setUser(null)
   }
 

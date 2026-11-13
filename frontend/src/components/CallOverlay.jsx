@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import Avatar from './Avatar'
+import { Avatar } from './ui'
 import { useSocket } from '../context/SocketContext'
 
 const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }
@@ -154,7 +154,7 @@ export default function CallOverlay({ conversationInfo, visible, onClose }) {
     <div className="call-overlay">
       <div className="call-card">
         <div className="call-card-title">
-          <Avatar src={conversationInfo?.avatar} name={targetName} size={48} />
+          <Avatar src={conversationInfo?.avatar} name={targetName} size="lg" />
           <div><strong>{callState === 'incoming' ? `${targetName} đang gọi` : targetName}</strong><span>{callState === 'connected' ? 'Đã kết nối' : callState === 'calling' ? 'Đang gọi...' : 'Cuộc gọi đến'}</span></div>
         </div>
         {callType === 'video' && <div className="call-video-stage"><video ref={remoteVideoRef} autoPlay playsInline /><video ref={localVideoRef} autoPlay muted playsInline /></div>}
