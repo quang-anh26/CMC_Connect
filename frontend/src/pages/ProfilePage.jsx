@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react"
+import React, { useEffect, useRef, useState } from "react"
 import { useNavigate, useOutletContext, useParams } from "react-router-dom"
 import { Icon } from "../components/Icon"
 import { Avatar, Button, EmptyState, ErrorBlock, Loading, Modal, useAsync, useToast } from "../components/ui"
@@ -9,7 +9,7 @@ import { friendApi } from "../api/friendApi"
 import { conversationApi } from "../api/conversationApi"
 import { useAuth } from "../context/AuthContext"
 import { getApiErrorMessage } from "../utils/apiError"
-import { mediaUrl } from "../utils/format"
+import { friendOf, mediaUrl } from "../utils/format"
 
 function EditModal({ profile, onClose, onSaved }) {
   const toast = useToast()
@@ -42,6 +42,8 @@ export default function ProfilePage() {
   const coverRef = useRef(null)
   const avatarRef = useRef(null)
   const [tab, setTab] = useState("posts")
+  const [friends, setFriends] = useState([])
+  const [friendsLoading, setFriendsLoading] = useState(false)
   const [editing, setEditing] = useState(false)
   const targetId = profileUserId || user?.userId
   const mine = String(targetId) === String(user?.userId)
@@ -50,6 +52,18 @@ export default function ProfilePage() {
   const p = profile.data
   const posts = (feed.data || []).filter((x) => String(x.authorId) === String(targetId))
   const photos = posts.filter((x) => x.imageUrl && String(x.mediaType).toUpperCase() !== "VIDEO")
+
+  useEffect(() => {
+    if (tab !== "friends" || !mine) return
+    let active = true
+    setFriendsLoading(true)
+    friendApi.accepted().then(({ data }) => {
+      if (active) setFriends((data || []).map((r) => friendOf(r, user?.userId)))
+    }).catch(() => {
+      if (active) toast("Không tải được danh sách bạn bè.", "error")
+    }).finally(() => { if (active) setFriendsLoading(false) })
+    return () => { active = false }
+  }, [tab, mine, user?.userId])
 
   const upload = async (fn, e, ok) => {
     const file = e.target.files?.[0]
@@ -85,12 +99,12 @@ export default function ProfilePage() {
           <Avatar name={p.displayName} src={p.avatar} size="xl" />
         </span>
         <input ref={avatarRef} type="file" accept="image/*" hidden onChange={(e) => upload(userApi.uploadAvatar, e, "Đã đổi ảnh đại diện.")} />
-        <div>
+        <div className="profile-identity">
           <h1>{p.displayName}</h1>
           <p>{p.education || `@${p.username}`}</p>
           <span>{p.location || "Thành viên CMC Talk"}{p.online ? " · Đang hoạt động" : ""}</span>
         </div>
-        <div>
+        <div className="profile-actions">
           {mine ? (
             <Button variant="secondary" icon="edit" onClick={() => setEditing(true)}>Chỉnh sửa trang cá nhân</Button>
           ) : (
@@ -104,7 +118,7 @@ export default function ProfilePage() {
         </div>
       </section>
       <div className="profile-tabs">
-        {[["posts", "Bài viết"], ["about", "Giới thiệu"], ["photos", "Ảnh"]].map(([k, l]) => <button key={k} className={tab === k ? "active" : ""} onClick={() => setTab(k)}>{l}</button>)}
+        {[["posts", "Bài viết"], ["about", "Giới thiệu"], ...(mine ? [["friends", "Bạn bè"]] : []), ["photos", "Ảnh"]].map(([k, l]) => <button key={k} className={tab === k ? "active" : ""} onClick={() => setTab(k)}>{l}</button>)}
       </div>
       <div className="profile-content">
         <aside>
@@ -135,6 +149,7 @@ export default function ProfilePage() {
             </section>
           )}
           {tab === "photos" && (photos.length === 0 ? <EmptyState title="Chưa có ảnh" icon="image" /> : <div className="photo-grid">{photos.map((x) => <img key={x.postId} src={mediaUrl(x.imageUrl)} alt="" />)}</div>)}
+          {tab === "friends" && (friendsLoading ? <Loading label="Đang tải bạn bè..." /> : friends.length === 0 ? <EmptyState title="Chưa có bạn bè" icon="users" /> : <div className="profile-friends">{friends.map((friend) => <article className="panel" key={friend.id}><Avatar name={friend.name} src={friend.avatar} size="lg" /><div><strong>{friend.name}</strong></div><Button variant="secondary" onClick={() => navigate(`/profile/${friend.id}`)}>Trang cá nhân</Button></article>)}</div>)}
         </main>
       </div>
       {editing && <EditModal profile={p} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); profile.reload(); window.dispatchEvent(new Event("cmctalk-profile-updated")) }} />}
