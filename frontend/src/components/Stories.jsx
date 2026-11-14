@@ -39,10 +39,12 @@ function StoryViewer({ groups, startStory, meId, onClose, onDeleted, onViewed })
   const [sending, setSending] = useState(false)
   const [error, setError] = useState("")
   const [progress, setProgress] = useState(0)
-  const [paused, setPaused] = useState(false)
+  const [pausedStoryId, setPausedStoryId] = useState(null)
+  const videoRef = useRef(null)
   const index = flat.findIndex((s) => String(s.storyId) === String(activeId))
   const story = flat[index]
   const video = story ? isVideoUrl(story.mediaUrl, story.mediaType) : false
+  const paused = story && String(pausedStoryId) === String(story.storyId)
   const mine = story && String(story.authorId) === String(meId)
   const move = useCallback((dir) => {
     const target = flat[index + dir]
@@ -68,6 +70,25 @@ function StoryViewer({ groups, startStory, meId, onClose, onDeleted, onViewed })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [story?.storyId])
 
+  useEffect(() => {
+    const previousHtmlOverflow = document.documentElement.style.overflow
+    const previousBodyOverflow = document.body.style.overflow
+    const previousScrollbarGutter = document.documentElement.style.scrollbarGutter
+    const previousBodyPaddingRight = document.body.style.paddingRight
+    const scrollbarWidth = Math.max(0, window.innerWidth - document.documentElement.clientWidth)
+    const currentBodyPaddingRight = Number.parseFloat(getComputedStyle(document.body).paddingRight) || 0
+    document.documentElement.style.overflow = "hidden"
+    document.body.style.overflow = "hidden"
+    document.documentElement.style.scrollbarGutter = "auto"
+    if (scrollbarWidth) document.body.style.paddingRight = `${currentBodyPaddingRight + scrollbarWidth}px`
+    return () => {
+      document.documentElement.style.overflow = previousHtmlOverflow
+      document.body.style.overflow = previousBodyOverflow
+      document.documentElement.style.scrollbarGutter = previousScrollbarGutter
+      document.body.style.paddingRight = previousBodyPaddingRight
+    }
+  }, [])
+
   // Ảnh/văn bản tự chuyển sau 5 giây; video chuyển khi phát xong.
   useEffect(() => {
     if (!story || video || paused) return undefined
@@ -83,6 +104,12 @@ function StoryViewer({ groups, startStory, meId, onClose, onDeleted, onViewed })
     return () => clearInterval(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [story?.storyId, video, paused, move])
+
+  useEffect(() => {
+    if (!videoRef.current || !video) return
+    if (paused) videoRef.current.pause()
+    else videoRef.current.play().catch(() => {})
+  }, [paused, story?.storyId, video])
 
   useEffect(() => {
     const onKey = (e) => {
@@ -138,9 +165,12 @@ function StoryViewer({ groups, startStory, meId, onClose, onDeleted, onViewed })
           <div><strong>{story.authorName}</strong><span>{timeAgo(story.createdAt)}</span></div>
           {mine && <button type="button" className="icon-button" aria-label="Xóa tin" onClick={removeStory}><Icon name="trash" size={18} /></button>}
         </header>
-        <div className="story-media" onMouseDown={() => setPaused(true)} onMouseUp={() => setPaused(false)} onMouseLeave={() => setPaused(false)}>
+        <div className="story-media" onClick={(e) => {
+          if (e.target.closest("button")) return
+      setPausedStoryId((current) => String(current) === String(story.storyId) ? null : story.storyId)
+        }}>
           {story.mediaUrl && (video ? (
-            <video key={story.storyId} src={mediaUrl(story.mediaUrl)} autoPlay playsInline controls onEnded={() => move(1)} onTimeUpdate={(e) => e.target.duration && setProgress((e.target.currentTime / e.target.duration) * 100)} />
+            <video ref={videoRef} key={story.storyId} src={mediaUrl(story.mediaUrl)} autoPlay playsInline onEnded={() => move(1)} onTimeUpdate={(e) => e.target.duration && setProgress((e.target.currentTime / e.target.duration) * 100)} />
           ) : (
             <img src={mediaUrl(story.mediaUrl)} alt="Tin" />
           ))}
@@ -167,7 +197,7 @@ function StoryViewer({ groups, startStory, meId, onClose, onDeleted, onViewed })
             ))}
           </div>
           <form onSubmit={comment}>
-            <input value={draft} onChange={(e) => setDraft(e.target.value)} onFocus={() => setPaused(true)} onBlur={() => setPaused(false)} placeholder="Trả lời tin này..." maxLength={500} />
+            <input value={draft} onChange={(e) => setDraft(e.target.value)} onFocus={() => setPausedStoryId(story.storyId)} onBlur={() => setPausedStoryId((current) => String(current) === String(story.storyId) ? null : current)} placeholder="Trả lời tin này..." maxLength={500} />
             <button className="button button-primary" disabled={!draft.trim() || sending}>Gửi</button>
           </form>
         </footer>
@@ -217,7 +247,10 @@ function CreateStory({ onClose, onCreated }) {
   return (
     <Modal title="Tạo tin mới" close={onClose}>
       <div className="form-grid">
-        <label className="full">Ảnh hoặc video<input type="file" accept="image/*,video/*" onChange={(e) => setFile(e.target.files?.[0] || null)} /></label>
+        <label className="full story-file-label">Ảnh hoặc video
+          <span className="story-file-picker"><span>Choose file</span>{file && <span className="story-file-name">{file.name}</span>}</span>
+          <input className="story-file-input" type="file" accept="image/*,video/*" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+        </label>
         {preview && <div className="full story-preview">{file?.type?.startsWith("video/") ? <video src={preview} controls /> : <img src={preview} alt="Xem trước" />}</div>}
         <label className="full">Nội dung<textarea rows={3} value={text} maxLength={500} onChange={(e) => setText(e.target.value)} placeholder="Bạn muốn chia sẻ điều gì?" /></label>
         {error && <p className="full" style={{ color: "var(--red)", fontSize: 12 }}>{error}</p>}
