@@ -1,4 +1,5 @@
-import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Icon } from "./Icon";
 import { initialsOf, mediaUrl } from "../utils/format";
 
@@ -83,15 +84,33 @@ export function ErrorBlock({ message, onRetry }) {
   );
 }
 
-export function Modal({ title, close, children, wide }) {
+export function Modal({ title, close, children, wide, className = "", backdropClassName = "", portal = false }) {
+  const closeRef = useRef(close);
+  closeRef.current = close;
   useEffect(() => {
-    const onKey = (event) => event.key === "Escape" && close();
+    const onKey = (event) => event.key === "Escape" && closeRef.current();
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousScrollbarGutter = document.documentElement.style.scrollbarGutter;
+    const previousBodyPaddingRight = document.body.style.paddingRight;
+    const scrollbarWidth = Math.max(0, window.innerWidth - document.documentElement.clientWidth);
+    const currentBodyPaddingRight = Number.parseFloat(getComputedStyle(document.body).paddingRight) || 0;
+    document.documentElement.style.overflow = "hidden";
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.scrollbarGutter = "auto";
+    if (scrollbarWidth) document.body.style.paddingRight = `${currentBodyPaddingRight + scrollbarWidth}px`;
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [close]);
-  return (
-    <div className="modal-backdrop" onMouseDown={close}>
-      <div className="modal" style={wide ? { width: "min(760px, 100%)" } : undefined} onMouseDown={(e) => e.stopPropagation()}>
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.documentElement.style.overflow = previousHtmlOverflow;
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.scrollbarGutter = previousScrollbarGutter;
+      document.body.style.paddingRight = previousBodyPaddingRight;
+    };
+  }, []);
+  const modal = (
+    <div className={`modal-backdrop ${backdropClassName}`.trim()} onMouseDown={close}>
+      <div className={`modal ${className}`.trim()} style={wide ? { width: "min(760px, 100%)" } : undefined} onMouseDown={(e) => e.stopPropagation()}>
         <header>
           <h2>{title}</h2>
           <button type="button" onClick={close} aria-label="Đóng">
@@ -102,6 +121,7 @@ export function Modal({ title, close, children, wide }) {
       </div>
     </div>
   );
+  return portal ? createPortal(modal, document.body) : modal;
 }
 
 const ToastContext = createContext(() => {});

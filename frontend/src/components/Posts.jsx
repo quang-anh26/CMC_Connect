@@ -28,7 +28,12 @@ const EMOJIS = ["😀", "😂", "😍", "🥰", "😎", "🤔", "👍", "🎉", 
 function PostMedia({ url, type, short, onOpen }) {
   if (!url) return null
   if (isVideoUrl(url, type)) {
-    return <video className="post-image" src={videoApi.resolveMediaUrl(mediaUrl(url))} controls playsInline preload="metadata" />
+    return (
+      <button type="button" className="post-media-btn" onClick={() => onOpen?.(url)} aria-label="Xem video lớn">
+        <video className="post-image" src={videoApi.resolveMediaUrl(mediaUrl(url))} playsInline preload="metadata" />
+        <span className="post-video-play" aria-hidden="true">▶</span>
+      </button>
+    )
   }
   return (
     <button type="button" className="post-media-btn" onClick={() => onOpen?.(url)} aria-label="Xem ảnh lớn">
@@ -195,16 +200,54 @@ function SharedPost({ post }) {
 export function PostCard({ post, meId, onChange, onRemove, onShared }) {
   const navigate = useNavigate()
   const toast = useToast()
-  const [commentsOpen, setCommentsOpen] = useState(false)
   const [draft, setDraft] = useState("")
   const [menuOpen, setMenuOpen] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
   const [shareText, setShareText] = useState("")
   const [busy, setBusy] = useState(false)
-  const [lightbox, setLightbox] = useState(null)
+  const [viewerOpen, setViewerOpen] = useState(false)
+  const [commentsModalOpen, setCommentsModalOpen] = useState(false)
+  const viewerCommentsRef = useRef(null)
+  const commentsModalListRef = useRef(null)
+  const postCopyRef = useRef(null)
+  const [contentExpanded, setContentExpanded] = useState(false)
+  const [contentOverflows, setContentOverflows] = useState(false)
   const mine = String(post.authorId) === String(meId)
   const comments = post.comments || []
   const isVideo = String(post.mediaType).toUpperCase() === "VIDEO"
+
+  useEffect(() => {
+    const element = postCopyRef.current
+    if (!element || !post.content) return undefined
+    const measure = () => setContentOverflows(element.scrollHeight > element.clientHeight + 1)
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [post.content, contentExpanded])
+
+  useEffect(() => {
+    if (!viewerOpen) return undefined
+    const onKeyDown = (event) => event.key === "Escape" && setViewerOpen(false)
+    const previousHtmlOverflow = document.documentElement.style.overflow
+    const previousBodyOverflow = document.body.style.overflow
+    const previousScrollbarGutter = document.documentElement.style.scrollbarGutter
+    const previousBodyPaddingRight = document.body.style.paddingRight
+    const scrollbarWidth = Math.max(0, window.innerWidth - document.documentElement.clientWidth)
+    const currentBodyPaddingRight = Number.parseFloat(getComputedStyle(document.body).paddingRight) || 0
+    document.documentElement.style.overflow = "hidden"
+    document.body.style.overflow = "hidden"
+    document.documentElement.style.scrollbarGutter = "auto"
+    if (scrollbarWidth) document.body.style.paddingRight = `${currentBodyPaddingRight + scrollbarWidth}px`
+    window.addEventListener("keydown", onKeyDown)
+    return () => {
+      window.removeEventListener("keydown", onKeyDown)
+      document.documentElement.style.overflow = previousHtmlOverflow
+      document.body.style.overflow = previousBodyOverflow
+      document.documentElement.style.scrollbarGutter = previousScrollbarGutter
+      document.body.style.paddingRight = previousBodyPaddingRight
+    }
+  }, [viewerOpen])
 
   const run = async (action, fallback) => {
     try {
@@ -308,10 +351,11 @@ export function PostCard({ post, meId, onChange, onRemove, onShared }) {
       </header>
       {post.content && (
         <div className="post-copy">
-          <p style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{post.content}</p>
+          <p ref={postCopyRef} className={contentExpanded ? "post-copy-text expanded" : "post-copy-text clamped"}>{post.content}</p>
+          {(contentOverflows || contentExpanded) && <button type="button" className="post-copy-toggle" onClick={() => setContentExpanded((value) => !value)}>{contentExpanded ? "Ẩn bớt" : "Xem thêm"}</button>}
         </div>
       )}
-      {post.sharedPost ? <SharedPost post={post.sharedPost} /> : <PostMedia url={post.imageUrl} type={post.mediaType} onOpen={setLightbox} />}
+      {post.sharedPost ? <SharedPost post={post.sharedPost} /> : <PostMedia url={post.imageUrl} type={post.mediaType} onOpen={() => setViewerOpen(true)} />}
       <div className="post-meta">
         <span>
           <b>{selectedReaction ? selectedReaction.emoji : "♥"}</b> {post.likeCount || 0} lượt thích
@@ -334,7 +378,7 @@ export function PostCard({ post, meId, onChange, onRemove, onShared }) {
             ))}
           </div>
         </div>
-        <button className={commentsOpen ? "active" : ""} onClick={() => setCommentsOpen(!commentsOpen)}>
+        <button onClick={() => setCommentsModalOpen(true)}>
           <Icon name="comment" />
           Bình luận
         </button>
@@ -347,40 +391,77 @@ export function PostCard({ post, meId, onChange, onRemove, onShared }) {
           {post.savedByViewer ? "Đã lưu" : "Lưu"}
         </button>
       </div>
-      {!commentsOpen && comments.length > 0 && (
-        <div className="comment-preview">
-          <Avatar name={comments[comments.length - 1].authorName} src={comments[comments.length - 1].authorAvatar} size="sm" />
-          <div>
-            <strong>{comments[comments.length - 1].authorName}</strong>
-            <p>{comments[comments.length - 1].content}</p>
-            <span>{timeAgo(comments[comments.length - 1].createdAt)}</span>
-          </div>
-        </div>
-      )}
-      {commentsOpen && (
-        <div className="comment-thread">
-          {comments.map((c) => (
-            <div className="comment-preview comment-item" key={c.commentId}>
-              <Avatar name={c.authorName} src={c.authorAvatar} size="sm" />
-              <div>
-                <strong>{c.authorName}</strong>
-                <p>{c.content}</p>
-                <span>{timeAgo(c.createdAt)}</span>
+      {commentsModalOpen && (
+        <Modal title={`Bài viết của ${post.authorName}`} close={() => setCommentsModalOpen(false)} wide className="post-comments-modal" backdropClassName="post-comments-backdrop" portal>
+          <div className="post-comments-dialog">
+            <div className="post-comments-scroll">
+              <div className="post-comments-author">
+                <Avatar name={post.authorName} src={post.authorAvatar} />
+                <div><strong>{post.authorName}</strong><span>{timeAgo(post.createdAt)} · {(PRIVACY[post.privacy] || PRIVACY.PUBLIC).label}</span></div>
+              </div>
+              {post.content && <p className="post-comments-copy">{post.content}</p>}
+              {post.sharedPost ? <div className="post-comments-shared"><SharedPost post={post.sharedPost} /></div> : post.imageUrl && (isVideo
+                ? <video className="post-comments-media" src={videoApi.resolveMediaUrl(mediaUrl(post.imageUrl))} controls playsInline preload="metadata" />
+                : <img className="post-comments-media" src={mediaUrl(post.imageUrl)} alt="Ảnh bài viết" />)}
+              <div className="post-viewer-stats">{selectedReaction ? selectedReaction.emoji : "♥"} {post.likeCount || 0} lượt thích <span>{comments.length} bình luận · {post.shareCount || 0} lượt chia sẻ</span></div>
+              <div className="post-viewer-actions">
+                <button type="button" onClick={() => react(selectedReaction?.type || "LIKE")}><Icon name="heart" /> {selectedReaction ? selectedReaction.label : "Thích"}</button>
+                <button type="button" onClick={() => commentsModalListRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}><Icon name="comment" /> Bình luận</button>
+                <button type="button" onClick={() => setShareOpen(true)}><Icon name="share" /> Chia sẻ</button>
+                <button type="button" onClick={save}><Icon name="bookmark" /> {post.savedByViewer ? "Đã lưu" : "Lưu"}</button>
+              </div>
+              <div className="post-comments-list" ref={commentsModalListRef}>
+                {comments.map((c) => <div className="post-viewer-comment" key={c.commentId}>
+                  <button type="button" className="post-viewer-comment-profile" aria-label={`Mở trang cá nhân của ${c.authorName}`} onClick={() => { setCommentsModalOpen(false); navigate(`/profile/${c.authorId}`) }}><Avatar name={c.authorName} src={c.authorAvatar} size="sm" /></button>
+                  <div className="post-viewer-comment-body">
+                    <div className="post-viewer-comment-meta"><button type="button" onClick={() => { setCommentsModalOpen(false); navigate(`/profile/${c.authorId}`) }}>{c.authorName}</button><small>{timeAgo(c.createdAt)}</small></div>
+                    <p>{c.content}</p>
+                  </div>
+                </div>)}
+                {comments.length === 0 && <p className="post-viewer-empty">Chưa có bình luận nào.</p>}
               </div>
             </div>
-          ))}
-          <form className="comment-form" onSubmit={sendComment}>
-            <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Viết bình luận..." maxLength={2000} />
-            <button className="button button-primary" disabled={!draft.trim() || busy}>
-              Gửi
-            </button>
-          </form>
-        </div>
+            <form className="post-viewer-comment-form" onSubmit={sendComment}>
+              <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Viết bình luận..." maxLength={2000} />
+              <button type="submit" disabled={!draft.trim() || busy}>Gửi</button>
+            </form>
+          </div>
+        </Modal>
       )}
-      {lightbox && (
-        <div className="lightbox" onClick={() => setLightbox(null)} role="dialog" aria-modal="true">
-          <button type="button" aria-label="Đóng" onClick={() => setLightbox(null)}><Icon name="close" size={22} /></button>
-          <img src={mediaUrl(lightbox)} alt="Ảnh phóng to" onClick={(e) => e.stopPropagation()} />
+      {viewerOpen && (
+        <div className={`post-viewer ${post.imageUrl ? "has-media" : "text-only"}`} onClick={() => setViewerOpen(false)} role="dialog" aria-modal="true" aria-label="Xem bài viết">
+          <button type="button" className="post-viewer-close" aria-label="Đóng" onClick={() => setViewerOpen(false)}><Icon name="close" size={22} /></button>
+          {post.imageUrl && <div className="post-viewer-media" onClick={(e) => e.stopPropagation()}>
+            {isVideo ? <video src={videoApi.resolveMediaUrl(mediaUrl(post.imageUrl))} controls autoPlay playsInline /> : <img src={mediaUrl(post.imageUrl)} alt="Ảnh bài viết phóng to" />}
+          </div>}
+          <aside className="post-viewer-side" onClick={(e) => e.stopPropagation()}>
+            <header>
+              <Avatar name={post.authorName} src={post.authorAvatar} />
+              <div><strong>{post.authorName}</strong><span>{timeAgo(post.createdAt)} · {(PRIVACY[post.privacy] || PRIVACY.PUBLIC).label}</span></div>
+            </header>
+            {post.content && <p className="post-viewer-copy">{post.content}</p>}
+            <div className="post-viewer-actions">
+              <button type="button" onClick={() => react(selectedReaction?.type || "LIKE")}><Icon name="heart" /> {selectedReaction ? selectedReaction.label : "Thích"}</button>
+              <button type="button" onClick={() => { setViewerOpen(false); setCommentsModalOpen(true) }}><Icon name="comment" /> Bình luận</button>
+              <button type="button" onClick={() => setShareOpen(true)}><Icon name="share" /> Chia sẻ</button>
+              <button type="button" onClick={save}><Icon name="bookmark" /> {post.savedByViewer ? "Đã lưu" : "Lưu"}</button>
+            </div>
+            <div className="post-viewer-stats">{selectedReaction ? selectedReaction.emoji : "♥"} {post.likeCount || 0} lượt thích <span>{comments.length} bình luận · {post.shareCount || 0} lượt chia sẻ</span></div>
+            <div className="post-viewer-comments" ref={viewerCommentsRef}>
+              {comments.map((c) => <div className="post-viewer-comment" key={c.commentId}>
+                <button type="button" className="post-viewer-comment-profile" aria-label={`Mở trang cá nhân của ${c.authorName}`} onClick={() => { setViewerOpen(false); navigate(`/profile/${c.authorId}`) }}><Avatar name={c.authorName} src={c.authorAvatar} size="sm" /></button>
+                <div className="post-viewer-comment-body">
+                  <div className="post-viewer-comment-meta"><button type="button" onClick={() => { setViewerOpen(false); navigate(`/profile/${c.authorId}`) }}>{c.authorName}</button><small>{timeAgo(c.createdAt)}</small></div>
+                  <p>{c.content}</p>
+                </div>
+              </div>)}
+              {comments.length === 0 && <p className="post-viewer-empty">Chưa có bình luận nào.</p>}
+            </div>
+            <form className="post-viewer-comment-form" onSubmit={sendComment}>
+              <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Viết bình luận..." maxLength={2000} />
+              <button type="submit" disabled={!draft.trim() || busy}>Gửi</button>
+            </form>
+          </aside>
         </div>
       )}
       {shareOpen && (
