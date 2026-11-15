@@ -203,7 +203,7 @@ function SharedPost({ post }) {
   )
 }
 
-export function PostCard({ post, meId, onChange, onRemove, onShared, openCommentsOnMount = false }) {
+export function PostCard({ post, meId, onChange, onRemove, onShared, openCommentsOnMount = false, hideCard = false, onCloseComments }) {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const toast = useToast()
@@ -212,6 +212,8 @@ export function PostCard({ post, meId, onChange, onRemove, onShared, openComment
   const [shareOpen, setShareOpen] = useState(false)
   const [shareText, setShareText] = useState("")
   const [busy, setBusy] = useState(false)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [deletingPost, setDeletingPost] = useState(false)
   const [viewerOpen, setViewerOpen] = useState(false)
   const [commentsModalOpen, setCommentsModalOpen] = useState(false)
   const viewerCommentsRef = useRef(null)
@@ -222,6 +224,7 @@ export function PostCard({ post, meId, onChange, onRemove, onShared, openComment
 
   const closeComments = () => {
     setCommentsModalOpen(false)
+    onCloseComments?.()
     if (searchParams.get("openComments") !== String(post.postId)) return
     const nextParams = new URLSearchParams(searchParams)
     nextParams.delete("openComments")
@@ -318,11 +321,18 @@ export function PostCard({ post, meId, onChange, onRemove, onShared, openComment
     }
   }
 
-  const remove = async () => {
+  const remove = () => {
     setMenuOpen(false)
-    if (!window.confirm("Bạn có chắc muốn xóa bài viết này?")) return
+    setDeleteConfirmOpen(true)
+  }
+
+  const confirmRemove = async () => {
+    if (deletingPost) return
+    setDeletingPost(true)
     const res = await run(() => feedApi.remove(post.postId), "Không thể xóa bài viết.")
+    setDeletingPost(false)
     if (res) {
+      setDeleteConfirmOpen(false)
       onRemove?.(post.postId)
       toast("Đã xóa bài viết.")
     }
@@ -335,7 +345,7 @@ export function PostCard({ post, meId, onChange, onRemove, onShared, openComment
   }
 
   return (
-    <article className="post panel" id={`post-${post.postId}`}>
+    <article className={`post panel${hideCard ? " post-card-hidden" : ""}`} id={`post-${post.postId}`}>
       <header className="post-head">
         <span style={{ cursor: "pointer" }} onClick={() => navigate(`/profile/${post.authorId}`)}>
           <Avatar name={post.authorName} src={post.authorAvatar} />
@@ -423,9 +433,9 @@ export function PostCard({ post, meId, onChange, onRemove, onShared, openComment
               </div>
               <div className="post-comments-list" ref={commentsModalListRef}>
                 {comments.map((c) => <div className="post-viewer-comment" key={c.commentId}>
-                  <button type="button" className="post-viewer-comment-profile" aria-label={`Mở trang cá nhân của ${c.authorName}`} onClick={() => { setCommentsModalOpen(false); navigate(`/profile/${c.authorId}`) }}><Avatar name={c.authorName} src={c.authorAvatar} size="sm" /></button>
+                  <button type="button" className="post-viewer-comment-profile" aria-label={`Mở trang cá nhân của ${c.authorName}`} onClick={() => { closeComments(); navigate(`/profile/${c.authorId}`) }}><Avatar name={c.authorName} src={c.authorAvatar} size="sm" /></button>
                   <div className="post-viewer-comment-body">
-                    <div className="post-viewer-comment-meta"><button type="button" onClick={() => { setCommentsModalOpen(false); navigate(`/profile/${c.authorId}`) }}>{c.authorName}</button><small>{timeAgo(c.createdAt)}</small></div>
+                    <div className="post-viewer-comment-meta"><button type="button" onClick={() => { closeComments(); navigate(`/profile/${c.authorId}`) }}>{c.authorName}</button><small>{timeAgo(c.createdAt)}</small></div>
                     <p>{c.content}</p>
                   </div>
                 </div>)}
@@ -486,6 +496,28 @@ export function PostCard({ post, meId, onChange, onRemove, onShared, openComment
           <div className="modal-actions">
             <Button variant="secondary" onClick={() => setShareOpen(false)}>Hủy</Button>
             <Button disabled={busy} onClick={share}>Chia sẻ ngay</Button>
+          </div>
+        </Modal>
+      )}
+      {deleteConfirmOpen && (
+        <Modal
+          title="Xóa bài viết"
+          close={() => !deletingPost && setDeleteConfirmOpen(false)}
+          className="collection-delete-modal"
+          backdropClassName="post-delete-confirm-backdrop"
+          portal
+          preservePage
+        >
+          <div className="collection-delete-content">
+            <span className="collection-delete-icon"><Icon name="trash" size={20} /></span>
+            <div>
+              <strong>Bạn có chắc muốn xóa bài viết này?</strong>
+              <p>Bài viết sẽ bị xóa và không thể khôi phục.</p>
+            </div>
+          </div>
+          <div className="modal-actions">
+            <Button variant="secondary" disabled={deletingPost} onClick={() => setDeleteConfirmOpen(false)}>Hủy</Button>
+            <Button variant="danger" disabled={deletingPost} onClick={confirmRemove}>{deletingPost ? "Đang xóa..." : "Xóa bài viết"}</Button>
           </div>
         </Modal>
       )}
