@@ -572,8 +572,8 @@ export default function GroupDetail({ groupId }) {
         <Modal title="Cài đặt nhóm" close={() => setSettingsOpen(false)} wide>
           <form onSubmit={saveSettings}>
             <div className="form-grid">
-              <label>Ảnh đại diện<input type="file" accept="image/*" onChange={(e) => uploadImage("avatar", e)} /></label>
-              <label>Ảnh bìa<input type="file" accept="image/*" onChange={(e) => uploadImage("coverImage", e)} /></label>
+              <label>Ảnh đại diện<input className="hide-file-empty-label" type="file" accept="image/*" onChange={(e) => uploadImage("avatar", e)} /></label>
+              <label>Ảnh bìa<input className="hide-file-empty-label" type="file" accept="image/*" onChange={(e) => uploadImage("coverImage", e)} /></label>
               {(settings.avatar || settings.coverImage) && (
                 <div className="full" style={{ display: "flex", gap: 10 }}>
                   {settings.avatar && <img className="form-preview" style={{ width: 80, height: 80 }} src={mediaUrl(settings.avatar)} alt="Ảnh đại diện nhóm" />}

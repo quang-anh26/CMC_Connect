@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, useSearchParams } from "react-router-dom"
 import { Icon } from "./Icon"
 import { Avatar, Button, Modal, useToast } from "./ui"
 import { feedApi } from "../api/feedApi"
@@ -182,9 +182,15 @@ export function Composer({ me, onPosted }) {
 
 function SharedPost({ post }) {
   const navigate = useNavigate()
+  const openOriginalComments = () => navigate(`/feed?postId=${post.postId}&openComments=${post.postId}`)
   return (
-    <div className="shared-post">
-      <header onClick={() => navigate(`/profile/${post.authorId}`)}>
+    <div className="shared-post" role="link" tabIndex={0} onClick={openOriginalComments} onKeyDown={(event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault()
+        openOriginalComments()
+      }
+    }}>
+      <header>
         <Avatar name={post.authorName} src={post.authorAvatar} size="sm" />
         <div>
           <strong>{post.authorName}</strong>
@@ -197,8 +203,9 @@ function SharedPost({ post }) {
   )
 }
 
-export function PostCard({ post, meId, onChange, onRemove, onShared }) {
+export function PostCard({ post, meId, onChange, onRemove, onShared, openCommentsOnMount = false }) {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const toast = useToast()
   const [draft, setDraft] = useState("")
   const [menuOpen, setMenuOpen] = useState(false)
@@ -212,6 +219,19 @@ export function PostCard({ post, meId, onChange, onRemove, onShared }) {
   const postCopyRef = useRef(null)
   const [contentExpanded, setContentExpanded] = useState(false)
   const [contentOverflows, setContentOverflows] = useState(false)
+
+  const closeComments = () => {
+    setCommentsModalOpen(false)
+    if (searchParams.get("openComments") !== String(post.postId)) return
+    const nextParams = new URLSearchParams(searchParams)
+    nextParams.delete("openComments")
+    if (nextParams.get("postId") === String(post.postId)) nextParams.delete("postId")
+    setSearchParams(nextParams, { replace: true })
+  }
+
+  useEffect(() => {
+    if (openCommentsOnMount) setCommentsModalOpen(true)
+  }, [openCommentsOnMount])
   const mine = String(post.authorId) === String(meId)
   const comments = post.comments || []
   const isVideo = String(post.mediaType).toUpperCase() === "VIDEO"
@@ -263,6 +283,7 @@ export function PostCard({ post, meId, onChange, onRemove, onShared }) {
     if (res) onChange?.(res.data)
   }
   const selectedReaction = POST_REACTIONS.find((r) => r.type === post.viewerReaction)
+  const likedByViewer = Boolean(post.viewerReaction || post.likedByViewer)
 
   const save = async () => {
     const res = await run(() => savedApi.toggle(isVideo ? "VIDEO" : "POST", post.postId), "Không thể lưu bài viết.")
@@ -358,26 +379,16 @@ export function PostCard({ post, meId, onChange, onRemove, onShared }) {
       {post.sharedPost ? <SharedPost post={post.sharedPost} /> : <PostMedia url={post.imageUrl} type={post.mediaType} onOpen={() => setViewerOpen(true)} />}
       <div className="post-meta">
         <span>
-          <b>{selectedReaction ? selectedReaction.emoji : "♥"}</b> {post.likeCount || 0} lượt thích
+          <b>♥</b> {post.likeCount || 0} lượt thích
         </span>
         <span>
           {comments.length} bình luận · {post.shareCount || 0} lượt chia sẻ
         </span>
       </div>
       <div className="post-actions">
-        <div className="reaction-control">
-          <button className={selectedReaction || post.likedByViewer ? "active" : ""} onClick={() => react(selectedReaction?.type || "LIKE")}>
-            {selectedReaction ? <span className="reaction-emoji">{selectedReaction.emoji}</span> : <Icon name="heart" />}
-            {selectedReaction ? selectedReaction.label : "Thích"}
-          </button>
-          <div className="reaction-picker" role="group" aria-label="Chọn cảm xúc">
-            {POST_REACTIONS.map((r) => (
-              <button key={r.type} type="button" title={r.label} aria-label={r.label} onClick={() => react(r.type)}>
-                {r.emoji}
-              </button>
-            ))}
-          </div>
-        </div>
+        <button type="button" className={likedByViewer ? "liked" : ""} aria-pressed={likedByViewer} onClick={() => react(selectedReaction?.type || "LIKE")}>
+          <Icon name="heart" /> Thích
+        </button>
         <button onClick={() => setCommentsModalOpen(true)}>
           <Icon name="comment" />
           Bình luận
@@ -392,7 +403,7 @@ export function PostCard({ post, meId, onChange, onRemove, onShared }) {
         </button>
       </div>
       {commentsModalOpen && (
-        <Modal title={`Bài viết của ${post.authorName}`} close={() => setCommentsModalOpen(false)} wide className="post-comments-modal" backdropClassName="post-comments-backdrop" portal>
+        <Modal title={`Bài viết của ${post.authorName}`} close={closeComments} wide className="post-comments-modal" backdropClassName="post-comments-backdrop" portal preservePage>
           <div className="post-comments-dialog">
             <div className="post-comments-scroll">
               <div className="post-comments-author">
@@ -403,9 +414,9 @@ export function PostCard({ post, meId, onChange, onRemove, onShared }) {
               {post.sharedPost ? <div className="post-comments-shared"><SharedPost post={post.sharedPost} /></div> : post.imageUrl && (isVideo
                 ? <video className="post-comments-media" src={videoApi.resolveMediaUrl(mediaUrl(post.imageUrl))} controls playsInline preload="metadata" />
                 : <img className="post-comments-media" src={mediaUrl(post.imageUrl)} alt="Ảnh bài viết" />)}
-              <div className="post-viewer-stats">{selectedReaction ? selectedReaction.emoji : "♥"} {post.likeCount || 0} lượt thích <span>{comments.length} bình luận · {post.shareCount || 0} lượt chia sẻ</span></div>
+              <div className="post-viewer-stats">♥ {post.likeCount || 0} lượt thích <span>{comments.length} bình luận · {post.shareCount || 0} lượt chia sẻ</span></div>
               <div className="post-viewer-actions">
-                <button type="button" onClick={() => react(selectedReaction?.type || "LIKE")}><Icon name="heart" /> {selectedReaction ? selectedReaction.label : "Thích"}</button>
+                <button type="button" className={likedByViewer ? "liked" : ""} aria-pressed={likedByViewer} onClick={() => react(selectedReaction?.type || "LIKE")}><Icon name="heart" /> Thích</button>
                 <button type="button" onClick={() => commentsModalListRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}><Icon name="comment" /> Bình luận</button>
                 <button type="button" onClick={() => setShareOpen(true)}><Icon name="share" /> Chia sẻ</button>
                 <button type="button" onClick={save}><Icon name="bookmark" /> {post.savedByViewer ? "Đã lưu" : "Lưu"}</button>
@@ -441,12 +452,12 @@ export function PostCard({ post, meId, onChange, onRemove, onShared }) {
             </header>
             {post.content && <p className="post-viewer-copy">{post.content}</p>}
             <div className="post-viewer-actions">
-              <button type="button" onClick={() => react(selectedReaction?.type || "LIKE")}><Icon name="heart" /> {selectedReaction ? selectedReaction.label : "Thích"}</button>
+              <button type="button" className={likedByViewer ? "liked" : ""} aria-pressed={likedByViewer} onClick={() => react(selectedReaction?.type || "LIKE")}><Icon name="heart" /> Thích</button>
               <button type="button" onClick={() => { setViewerOpen(false); setCommentsModalOpen(true) }}><Icon name="comment" /> Bình luận</button>
               <button type="button" onClick={() => setShareOpen(true)}><Icon name="share" /> Chia sẻ</button>
               <button type="button" onClick={save}><Icon name="bookmark" /> {post.savedByViewer ? "Đã lưu" : "Lưu"}</button>
             </div>
-            <div className="post-viewer-stats">{selectedReaction ? selectedReaction.emoji : "♥"} {post.likeCount || 0} lượt thích <span>{comments.length} bình luận · {post.shareCount || 0} lượt chia sẻ</span></div>
+            <div className="post-viewer-stats">♥ {post.likeCount || 0} lượt thích <span>{comments.length} bình luận · {post.shareCount || 0} lượt chia sẻ</span></div>
             <div className="post-viewer-comments" ref={viewerCommentsRef}>
               {comments.map((c) => <div className="post-viewer-comment" key={c.commentId}>
                 <button type="button" className="post-viewer-comment-profile" aria-label={`Mở trang cá nhân của ${c.authorName}`} onClick={() => { setViewerOpen(false); navigate(`/profile/${c.authorId}`) }}><Avatar name={c.authorName} src={c.authorAvatar} size="sm" /></button>
