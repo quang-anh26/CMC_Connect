@@ -17,7 +17,7 @@ const MORE_TABS = [
   ["archived", "Đã lưu trữ"],
 ]
 
-export default function ConversationList({ state, archived, activeId, onOpen, onReload, onNew, onClosedActive }) {
+export default function ConversationList({ state, archived, activeConversation, activeId, onOpen, onReload, onNew, onClosedActive }) {
   const { startCall } = useSocket()
   const [tab, setTab] = useState("all")
   const [query, setQuery] = useState("")
@@ -84,15 +84,17 @@ export default function ConversationList({ state, archived, activeId, onOpen, on
   }
 
   const strangers = [...state.list.filter((c) => c.messageRequestPending), ...(state.requests || []).filter((r) => !state.list.some((c) => c.conversationId === r.conversationId))]
-  const source = tab === "archived" ? archived : tab === "strangers" ? strangers : state.list
+  const source = tab === "archived" ? archived : tab === "strangers" ? strangers : tab === "all" && activeConversation && !state.list.some((c) => String(c.conversationId) === String(activeConversation.conversationId)) ? [...state.list, activeConversation] : state.list
   const q = query.trim().toLowerCase()
   const shown = source.filter((c) => {
     if (q && !(c.name || "").toLowerCase().includes(q) && !(c.lastMessage || "").toLowerCase().includes(q)) return false
+    // Tin nhắn từ người lạ chỉ hiện ở mục "Tin nhắn từ người lạ", không lẫn vào Tất cả / Chưa đọc.
+    if ((tab === "all" || tab === "unread") && c.messageRequestPending) return false
     if (tab === "unread") return isUnread(c)
     if (tab === "group") return c.type === "GROUP" && !c.messageRequestPending
     return true
   })
-  const unreadTotal = state.list.reduce((s, c) => s + ((c.unreadCount || 0) > 0 ? c.unreadCount : 0), 0)
+  const unreadTotal = state.list.filter((c) => !c.messageRequestPending).reduce((s, c) => s + ((c.unreadCount || 0) > 0 ? c.unreadCount : 0), 0)
   const strangerCount = strangers.length
 
   return (

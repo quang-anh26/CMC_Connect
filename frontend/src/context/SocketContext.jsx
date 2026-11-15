@@ -46,6 +46,12 @@ export function SocketProvider({ children }) {
         setCallSignal(null)
       },
       onStompError: () => setConnected(false),
+      // Mất kết nối đột ngột (vd. backend khởi động lại): báo "chưa kết nối" để khi nối lại,
+      // các màn hình sẽ đăng ký (subscribe) lại — nếu không sẽ không nhận được tin nhắn mới.
+      onWebSocketClose: () => {
+        setConnected(false)
+        setCallSignal(null)
+      },
     })
     client.activate()
     clientRef.current = client

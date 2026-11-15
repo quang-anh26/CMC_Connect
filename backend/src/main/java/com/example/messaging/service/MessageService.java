@@ -143,6 +143,18 @@ public class MessageService {
 
         message = messageRepository.save(message);
 
+        // Có tin nhắn mới thì đoạn chat đã lưu trữ tự hiện lại trong danh sách của mọi thành viên.
+        boolean unarchived = false;
+        for (ConversationMember member : members) {
+            if (member.isArchived()) {
+                member.setArchived(false);
+                unarchived = true;
+            }
+        }
+        if (unarchived) {
+            conversationMemberRepository.saveAll(members);
+        }
+
         for (ConversationMember member : members) {
             Long recipientId = member.getUser().getUserId();
             if (recipientId.equals(senderId)) continue;
@@ -353,6 +365,8 @@ public class MessageService {
                 replyPreview = "hình ảnh";
             } else if (m.getReplyToMessage().getMessageType() == MessageType.FILE) {
                 replyPreview = "tệp đính kèm";
+            } else if (m.getReplyToMessage().getMessageType() == MessageType.AUDIO) {
+                replyPreview = "Tin nhắn thoại";
             } else {
                 replyPreview = truncate(m.getReplyToMessage().getContent());
             }

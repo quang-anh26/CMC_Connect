@@ -16,6 +16,7 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 @RestController
 @RequestMapping("/api/conversations")
@@ -54,6 +55,13 @@ public class ConversationController {
             @CurrentUser Long userId,
             @PathVariable Long conversationId,
             @Valid @RequestBody UpdateConversationDetailsRequest request) {
+        // Lưu lại giá trị cũ để chỉ báo "đổi chủ đề / hình nền" khi thật sự có thay đổi
+        // (frontend luôn gửi cả topic và backgroundImage trong cùng một request).
+        conversationService.assertMember(conversationId, userId);
+        Conversation before = conversationService.getByIdOrThrow(conversationId);
+        String oldTopic = cleanDetail(before.getTopic());
+        String oldBackground = cleanDetail(before.getBackgroundImage());
+
         ConversationResponse updated = conversationService.updateDetails(conversationId, userId, request);
         if (request.getNickname() != null) {
             String targetName = request.getTargetUserId() == null
@@ -67,10 +75,36 @@ public class ConversationController {
             MessageResponse systemMessage = messageService.createSystemMessage(conversationId, userId, message);
             messagingTemplate.convertAndSend("/topic/conversation/" + conversationId, systemMessage);
         }
+        if (request.getBackgroundImage() != null) {
+            String newBackground = cleanDetail(request.getBackgroundImage());
+            if (!Objects.equals(oldBackground, newBackground)) {
+                String actor = updated.getCurrentUserDisplayName();
+                String message = newBackground == null
+                    ? actor + " đã xóa hình nền cuộc trò chuyện"
+                    : actor + " đã đổi hình nền cuộc trò chuyện";
+                MessageResponse systemMessage = messageService.createSystemMessage(conversationId, userId, message);
+                messagingTemplate.convertAndSend("/topic/conversation/" + conversationId, systemMessage);
+            }
+        }
+        if (request.getTopic() != null) {
+            String newTopic = cleanDetail(request.getTopic());
+            if (!Objects.equals(oldTopic, newTopic)) {
+                String actor = updated.getCurrentUserDisplayName();
+                String message = newTopic == null
+                    ? actor + " đã xóa chủ đề cuộc trò chuyện"
+                    : actor + " đã đổi chủ đề cuộc trò chuyện thành " + newTopic;
+                MessageResponse systemMessage = messageService.createSystemMessage(conversationId, userId, message);
+                messagingTemplate.convertAndSend("/topic/conversation/" + conversationId, systemMessage);
+            }
+        }
         messagingTemplate.convertAndSend(
             "/topic/conversation/" + conversationId + "/details",
             Map.of("conversationId", conversationId));
         return ResponseEntity.ok(updated);
+    }
+
+    private static String cleanDetail(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 
     /** Chat 1-1: get-or-create a PRIVATE conversation with another user (after friend accepted). */
