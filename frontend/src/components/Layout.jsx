@@ -239,7 +239,10 @@ function Sidebar({ route, me, counts }) {
         {nav.map((item) => {
           const count = item.key === "messages" ? counts.messages : item.key === "notifications" ? counts.notifications : 0
           return (
-            <button key={item.key} className={route === item.key ? "active" : ""} onClick={() => navigate(item.path)}>
+            <button key={item.key} className={route === item.key ? "active" : ""} onClick={() => {
+              if (item.key === "messages" && route === "messages") return
+              navigate(item.path)
+            }}>
               <Icon name={item.icon} />
               <span>{item.label}</span>
               {count > 0 && <em>{count > 99 ? "99+" : count}</em>}
@@ -266,7 +269,10 @@ function MobileNav({ route, counts }) {
   return (
     <nav className="mobile-nav">
       {nav.slice(0, 5).map((item) => (
-        <button key={item.key} className={route === item.key ? "active" : ""} onClick={() => navigate(item.path)}>
+        <button key={item.key} className={route === item.key ? "active" : ""} onClick={() => {
+          if (item.key === "messages" && route === "messages") return
+          navigate(item.path)
+        }}>
           <Icon name={item.icon} />
           <span>{labels[item.key] || item.label}</span>
           {item.key === "messages" && counts.messages > 0 && <em>{counts.messages}</em>}

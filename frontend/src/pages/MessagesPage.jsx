@@ -41,6 +41,11 @@ export default function MessagesPage() {
     }
   }, [load])
 
+  useEffect(() => {
+    if (conversationId || state.loading || state.error || !state.list.length) return
+    navigate(`/messages/${state.list[0].conversationId}`, { replace: true })
+  }, [conversationId, state.loading, state.error, state.list, navigate])
+
   // Thông tin cuộc trò chuyện đang mở: lấy từ danh sách, được cập nhật cục bộ khi đổi biệt danh/hình nền/chặn.
   useEffect(() => {
     if (!conversationId) return setSelected(null)
@@ -51,6 +56,15 @@ export default function MessagesPage() {
   const patchSelected = useCallback((valueOrFn) => {
     setSelected((cur) => (typeof valueOrFn === "function" ? valueOrFn(cur) : cur ? { ...cur, ...valueOrFn } : valueOrFn))
   }, [])
+
+  // Đóng cuộc trò chuyện đang mở (sau khi lưu trữ / rời nhóm / quay lại): xóa dữ liệu cũ rồi về màn hình trống.
+  const closeActiveChat = useCallback(() => {
+    setSelected(null)
+    setMessages([])
+    setInfo(true)
+    load()
+    navigate("/messages", { replace: true })
+  }, [load, navigate])
 
   const openConversation = (id) => {
     setCreating(false)
@@ -63,11 +77,12 @@ export default function MessagesPage() {
       <ConversationList
         state={state}
         archived={archived}
+        activeConversation={selected}
         activeId={conversationId}
         onOpen={openConversation}
         onReload={load}
         onNew={() => setCreating(true)}
-        onClosedActive={() => navigate("/messages")}
+        onClosedActive={closeActiveChat}
       />
       {conversationId ? (
         <ChatPanel
@@ -77,7 +92,7 @@ export default function MessagesPage() {
           onConversationChange={patchSelected}
           infoOpen={info}
           onToggleInfo={() => setInfo((v) => !v)}
-          onBack={() => navigate("/messages")}
+          onBack={closeActiveChat}
           onOpenImage={setLightbox}
           messagesRef={chatRef}
           onMessages={setMessages}
@@ -96,8 +111,8 @@ export default function MessagesPage() {
           onUpdated={patchSelected}
           onJump={(id) => chatRef.current?.jump(id)}
           onOpenImage={setLightbox}
-          onArchived={() => { load(); navigate("/messages") }}
-          onLeft={() => { load(); navigate("/messages") }}
+          onArchived={closeActiveChat}
+          onLeft={closeActiveChat}
         />
       )}
       {creating && <NewChatModal onClose={() => setCreating(false)} onOpen={openConversation} />}

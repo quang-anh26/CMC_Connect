@@ -10,6 +10,16 @@ import { clockTime, dayLabel, formatBytes, mediaUrl } from "../../utils/format"
 import { getApiErrorMessage } from "../../utils/apiError"
 import { QUICK_EMOJIS, formatLastSeen, isImageMessage, scrollToBottom } from "./chatUtils"
 
+function replyPreview(message, messages) {
+  const original = messages.find((item) => String(item.messageId) === String(message.replyToMessageId))
+  const preview = message.replyToContentPreview || "tin nh\u1eafn"
+  const audioPath = /\.(webm|m4a|mp3|wav|ogg|aac)(?:\?.*)?$/i.test(preview)
+  if (original?.messageType === "AUDIO" || audioPath) return "Tin nh\u1eafn tho\u1ea1i"
+  if (original?.messageType === "IMAGE") return "h\u00ecnh \u1ea3nh"
+  if (original?.messageType === "FILE") return "t\u1ec7p \u0111\u00ednh k\u00e8m"
+  return preview
+}
+
 export default function ChatPanel({ conversationId, conversation, onConversationChange, infoOpen, onToggleInfo, onBack, onOpenImage, messagesRef, onMessages }) {
   const { user } = useAuth()
   const { subscribe, publish, connected, startCall } = useSocket()
@@ -329,7 +339,7 @@ export default function ChatPanel({ conversationId, conversation, onConversation
     : undefined
 
   return (
-    <section className="chat-panel">
+    <section className={`chat-panel ${wallpaper ? "has-panel-wallpaper" : ""}`} style={historyStyle}>
       <header className="chat-head">
         <div>
           <button className="icon-button chat-back" aria-label="Quay lại danh sách" onClick={onBack}>
@@ -358,7 +368,7 @@ export default function ChatPanel({ conversationId, conversation, onConversation
         </div>
       </header>
 
-      <div className={`chat-history ${wallpaper ? "has-wallpaper" : ""}`} ref={historyRef} style={historyStyle}>
+      <div className={`chat-history ${wallpaper ? "has-wallpaper" : ""}`} ref={historyRef}>
         {hasMore && !loading && (
           <button className="load-more" onClick={loadMore}>
             Tải thêm tin nhắn cũ hơn
@@ -410,13 +420,13 @@ export default function ChatPanel({ conversationId, conversation, onConversation
                         <Icon name="download" size={18} />
                       </a>
                     ) : (
-                      <div className="bubble">
+                      <div className={`bubble ${m.replyToMessageId ? "with-reply" : ""}`}>
                         {m.replyToMessageId && (
                           <button type="button" className="reply-quote" onClick={() => messagesRef?.current?.jump(m.replyToMessageId)}>
-                            <Icon name="reply" size={12} /> {m.replyToContentPreview || "tin nhắn"}
+                            <Icon name="reply" size={12} /> {replyPreview(m, messages)}
                           </button>
                         )}
-                        {m.content}
+                        <span className={m.replyToMessageId ? "reply-content" : undefined}>{m.content}</span>
                         {m.editedAt && <em className="edited"> (đã chỉnh sửa)</em>}
                       </div>
                     )}
@@ -502,7 +512,7 @@ export default function ChatPanel({ conversationId, conversation, onConversation
 
       {replyTo && (
         <div className="reply-bar">
-          <span>Đang trả lời: {replyTo.deleted ? "tin nhắn đã thu hồi" : (replyTo.content || "").slice(0, 60)}</span>
+          <span>Đang trả lời: {replyTo.deleted ? "tin nhắn đã thu hồi" : replyTo.messageType === "AUDIO" ? "Tin nh\u1eafn tho\u1ea1i" : (replyTo.content || "").slice(0, 60)}</span>
           <button onClick={() => setReplyTo(null)} aria-label="Hủy trả lời"><Icon name="close" size={16} /></button>
         </div>
       )}

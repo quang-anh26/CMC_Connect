@@ -107,9 +107,8 @@
   backdrop-filter: blur(12px);
 }
 .topbar-inner {
-  max-width: 1440px;
   height: 100%;
-  margin: auto;
+  width: 100%;
   padding: 0 32px;
   display: flex;
   align-items: center;
@@ -305,8 +304,7 @@
   color: var(--blue);
 }
 .app-layout {
-  max-width: 1440px;
-  margin: auto;
+  width: 100%;
   display: grid;
   grid-template-columns: 252px minmax(0, 1fr);
 }
@@ -992,7 +990,7 @@
 }
 .chat-history {
   flex: 1;
-  padding: 22px clamp(18px, 4vw, 60px);
+  padding: 22px 16px;
   overflow: auto;
   display: flex;
   flex-direction: column;
@@ -1020,7 +1018,7 @@
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 5px 14px 14px 14px;
-  font-size: 12px;
+  font-size: 16px;
 }
 .bubble-row span {
   color: var(--muted);
@@ -1094,7 +1092,10 @@
 }
 .chat-composer {
   flex: none;
-  margin: 0 18px 16px;
+  width: auto;
+  box-sizing: border-box;
+  align-self: stretch;
+  margin: 0;
   min-height: 52px;
   padding: 6px 7px;
   display: flex;
@@ -1117,7 +1118,6 @@
 }
 .chat-composer input {
   min-width: 0;
-  flex: 1;
   border: 0;
   outline: 0;
   background: transparent;
@@ -2901,7 +2901,7 @@
     max-width: 88%;
   }
   .chat-composer {
-    margin: 0 8px 8px;
+    margin: 0;
   }
   .chat-composer > button:nth-child(2) {
     display: none;
@@ -3221,17 +3221,20 @@
 .outgoing .bubble-wrap{flex-direction:row-reverse}
 .msg-tools{display:none;gap:2px;position:relative}
 .bubble-wrap:hover .msg-tools{display:flex}
-.msg-tools button{width:26px;height:26px;display:grid;place-items:center;border-radius:50%;color:var(--muted)}
-.msg-tools button:hover{background:var(--surface-2);color:var(--blue)}
+.msg-tools button{width:28px;height:28px;display:grid;place-items:center;border:1px solid var(--border);border-radius:50%;background:var(--surface);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,.22)}
+.msg-tools button:hover,.msg-tools button:focus-visible{background:var(--blue);border-color:var(--blue);color:#fff;outline:none}
+@media (hover:none){.bubble-wrap .msg-tools{display:flex}}
 .bubble{word-break:break-word;white-space:pre-wrap}
-.bubble.recalled{font-style:italic;color:var(--muted);background:transparent;border-style:dashed}
+.bubble.recalled{font-style:italic;color:var(--muted);background:transparent;border:0;border-left:3px solid rgba(128,128,128,.5);border-radius:0;padding:2px 0 2px 8px}
 .chat-image{max-width:260px;max-height:300px;border-radius:12px;object-fit:cover}
 .file-link{color:#fff;text-decoration:none}
 .reply-quote{margin-bottom:5px;padding-left:8px;border-left:3px solid rgba(128,128,128,.5);font-size:11px;opacity:.8}
 .edited{font-size:10px;opacity:.7}
 .reaction-row{display:flex;gap:4px;font-size:12px}
 .reaction-row span{padding:1px 6px;border-radius:10px;background:var(--surface);border:1px solid var(--border)}
-.reaction-menu{top:auto;bottom:30px}
+.reaction-menu{top:auto;bottom:34px;left:0;right:auto;width:222px;max-width:calc(100vw - 24px);box-sizing:border-box;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:2px;z-index:50}
+.outgoing .reaction-menu{left:auto;right:0}
+.reaction-menu button{width:100%;height:34px;min-width:0;padding:0;display:grid;place-items:center;line-height:1;text-align:center}
 .reply-bar{margin:0 18px;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;border-radius:10px 10px 0 0;background:var(--surface-2);font-size:12px;color:var(--muted)}
 .chat-blocked{margin:0 18px 16px;padding:14px;text-align:center;border-radius:12px;background:var(--surface-2);color:var(--muted);font-size:12px}
 .typing small{color:var(--muted);font-size:10px}
@@ -3334,13 +3337,26 @@
 .chat-history.has-wallpaper .load-more{color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.5)}
 .bubble-row>div{min-width:0;max-width:100%}
 .bubble-row .sender-name{color:var(--muted);font-size:10px;font-style:normal;margin-left:2px}
+.bubble-row .bubble,.bubble-row .bubble .reply-content{font-size:16px}
+.bubble-row .reply-quote{font-size:16px;opacity:1}
+.bubble-row .edited{font-size:inherit}
 .chat-history.has-wallpaper .bubble-row span:not(.online-avatar){color:rgba(255,255,255,.9);text-shadow:0 1px 3px rgba(0,0,0,.5)}
+.chat-history.has-wallpaper .bubble.recalled{color:#fff;background:transparent;border:0;border-left:3px solid rgba(255,255,255,.7);border-radius:0;padding:2px 0 2px 8px;opacity:1;text-shadow:0 1px 3px rgba(0,0,0,.85)}
 .bubble-row.outgoing{align-self:flex-end}
 .bubble-row.incoming{align-self:flex-start}
 .bubble{overflow-wrap:anywhere}
 .chat-image-btn{display:block;border-radius:12px;overflow:hidden;cursor:zoom-in}
 .chat-audio{height:40px;max-width:100%}
 .reply-quote{display:flex;align-items:center;gap:4px;margin-bottom:5px;padding:2px 0 2px 8px;border-left:3px solid rgba(128,128,128,.5);font-size:11px;opacity:.85;text-align:left;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bubble.with-reply{padding:0;border:0;border-radius:0;background:transparent;color:var(--text)}
+.bubble.with-reply .reply-quote{width:fit-content;max-width:min(100%,280px);margin:0 0 5px;padding:6px 9px;border:0;border-left:3px solid var(--blue);border-radius:8px;background:var(--blue-soft);color:var(--text);opacity:1;white-space:normal}
+.bubble.with-reply .reply-content{display:block;width:fit-content;max-width:100%;margin-top:4px;padding:7px 10px;border-radius:10px;background:var(--surface);color:var(--text);font-size:16px;line-height:1.4;font-weight:500}
+.bubble.recalled{font-size:16px;line-height:1.4}
+.bubble-row.outgoing .bubble.with-reply .reply-content{background:var(--blue);color:#fff}
+.bubble-row.outgoing .bubble.with-reply .reply-content{margin-left:auto}
+.chat-history.has-wallpaper .bubble.with-reply{color:#fff}
+.chat-history.has-wallpaper .bubble.with-reply .reply-quote{border-left-color:rgba(255,255,255,.8);background:rgba(255,255,255,.2);color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.8)}
+.chat-history.has-wallpaper .bubble.with-reply .reply-content{color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.7)}
 .reaction-row button{padding:1px 7px;border-radius:10px;background:var(--surface);border:1px solid var(--border);font-size:12px;display:inline-flex;gap:3px;align-items:center}
 .reaction-row button.active{border-color:var(--blue);background:var(--blue-soft)}
 .reaction-row button span{font-size:11px;color:var(--muted)}
@@ -3349,7 +3365,7 @@
 .inline-editor button{padding:0 10px;border-radius:8px;border:1px solid var(--border);font-size:11px;background:var(--surface)}
 .message-highlight .bubble,.message-highlight .chat-image{outline:2px solid var(--blue);outline-offset:2px;transition:outline .3s}
 .chat-composer{flex:none;align-items:center}
-.chat-composer>input{min-width:0;flex:1}
+.chat-composer>input:not([type="file"]){min-width:0;flex:1}
 .emoji-anchor{position:relative;display:flex}
 .chat-composer .voice-btn.recording{color:#fff;background:var(--red);border-radius:50%;animation:pulse-rec 1.2s infinite}
 @keyframes pulse-rec{50%{opacity:.6}}
@@ -3604,3 +3620,126 @@ button.saved-preview{cursor:pointer}
 .story-file-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)}
 .story-file-input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
 @media(max-width:600px){.story-stage{width:100vw;max-height:100dvh;border-radius:0}.story-media{min-height:300px;height:64vh}}
+
+/* ===== ĐỒNG BỘ CỠ CHỮ KHUNG CHAT (đặt cuối file để ghi đè mọi rule cũ) ===== */
+.chat-panel {
+  --chat-font-size: 13px;      /* cỡ chữ nội dung tin nhắn, trích dẫn, ô nhập */
+  --chat-meta-size: 11px;      /* cỡ chữ giờ gửi, tên người gửi, "Đã gửi/Đã xem" */
+  --chat-line-height: 1.4;
+}
+/* Nội dung tin nhắn: thường, có trả lời, đã thu hồi, trích dẫn trả lời */
+.chat-panel .bubble-row .bubble,
+.chat-panel .bubble-row .bubble .reply-content,
+.chat-panel .bubble-row .bubble > span,
+.chat-panel .bubble-row .bubble.recalled,
+.chat-panel .bubble-row .reply-quote,
+.chat-panel .bubble-row .bubble.with-reply .reply-quote,
+.chat-panel .bubble-row .bubble.with-reply .reply-content,
+.chat-panel .bubble-row .edited,
+.chat-panel .inline-editor input,
+.chat-panel .chat-composer input:not([type="file"]) {
+  font-family: inherit;
+  font-size: var(--chat-font-size);
+  line-height: var(--chat-line-height);
+  font-weight: 400;
+}
+/* Phần phụ: giờ gửi, trạng thái, tên người gửi, ngày */
+.chat-panel .bubble-row > div > span,
+.chat-panel .bubble-row .sender-name,
+.chat-panel .chat-day,
+.chat-panel .typing small {
+  font-size: var(--chat-meta-size);
+}
+/* Nút Lưu / Hủy khi sửa tin nhắn */
+.chat-panel .inline-editor button {
+  font-size: 13px;
+}
+
+/* Tin nhắn của người khác (bong bóng trắng) khi có hình nền: dùng chữ tối, không dùng chữ trắng */
+.chat-panel .chat-history.has-wallpaper .bubble-row.incoming .bubble > span {
+  color: var(--text);
+  text-shadow: none;
+}
+
+/* Cố định vị trí 3 khối của trang Tin nhắn, tránh bị rơi xuống hàng mới khi đổi trạng thái */
+.messages-layout > .conversation-list { grid-column: 1; grid-row: 1; }
+.messages-layout > .chat-panel { grid-column: 2; grid-row: 1; }
+.messages-layout > .contact-info { grid-column: 3; grid-row: 1; }
+.messages-layout > .chat-panel.chat-empty { background: var(--bg); }
+
+/* Thông báo hệ thống (đổi biệt danh, hình nền...) khi có hình nền: chỉ hiện chữ trắng, không nền */
+.chat-panel .chat-history.has-wallpaper .chat-day.system-row {
+  background: transparent;
+  color: #fff;
+  padding: 0;
+  border-radius: 0;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  text-align: center;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9), 0 0 8px rgba(0, 0, 0, 0.55);
+}
+
+/* ===== Hình nền phủ toàn bộ khung chat (header + tin nhắn + ô nhập) như Messenger ===== */
+/* Phần đầu: trong suốt, chỉ có lớp đổ bóng mờ phía trên để chữ trắng luôn đọc được */
+.chat-panel.has-panel-wallpaper .chat-head {
+  background: linear-gradient(to bottom, rgba(8, 14, 22, 0.5), rgba(8, 14, 22, 0));
+  border-bottom: 0;
+  color: #fff;
+}
+.chat-panel.has-panel-wallpaper .chat-head strong {
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+}
+.chat-panel.has-panel-wallpaper .chat-head small {
+  color: rgba(255, 255, 255, 0.9);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+}
+.chat-panel.has-panel-wallpaper .chat-head small.offline {
+  color: rgba(255, 255, 255, 0.85);
+}
+.chat-panel.has-panel-wallpaper .chat-head .icon-button {
+  color: #fff;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
+}
+.chat-panel.has-panel-wallpaper .chat-head .icon-button:hover,
+.chat-panel.has-panel-wallpaper .chat-head .icon-button.on {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.22);
+}
+
+/* Ô nhập: không có khung trắng, chỉ có các biểu tượng và một ô nhập bán trong suốt */
+.chat-panel.has-panel-wallpaper .chat-composer {
+  margin: 0 12px 12px;
+  background: transparent;
+  border: 0;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.chat-panel.has-panel-wallpaper .chat-composer button:not(.send-button) {
+  color: #fff;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
+}
+.chat-panel.has-panel-wallpaper .chat-composer button:not(.send-button):hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+.chat-panel.has-panel-wallpaper .chat-composer input:not([type="file"]) {
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: 20px;
+  background: rgba(15, 23, 42, 0.5);
+  color: #fff;
+}
+.chat-panel.has-panel-wallpaper .chat-composer input:not([type="file"])::placeholder {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+/* Thanh trả lời / thông báo chặn */
+.chat-panel.has-panel-wallpaper .reply-bar,
+.chat-panel.has-panel-wallpaper .chat-blocked {
+  background: rgba(15, 23, 42, 0.55);
+  color: #fff;
+}
+.chat-panel.has-panel-wallpaper .reply-bar button {
+  color: #fff;
+}
