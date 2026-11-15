@@ -103,14 +103,14 @@ export function Modal({ title, close, children, wide, className = "", backdropCl
     const currentBodyPaddingRight = Number.parseFloat(getComputedStyle(document.body).paddingRight) || 0;
     document.documentElement.style.overflow = "hidden";
     if (preservePage) {
+      document.documentElement.style.scrollbarGutter = "auto";
       document.body.style.position = "fixed";
       document.body.style.top = `${-scrollY}px`;
       document.body.style.left = `${-scrollX}px`;
-      document.body.style.width = "100%";
+      document.body.style.width = "100vw";
+      if (scrollbarWidth) document.body.style.paddingRight = `${currentBodyPaddingRight + scrollbarWidth}px`;
     } else {
       document.body.style.overflow = "hidden";
-      document.documentElement.style.scrollbarGutter = "auto";
-      if (scrollbarWidth) document.body.style.paddingRight = `${currentBodyPaddingRight + scrollbarWidth}px`;
     }
     window.addEventListener("keydown", onKey);
     return () => {

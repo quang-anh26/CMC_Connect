@@ -22,7 +22,7 @@ public interface SavedItemRepository extends JpaRepository<SavedItem, Long> {
             "(s.contentType IN ('POST', 'VIDEO', 'LINK') AND EXISTS (SELECT p.postId FROM SocialPost p WHERE p.postId = s.contentId AND " +
             "(LOWER(p.content) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(p.author.username) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(COALESCE(p.author.displayName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))))) OR " +
             "(s.contentType = 'GROUP_POST' AND EXISTS (SELECT gp.postId FROM GroupPost gp WHERE gp.postId = s.contentId AND " +
-            "(LOWER(gp.content) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(gp.group.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(gp.author.username) LIKE LOWER(CONCAT('%', :keyword, '%'))))))")
+            "(LOWER(gp.content) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(gp.group.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(gp.author.username) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(COALESCE(gp.author.displayName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))))))")
     Page<SavedItem> search(@Param("userId") Long userId,
                            @Param("type") String type,
                            @Param("collectionId") Long collectionId,
