@@ -71,6 +71,7 @@ export function friendOf(request, myId) {
   return {
     id: iAmSender ? request.receiverId : request.senderId,
     name: (iAmSender ? request.receiverDisplayName : request.senderDisplayName) || (iAmSender ? request.receiverUsername : request.senderUsername) || "Người dùng",
+    username: iAmSender ? request.receiverUsername : request.senderUsername,
     avatar: iAmSender ? request.receiverAvatar : request.senderAvatar,
   }
 }

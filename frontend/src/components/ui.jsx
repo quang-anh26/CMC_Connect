@@ -84,7 +84,7 @@ export function ErrorBlock({ message, onRetry }) {
   );
 }
 
-export function Modal({ title, close, children, wide, className = "", backdropClassName = "", portal = false }) {
+export function Modal({ title, close, children, wide, className = "", backdropClassName = "", portal = false, preservePage = false }) {
   const closeRef = useRef(close);
   closeRef.current = close;
   useEffect(() => {
@@ -93,12 +93,25 @@ export function Modal({ title, close, children, wide, className = "", backdropCl
     const previousBodyOverflow = document.body.style.overflow;
     const previousScrollbarGutter = document.documentElement.style.scrollbarGutter;
     const previousBodyPaddingRight = document.body.style.paddingRight;
+    const previousBodyPosition = document.body.style.position;
+    const previousBodyTop = document.body.style.top;
+    const previousBodyLeft = document.body.style.left;
+    const previousBodyWidth = document.body.style.width;
+    const scrollX = window.scrollX;
+    const scrollY = window.scrollY;
     const scrollbarWidth = Math.max(0, window.innerWidth - document.documentElement.clientWidth);
     const currentBodyPaddingRight = Number.parseFloat(getComputedStyle(document.body).paddingRight) || 0;
     document.documentElement.style.overflow = "hidden";
-    document.body.style.overflow = "hidden";
-    document.documentElement.style.scrollbarGutter = "auto";
-    if (scrollbarWidth) document.body.style.paddingRight = `${currentBodyPaddingRight + scrollbarWidth}px`;
+    if (preservePage) {
+      document.body.style.position = "fixed";
+      document.body.style.top = `${-scrollY}px`;
+      document.body.style.left = `${-scrollX}px`;
+      document.body.style.width = "100%";
+    } else {
+      document.body.style.overflow = "hidden";
+      document.documentElement.style.scrollbarGutter = "auto";
+      if (scrollbarWidth) document.body.style.paddingRight = `${currentBodyPaddingRight + scrollbarWidth}px`;
+    }
     window.addEventListener("keydown", onKey);
     return () => {
       window.removeEventListener("keydown", onKey);
@@ -106,8 +119,13 @@ export function Modal({ title, close, children, wide, className = "", backdropCl
       document.body.style.overflow = previousBodyOverflow;
       document.documentElement.style.scrollbarGutter = previousScrollbarGutter;
       document.body.style.paddingRight = previousBodyPaddingRight;
+      document.body.style.position = previousBodyPosition;
+      document.body.style.top = previousBodyTop;
+      document.body.style.left = previousBodyLeft;
+      document.body.style.width = previousBodyWidth;
+      if (preservePage) window.scrollTo(scrollX, scrollY);
     };
-  }, []);
+  }, [preservePage]);
   const modal = (
     <div className={`modal-backdrop ${backdropClassName}`.trim()} onMouseDown={close}>
       <div className={`modal ${className}`.trim()} style={wide ? { width: "min(760px, 100%)" } : undefined} onMouseDown={(e) => e.stopPropagation()}>

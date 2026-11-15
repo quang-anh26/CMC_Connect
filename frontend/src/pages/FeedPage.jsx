@@ -118,8 +118,18 @@ export default function FeedPage() {
   const { me } = useOutletContext()
   const { user } = useAuth()
   const [params] = useSearchParams()
-  const { data, loading, error, reload, setData } = useAsync(() => feedApi.list().then((r) => r.data || []), [])
+  const { data, loading, error, reload, setData } = useAsync(() => feedApi.list().then((r) => {
+    const posts = [...(r.data || [])]
+    for (let i = posts.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1))
+      const current = posts[i]
+      posts[i] = posts[j]
+      posts[j] = current
+    }
+    return posts
+  }), [])
   const focusPostId = params.get("postId")
+  const openCommentsPostId = params.get("openComments")
 
   const update = useCallback((post) => setData((data || []).map((p) => (p.postId === post.postId ? post : p))), [data, setData])
 
@@ -127,6 +137,15 @@ export default function FeedPage() {
     if (!focusPostId || !data) return
     document.getElementById(`post-${focusPostId}`)?.scrollIntoView({ behavior: "smooth", block: "center" })
   }, [focusPostId, data])
+
+  useEffect(() => {
+    if (!openCommentsPostId || !data || data.some((post) => String(post.postId) === String(openCommentsPostId))) return undefined
+    let active = true
+    feedApi.get(openCommentsPostId).then(({ data: post }) => {
+      if (active) setData((current) => (current || []).some((item) => String(item.postId) === String(openCommentsPostId)) ? current : [post, ...(current || [])])
+    }).catch(() => {})
+    return () => { active = false }
+  }, [openCommentsPostId, data, setData])
 
   return (
     <div className="feed-grid">
@@ -142,6 +161,7 @@ export default function FeedPage() {
           <PostCard
             key={post.postId}
             post={post}
+            openCommentsOnMount={String(post.postId) === String(openCommentsPostId)}
             meId={user?.userId}
             onChange={update}
             onRemove={(id) => setData((data || []).filter((p) => p.postId !== id))}

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, useParams } from "react-router-dom"
 import { Icon } from "../components/Icon"
 import { Avatar, Button, EmptyState, ErrorBlock, Loading, useToast } from "../components/ui"
 import { friendApi } from "../api/friendApi"
@@ -12,6 +12,7 @@ import { friendOf } from "../utils/format"
 export default function FriendsPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
+  const { friendsSection } = useParams()
   const toast = useToast()
   const [state, setState] = useState({ received: [], sent: [], friends: [], people: [], loading: true, error: "" })
   const [query, setQuery] = useState("")
@@ -27,11 +28,18 @@ export default function FriendsPage() {
         ...(sent.data || []).map((r) => String(r.receiverId)),
         ...(received.data || []).map((r) => String(r.senderId)),
       ])
+      const suggestions = (people.data || []).filter((p) => p.status === "ACTIVE" && !excluded.has(String(p.userId)))
+      for (let i = suggestions.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1))
+        const current = suggestions[i]
+        suggestions[i] = suggestions[j]
+        suggestions[j] = current
+      }
       setState({
         received: received.data || [],
         sent: sent.data || [],
         friends,
-        people: (people.data || []).filter((p) => p.status === "ACTIVE" && !excluded.has(String(p.userId))),
+        people: suggestions,
         loading: false,
         error: "",
       })
@@ -43,6 +51,10 @@ export default function FriendsPage() {
   useEffect(() => {
     load()
   }, [load])
+
+  useEffect(() => {
+    setQuery("")
+  }, [friendsSection])
 
   const run = async (key, fn, done) => {
     setBusyIds((b) => [...b, key])
@@ -74,28 +86,55 @@ export default function FriendsPage() {
     }
   }
 
+  const openProfileFromCard = (event, profileId) => {
+    if (event.target.closest("button")) return
+    navigate(`/profile/${profileId}`)
+  }
+  const openProfileFromCardKey = (event, profileId) => {
+    if (event.target.closest("button")) return
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault()
+      navigate(`/profile/${profileId}`)
+    }
+  }
+
   const q = query.trim().toLowerCase()
   const match = (name) => !q || (name || "").toLowerCase().includes(q)
   const friends = state.friends.filter((f) => match(f.name))
+  const sent = state.sent.filter((r) => match(r.receiverDisplayName) || match(r.receiverUsername))
   const people = state.people.filter((p) => match(p.displayName) || match(p.username))
+  const sectionTitles = { sent: "Lời mời đã gửi", friends: "Bạn bè của bạn", suggestions: "Gợi ý cho bạn" }
+  const searchPlaceholders = { sent: "Tìm lời mời đã gửi", friends: "Tìm bạn bè", suggestions: "Tìm gợi ý kết bạn" }
 
   return (
     <div className="directory-page">
       <header className="page-title-row">
         <div>
-          <h1>Bạn bè</h1>
-          <p>Kết nối với bạn học và những người bạn có thể biết.</p>
+          {friendsSection ? (
+            <>
+              <button type="button" className="directory-back" onClick={() => navigate("/friends")}>
+                <span><Icon name="arrow" /></span> Bạn bè
+              </button>
+              <h1>{sectionTitles[friendsSection] || "Danh sách bạn bè"}</h1>
+              <p>Danh sách đầy đủ trong mục này.</p>
+            </>
+          ) : (
+            <>
+              <h1>Bạn bè</h1>
+              <p>Kết nối với bạn học và những người bạn có thể biết.</p>
+            </>
+          )}
         </div>
-        <label className="inline-search">
+        {friendsSection && <label className="inline-search">
           <Icon name="search" />
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Tìm bạn bè" />
-        </label>
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={searchPlaceholders[friendsSection] || "Tìm trong danh sách"} />
+        </label>}
       </header>
       {state.loading && <Loading />}
       {state.error && <ErrorBlock message={state.error} onRetry={load} />}
       {!state.loading && !state.error && (
         <>
-          {state.received.length > 0 && (
+          {!friendsSection && state.received.length > 0 && (
             <section className="request-strip">
               <div>
                 <h2>Lời mời kết bạn</h2>
@@ -118,12 +157,15 @@ export default function FriendsPage() {
               </div>
             </section>
           )}
-          {state.sent.length > 0 && (
+          {(!friendsSection || friendsSection === "sent") && (
             <>
-              <div className="section-title"><h2>Lời mời đã gửi</h2></div>
-              <div className="people-grid">
-                {state.sent.map((r) => (
-                  <article className="person-card" key={r.id}>
+              <div className="section-title">
+                <h2>Lời mời đã gửi ({sent.length})</h2>
+                {!friendsSection && <button type="button" onClick={() => navigate("/friends/sent")}>Xem tất cả</button>}
+              </div>
+              {sent.length === 0 ? <EmptyState title="Không có lời mời đã gửi" icon="users" /> : <div className="people-grid">
+                {sent.slice(0, friendsSection === "sent" ? sent.length : 4).map((r) => (
+                  <article className="person-card person-card-link" key={r.id} role="link" tabIndex={0} onClick={(event) => openProfileFromCard(event, r.receiverId)} onKeyDown={(event) => openProfileFromCardKey(event, r.receiverId)}>
                     <div className="person-cover" />
                     <Avatar name={r.receiverDisplayName} src={r.receiverAvatar} size="lg" />
                     <h3>{r.receiverDisplayName}</h3>
@@ -131,41 +173,51 @@ export default function FriendsPage() {
                     <Button variant="secondary" disabled={busyIds.includes(`s${r.id}`)} onClick={() => run(`s${r.id}`, () => friendApi.cancel(r.id), "Đã hủy lời mời.")}>Hủy lời mời</Button>
                   </article>
                 ))}
-              </div>
+              </div>}
             </>
           )}
-          <div className="section-title"><h2>Bạn bè của bạn ({friends.length})</h2></div>
-          {friends.length === 0 ? (
-            <EmptyState title="Chưa có bạn bè" copy="Gửi lời mời kết bạn ở phần gợi ý bên dưới." icon="users" />
-          ) : (
-            <div className="people-grid">
-              {friends.map((f, i) => (
-                <article className="person-card" key={f.id}>
+          {(!friendsSection || friendsSection === "friends") && <>
+            <div className="section-title">
+              <h2>Bạn bè của bạn ({friends.length})</h2>
+              {!friendsSection && <button type="button" onClick={() => navigate("/friends/friends")}>Xem tất cả</button>}
+            </div>
+            {friends.length === 0 ? (
+              <EmptyState title="Chưa có bạn bè" copy="Gửi lời mời kết bạn ở phần gợi ý bên dưới." icon="users" />
+            ) : (
+              <div className="people-grid">
+                {friends.slice(0, friendsSection === "friends" ? friends.length : 4).map((f, i) => (
+                <article className="person-card person-card-link" key={f.id} role="link" tabIndex={0} onClick={(event) => openProfileFromCard(event, f.id)} onKeyDown={(event) => openProfileFromCardKey(event, f.id)}>
                   <div className={`person-cover pc${i % 4}`} />
-                  <span style={{ cursor: "pointer" }} onClick={() => navigate(`/profile/${f.id}`)}><Avatar name={f.name} src={f.avatar} size="lg" /></span>
+                  <span><Avatar name={f.name} src={f.avatar} size="lg" /></span>
                   <h3>{f.name}</h3>
-                  <p>Bạn bè</p>
+                  <p>@{f.username || f.name}</p>
                   <Button variant="secondary" icon="message" onClick={() => message(f.id)}>Nhắn tin</Button>
                 </article>
               ))}
+              </div>
+            )}
+          </>}
+          {(!friendsSection || friendsSection === "suggestions") && <>
+            <div className="section-title">
+              <h2>Gợi ý cho bạn</h2>
+              {!friendsSection && <button type="button" onClick={() => navigate("/friends/suggestions")}>Xem tất cả</button>}
             </div>
-          )}
-          <div className="section-title"><h2>Gợi ý cho bạn</h2></div>
-          {people.length === 0 ? (
-            <EmptyState title="Không có gợi ý nào" copy="Bạn đã kết nối với tất cả mọi người." icon="users" />
-          ) : (
-            <div className="people-grid">
-              {people.map((p, i) => (
-                <article className="person-card" key={p.userId}>
+            {people.length === 0 ? (
+              <EmptyState title="Không có gợi ý nào" copy="Bạn đã kết nối với tất cả mọi người." icon="users" />
+            ) : (
+              <div className="people-grid">
+                {people.slice(0, friendsSection === "suggestions" ? people.length : 4).map((p, i) => (
+                <article className="person-card person-card-link" key={p.userId} role="link" tabIndex={0} onClick={(event) => openProfileFromCard(event, p.userId)} onKeyDown={(event) => openProfileFromCardKey(event, p.userId)}>
                   <div className={`person-cover pc${i % 4}`} />
-                  <span style={{ cursor: "pointer" }} onClick={() => navigate(`/profile/${p.userId}`)}><Avatar name={p.displayName} src={p.avatar} size="lg" /></span>
+                  <span><Avatar name={p.displayName} src={p.avatar} size="lg" /></span>
                   <h3>{p.displayName}</h3>
                   <p>{p.education || `@${p.username}`}</p>
                   <Button variant="secondary" icon="plus" disabled={busyIds.includes(`p${p.userId}`)} onClick={() => run(`p${p.userId}`, () => friendApi.send(p.userId), "Đã gửi lời mời kết bạn.")}>Thêm bạn bè</Button>
                 </article>
               ))}
-            </div>
-          )}
+              </div>
+            )}
+          </>}
         </>
       )}
     </div>

@@ -38,6 +38,7 @@ export default function App() {
               <Route path="messages/:conversationId?" element={<MessagesPage />} />
               <Route path="forum/*" element={<ForumPage />} />
               <Route path="friends" element={<FriendsPage />} />
+              <Route path="friends/:friendsSection" element={<FriendsPage />} />
               <Route path="groups/:groupId?" element={<GroupsPage />} />
               <Route path="video" element={<VideoPage />} />
               <Route path="events/:eventId?" element={<EventsPage />} />
