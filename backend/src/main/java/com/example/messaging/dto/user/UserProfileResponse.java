@@ -24,5 +24,6 @@ public class UserProfileResponse {
     private LocalDateTime createdAt;
     private boolean online;
     private String status; // ACTIVE / LOCKED
-    private String friendshipStatus; // ACCEPTED / PENDING / REJECTED / null
+    private String friendshipStatus; // ACCEPTED / PENDING_SENT / PENDING_RECEIVED / null
+    private Long friendRequestId;
 }

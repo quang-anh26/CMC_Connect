@@ -25,12 +25,13 @@ public class UserController {
 
     @GetMapping("/me")
     public ResponseEntity<UserProfileResponse> me(@CurrentUser Long userId) {
-        return ResponseEntity.ok(userService.getProfile(userId));
+        return ResponseEntity.ok(userService.getProfile(userId, userId));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<UserProfileResponse> getById(@PathVariable("id") Long id) {
-        return ResponseEntity.ok(userService.getProfile(id));
+    public ResponseEntity<UserProfileResponse> getById(@PathVariable("id") Long id,
+                                                         @CurrentUser Long viewerId) {
+        return ResponseEntity.ok(userService.getProfile(id, viewerId));
     }
 
     @PutMapping("/me")

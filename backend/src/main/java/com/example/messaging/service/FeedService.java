@@ -109,6 +109,7 @@ public class FeedService {
                 .mediaType(hasMedia ? (mediaType == null ? resolveMediaType(imageUrl) : mediaType) : null)
                 .privacy(privacy)
                 .build());
+        notifyFriendsAboutPost(post, authorId);
         return toResponse(post, authorId);
     }
 
@@ -188,6 +189,7 @@ public class FeedService {
                 .sharedPost(original)
                 .privacy(original.getPrivacy() == null ? "PUBLIC" : original.getPrivacy())
                 .build());
+        notifyFriendsAboutPost(sharedPost, sharerId);
         notificationService.create(original.getAuthor().getUserId(), sharerId, "POST_SHARED", "POST", original.getPostId(),
                 "đã chia sẻ bài viết của bạn.");
         return toResponse(sharedPost, sharerId);
@@ -207,6 +209,18 @@ public class FeedService {
     private SocialPost getPost(Long postId) {
         return postRepository.findById(postId)
                 .orElseThrow(() -> ApiException.notFound("Không tìm thấy bài viết"));
+    }
+
+    private void notifyFriendsAboutPost(SocialPost post, Long authorId) {
+        if ("PRIVATE".equals(post.getPrivacy())) return;
+        friendRequestRepository.findBySenderUserIdAndStatusOrReceiverUserIdAndStatus(
+                        authorId, FriendRequestStatus.ACCEPTED, authorId, FriendRequestStatus.ACCEPTED)
+                .stream()
+                .map(request -> request.getSender().getUserId().equals(authorId)
+                        ? request.getReceiver().getUserId() : request.getSender().getUserId())
+                .distinct()
+                .forEach(friendId -> notificationService.create(friendId, authorId, "POST_CREATED", "POST",
+                        post.getPostId(), "đã đăng bài viết mới."));
     }
 
     private SocialPost getReadablePost(Long postId, Long viewerId) {

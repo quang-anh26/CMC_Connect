@@ -3,6 +3,7 @@ package com.example.messaging.service;
 import com.example.messaging.dto.auth.ChangePasswordRequest;
 import com.example.messaging.dto.user.UpdateProfileRequest;
 import com.example.messaging.dto.user.UserProfileResponse;
+import com.example.messaging.entity.FriendRequest;
 import com.example.messaging.entity.User;
 import com.example.messaging.exception.ApiException;
 import com.example.messaging.repository.UserRepository;
@@ -33,8 +34,9 @@ public class UserService {
                 .orElseThrow(() -> ApiException.notFound("Không tìm thấy người dùng"));
     }
 
-    public UserProfileResponse getProfile(Long userId) {
-        return toProfileResponse(getByIdOrThrow(userId));
+    public UserProfileResponse getProfile(Long userId, Long viewerId) {
+        UserProfileResponse response = toProfileResponse(getByIdOrThrow(userId));
+        return applyFriendshipStatus(response, viewerId, userId);
     }
 
     @Transactional
@@ -70,12 +72,7 @@ public class UserService {
     }
 
             private UserProfileResponse toSearchResponse(User user, Long viewerId) {
-            String relationshipStatus = friendRequestRepository.findRelationship(viewerId, user.getUserId())
-                .stream()
-                .findFirst()
-                .map(request -> request.getStatus().name())
-                .orElse(null);
-            return UserProfileResponse.builder()
+            return applyFriendshipStatus(UserProfileResponse.builder()
                 .userId(user.getUserId())
                 .username(user.getUsername())
                 .displayName(user.getDisplayName())
@@ -89,9 +86,24 @@ public class UserService {
                 .createdAt(user.getCreatedAt())
                 .online(user.isOnline())
                 .status(user.getStatus().name())
-                .friendshipStatus(relationshipStatus)
-                .build();
+                .build(), viewerId, user.getUserId());
             }
+
+    private UserProfileResponse applyFriendshipStatus(UserProfileResponse response, Long viewerId, Long targetId) {
+        if (viewerId == null || targetId == null || viewerId.equals(targetId)) return response;
+        FriendRequest latest = friendRequestRepository.findRelationship(viewerId, targetId)
+                .stream().findFirst().orElse(null);
+        if (latest == null) return response;
+
+        if (latest.getStatus() == com.example.messaging.entity.enums.FriendRequestStatus.ACCEPTED) {
+            response.setFriendshipStatus("ACCEPTED");
+        } else if (latest.getStatus() == com.example.messaging.entity.enums.FriendRequestStatus.PENDING) {
+            response.setFriendshipStatus(latest.getSender().getUserId().equals(viewerId)
+                    ? "PENDING_SENT" : "PENDING_RECEIVED");
+            response.setFriendRequestId(latest.getId());
+        }
+        return response;
+    }
 
     @Transactional
     public void setOnlineStatus(Long userId, boolean online) {

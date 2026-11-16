@@ -11,17 +11,22 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.time.LocalDateTime;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
 public class NotificationService {
+    private static final Set<String> NOTIFICATION_TYPES = Set.of(
+        "POST_CREATED", "POST_REACTION", "EVENT_CREATED", "STORY_CREATED");
+
     private final AppNotificationRepository repository;
     private final UserService userService;
 
     @Transactional
     public void create(Long recipientId, Long actorId, String type, String referenceType, Long referenceId, String message) {
-        if (recipientId == null || actorId == null || recipientId.equals(actorId)) return;
-        if ("POST_REACTION".equals(type) || "MESSAGE".equals(type)) {
+        if (recipientId == null || actorId == null || type == null || recipientId.equals(actorId)
+                || !NOTIFICATION_TYPES.contains(type)) return;
+        if ("POST_REACTION".equals(type)) {
             LocalDateTime recentCutoff = LocalDateTime.now().minusMinutes(5);
             boolean recentlyNotified = repository
                 .findTop1ByRecipientUserIdAndActorUserIdAndTypeAndReferenceTypeAndReferenceIdOrderByCreatedAtDesc(
@@ -39,11 +44,14 @@ public class NotificationService {
 
     @Transactional(readOnly = true)
     public List<NotificationResponse> list(Long userId) {
-        return repository.findTop100ByRecipientUserIdOrderByCreatedAtDesc(userId).stream().map(this::toResponse).toList();
+        return repository.findTop100ByRecipientUserIdAndTypeInOrderByCreatedAtDesc(userId, NOTIFICATION_TYPES)
+                .stream().map(this::toResponse).toList();
     }
 
     @Transactional(readOnly = true)
-    public long unreadCount(Long userId) { return repository.countByRecipientUserIdAndReadFalse(userId); }
+    public long unreadCount(Long userId) {
+        return repository.countByRecipientUserIdAndReadFalseAndTypeIn(userId, NOTIFICATION_TYPES);
+    }
 
     @Transactional
     public void markRead(Long notificationId, Long userId) {
@@ -54,7 +62,8 @@ public class NotificationService {
 
     @Transactional
     public void markAllRead(Long userId) {
-        repository.findByRecipientUserIdAndReadFalse(userId).forEach(item -> item.setRead(true));
+        repository.findByRecipientUserIdAndReadFalseAndTypeIn(userId, NOTIFICATION_TYPES)
+                .forEach(item -> item.setRead(true));
     }
 
     @Transactional

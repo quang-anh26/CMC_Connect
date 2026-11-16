@@ -8,10 +8,15 @@ import com.example.messaging.exception.ApiException;
 import com.example.messaging.service.ConversationService;
 import com.example.messaging.repository.FriendRequestRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.transaction.event.TransactionalEventListener;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -26,6 +31,8 @@ public class FriendService {
     private final UserService userService;
     private final ConversationService conversationService;
     private final NotificationService notificationService;
+    private final ApplicationEventPublisher eventPublisher;
+    private final SimpMessagingTemplate messagingTemplate;
 
     @Transactional
     public FriendRequestResponse sendRequest(Long senderId, Long receiverId) {
@@ -50,7 +57,10 @@ public class FriendService {
                 .status(FriendRequestStatus.PENDING)
                 .build();
 
-        return toResponse(friendRequestRepository.save(fr));
+        FriendRequest saved = friendRequestRepository.save(fr);
+        FriendRequestResponse response = toResponse(saved);
+        eventPublisher.publishEvent(new FriendRequestCreated(receiver.getUsername(), response));
+        return response;
     }
 
     @Transactional
@@ -59,6 +69,21 @@ public class FriendService {
                 .findByIdAndSenderUserIdAndStatus(requestId, senderId, FriendRequestStatus.PENDING)
                 .orElseThrow(() -> ApiException.notFound("Không tìm thấy lời mời đang chờ hoặc bạn không có quyền hủy"));
         friendRequestRepository.delete(request);
+    }
+
+    @Transactional
+    public void removeFriend(Long userId, Long friendId) {
+        if (userId.equals(friendId)) {
+            throw ApiException.badRequest("Không thể hủy kết bạn với chính mình");
+        }
+        List<FriendRequest> acceptedRelationships = friendRequestRepository.findRelationship(userId, friendId)
+                .stream()
+                .filter(request -> request.getStatus() == FriendRequestStatus.ACCEPTED)
+                .toList();
+        if (acceptedRelationships.isEmpty()) {
+            throw ApiException.notFound("Hai tài khoản hiện không phải là bạn bè");
+        }
+        friendRequestRepository.deleteAll(acceptedRelationships);
     }
 
     @Transactional
@@ -118,4 +143,12 @@ public class FriendService {
                 .createdAt(fr.getCreatedAt())
                 .build();
     }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void notifyRecipient(FriendRequestCreated event) {
+        messagingTemplate.convertAndSendToUser(event.recipientUsername(), "/queue/notifications",
+                Map.of("type", "FRIEND_REQUEST", "request", event.request()));
+    }
+
+    public record FriendRequestCreated(String recipientUsername, FriendRequestResponse request) {}
 }

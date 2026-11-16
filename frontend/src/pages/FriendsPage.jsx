@@ -53,6 +53,26 @@ export default function FriendsPage() {
   }, [load])
 
   useEffect(() => {
+    const refreshRequests = () => {
+      Promise.all([friendApi.received(), friendApi.sent()])
+        .then(([received, sent]) => setState((current) => ({
+          ...current,
+          received: received.data || [],
+          sent: sent.data || [],
+        })))
+        .catch(() => {})
+    }
+    const timer = window.setInterval(refreshRequests, 20000)
+    window.addEventListener("focus", refreshRequests)
+    window.addEventListener("cmctalk-notifications-updated", refreshRequests)
+    return () => {
+      window.clearInterval(timer)
+      window.removeEventListener("focus", refreshRequests)
+      window.removeEventListener("cmctalk-notifications-updated", refreshRequests)
+    }
+  }, [])
+
+  useEffect(() => {
     setQuery("")
   }, [friendsSection])
 

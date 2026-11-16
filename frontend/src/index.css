@@ -1008,6 +1008,9 @@
   flex-direction: column;
   gap: 8px;
 }
+.chat-history > * {
+  flex-shrink: 0;
+}
 .chat-day {
   align-self: center;
   color: var(--muted);
@@ -1136,9 +1139,21 @@
   color: var(--text);
   font-size: 12px;
 }
-.chat-composer .send-button {
+.chat-composer .send-button:not(:disabled) {
   color: white;
   background: var(--blue);
+}
+.chat-composer .send-button:not(:disabled):hover {
+  color: white;
+  background: var(--blue-dark);
+}
+.chat-composer .send-button:disabled {
+  color: var(--muted);
+  background: var(--surface-2);
+  opacity: 0.65;
+}
+.chat-composer .send-button:disabled:hover {
+  background: var(--surface-2);
 }
 .contact-info {
   min-width: 0;
@@ -3378,7 +3393,8 @@
 .follow-chip{align-self:flex-start;padding:5px 10px;border:1px solid var(--border);border-radius:14px;color:var(--blue);font-size:11px;font-weight:600}
 .video-actions .active-like{color:var(--red)}
 .notif-request{padding:14px 18px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border)}
-.notif-request span{flex:1;display:flex;flex-direction:column}
+.notif-request>span:not(.note-avatar){flex:1;min-width:0;display:flex;flex-direction:column}
+.notif-request>.note-avatar{flex:none}
 .notif-request p{color:var(--muted);font-size:11px}
 .notif-del{margin-left:6px;color:var(--muted);display:grid;place-items:center;width:28px;height:28px;border-radius:50%}
 .notif-del:hover{background:var(--surface-2);color:var(--red)}
@@ -3881,4 +3897,9 @@ button.saved-preview{cursor:pointer}
 }
 .chat-panel.has-panel-wallpaper .reply-bar button {
   color: #fff;
+}
+
+/* Keep message text readable after switching a chat back to its default wallpaper. */
+.chat-panel .bubble-row .bubble > span:not(.reply-content) {
+  color: inherit;
 }
