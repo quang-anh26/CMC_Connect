@@ -69,7 +69,18 @@ public class EventService {
                 .description(clean(request.getDescription()))
                 .privacy(parsePrivacy(request.getPrivacy()))
                 .build();
-        return toResponse(eventRepository.save(event), organizerId);
+        SocialEvent saved = eventRepository.save(event);
+        if (saved.getPrivacy() != EventPrivacy.PRIVATE) {
+            friendRequestRepository.findBySenderUserIdAndStatusOrReceiverUserIdAndStatus(
+                            organizerId, FriendRequestStatus.ACCEPTED, organizerId, FriendRequestStatus.ACCEPTED)
+                    .stream()
+                    .map(requestEdge -> requestEdge.getSender().getUserId().equals(organizerId)
+                            ? requestEdge.getReceiver().getUserId() : requestEdge.getSender().getUserId())
+                    .distinct()
+                    .forEach(friendId -> notificationService.create(friendId, organizerId, "EVENT_CREATED", "EVENT",
+                            saved.getEventId(), "đã tạo sự kiện “" + saved.getTitle() + "”."));
+        }
+        return toResponse(saved, organizerId);
     }
 
     @Transactional

@@ -55,6 +55,15 @@ export default function ChatPanel({ conversationId, conversation, onConversation
   const cannotMessage = conversation?.type === "PRIVATE" && (conversation.blockedByCurrentUser === true || conversation.blockedByOther === true)
   const isGroup = conversation?.type === "GROUP"
   const online = !isGroup && conversation?.otherUserOnline
+  const markConversationSeen = useCallback(() => {
+    if (
+      !connected ||
+      loading ||
+      document.visibilityState !== "visible" ||
+      !document.hasFocus()
+    ) return
+    publish("/app/chat.seen", { conversationId: Number(conversationId) })
+  }, [connected, conversationId, loading, publish])
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 60000)
@@ -146,7 +155,7 @@ export default function ChatPanel({ conversationId, conversation, onConversation
           }
           return [...prev, incoming]
         })
-        if (String(incoming.senderId) !== String(myId)) publish("/app/chat.seen", { conversationId: Number(conversationId) })
+        if (String(incoming.senderId) !== String(myId)) markConversationSeen()
         window.setTimeout(() => scrollToBottom(historyRef.current, true), 50)
       }),
       subscribe(`/topic/conversation/${conversationId}/typing`, (event) => {
@@ -160,6 +169,7 @@ export default function ChatPanel({ conversationId, conversation, onConversation
       }),
       subscribe(`/topic/conversation/${conversationId}/seen`, () => {
         setMessages((prev) => prev.map((m) => (String(m.senderId) === String(myId) ? { ...m, deliveryStatus: "SEEN" } : m)))
+        window.dispatchEvent(new Event("cmctalk-conversations-updated"))
       }),
       subscribe(`/topic/conversation/${conversationId}/reactions`, (update) => {
         setMessages((cur) => cur.map((m) => (String(m.messageId) === String(update.messageId) ? { ...m, reactions: update.reactions || [] } : m)))
@@ -167,10 +177,19 @@ export default function ChatPanel({ conversationId, conversation, onConversation
       subscribe("/topic/presence", refreshConversation),
       subscribe(`/topic/conversation/${conversationId}/details`, refreshConversation),
     ]
-    publish("/app/chat.seen", { conversationId: Number(conversationId) })
+    markConversationSeen()
     return () => offs.forEach((off) => off())
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [connected, conversationId, myId])
+  }, [connected, conversationId, myId, markConversationSeen])
+
+  useEffect(() => {
+    const markSeenWhenActive = () => markConversationSeen()
+    window.addEventListener("focus", markSeenWhenActive)
+    document.addEventListener("visibilitychange", markSeenWhenActive)
+    return () => {
+      window.removeEventListener("focus", markSeenWhenActive)
+      document.removeEventListener("visibilitychange", markSeenWhenActive)
+    }
+  }, [markConversationSeen])
 
   const stopTyping = () => connected && publish("/app/chat.typing", { conversationId: Number(conversationId), typing: false })
   const onType = (value) => {

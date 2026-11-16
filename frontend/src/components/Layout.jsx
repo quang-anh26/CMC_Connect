@@ -7,7 +7,6 @@ import { conversationApi } from "../api/conversationApi"
 import { notificationApi } from "../api/notificationApi"
 import { userApi } from "../api/userApi"
 import { friendApi } from "../api/friendApi"
-import { groupApi } from "../api/groupApi"
 import SettingsModal from "./SettingsModal"
 import usePresenceHeartbeat from "../utils/usePresenceHeartbeat"
 import { saveThemeMode } from "../utils/theme"
@@ -27,17 +26,15 @@ const nav = [
 function useCounts() {
   const [counts, setCounts] = useState({ messages: 0, notifications: 0 })
   const refresh = useCallback(async () => {
-    const [convs, friends, groups, activity] = await Promise.allSettled([
+    const [convs, friends, activity] = await Promise.allSettled([
       conversationApi.list(),
       friendApi.received(),
-      groupApi.notifications(),
       notificationApi.unreadCount(),
     ])
     const messages = convs.status === "fulfilled" ? (convs.value.data || []).reduce((sum, c) => sum + (Number(c.unreadCount) || 0), 0) : 0
     const f = friends.status === "fulfilled" ? (friends.value.data || []).length : 0
-    const g = groups.status === "fulfilled" ? (groups.value.data || []).filter((n) => !n.read).length : 0
     const a = activity.status === "fulfilled" ? Number(activity.value.data?.count || 0) : 0
-    setCounts({ messages, notifications: f + g + a })
+    setCounts({ messages, notifications: f + a })
   }, [])
   useEffect(() => {
     refresh()

@@ -41,11 +41,6 @@ export default function MessagesPage() {
     }
   }, [load])
 
-  useEffect(() => {
-    if (conversationId || state.loading || state.error || !state.list.length) return
-    navigate(`/messages/${state.list[0].conversationId}`, { replace: true })
-  }, [conversationId, state.loading, state.error, state.list, navigate])
-
   // Thông tin cuộc trò chuyện đang mở: lấy từ danh sách, được cập nhật cục bộ khi đổi biệt danh/hình nền/chặn.
   useEffect(() => {
     if (!conversationId) return setSelected(null)

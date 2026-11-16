@@ -45,6 +45,7 @@ export default function ProfilePage() {
   const [friends, setFriends] = useState([])
   const [friendsLoading, setFriendsLoading] = useState(false)
   const [editing, setEditing] = useState(false)
+  const [friendActionBusy, setFriendActionBusy] = useState(false)
   const targetId = profileUserId || user?.userId
   const mine = String(targetId) === String(user?.userId)
   const profile = useAsync(() => userApi.getById(targetId).then((r) => r.data), [targetId])
@@ -76,6 +77,50 @@ export default function ProfilePage() {
   }
   const addFriend = async () => {
     try { await friendApi.send(targetId); toast("Đã gửi lời mời kết bạn."); profile.reload() } catch (err) { toast(getApiErrorMessage(err, "Không thể gửi lời mời."), "error") }
+  }
+  const acceptFriendRequest = async () => {
+    if (!p?.friendRequestId || friendActionBusy) return
+    setFriendActionBusy(true)
+    try {
+      await friendApi.accept(p.friendRequestId)
+      await conversationApi.getOrCreatePrivate(targetId).catch(() => {})
+      toast("Đã chấp nhận lời mời kết bạn.")
+      profile.reload()
+      window.dispatchEvent(new Event("cmctalk-notifications-updated"))
+      window.dispatchEvent(new Event("cmctalk-conversations-updated"))
+    } catch (err) {
+      toast(getApiErrorMessage(err, "Không thể chấp nhận lời mời."), "error")
+    } finally {
+      setFriendActionBusy(false)
+    }
+  }
+  const rejectFriendRequest = async () => {
+    if (!p?.friendRequestId || friendActionBusy) return
+    setFriendActionBusy(true)
+    try {
+      await friendApi.reject(p.friendRequestId)
+      toast("Đã xóa lời mời kết bạn.")
+      profile.reload()
+      window.dispatchEvent(new Event("cmctalk-notifications-updated"))
+    } catch (err) {
+      toast(getApiErrorMessage(err, "Không thể xóa lời mời."), "error")
+    } finally {
+      setFriendActionBusy(false)
+    }
+  }
+  const removeFriend = async () => {
+    if (!window.confirm(`Bạn có chắc muốn hủy kết bạn với ${p?.displayName || "người này"}?`)) return
+    setFriendActionBusy(true)
+    try {
+      await friendApi.remove(targetId)
+      toast("Đã hủy kết bạn.")
+      profile.reload()
+      window.dispatchEvent(new Event("cmctalk-friends-updated"))
+    } catch (err) {
+      toast(getApiErrorMessage(err, "Không thể hủy kết bạn."), "error")
+    } finally {
+      setFriendActionBusy(false)
+    }
   }
   const replacePost = (post) => feed.setData((feed.data || []).map((x) => (x.postId === post.postId ? post : x)))
 
@@ -110,9 +155,18 @@ export default function ProfilePage() {
           ) : (
             <>
               <Button icon="message" onClick={message}>Nhắn tin</Button>
-              {p.friendshipStatus === "ACCEPTED" ? <Button variant="secondary" icon="check" disabled>Bạn bè</Button>
-                : p.friendshipStatus === "PENDING" ? <Button variant="secondary" disabled>Đã gửi lời mời</Button>
-                : <Button variant="secondary" icon="user_plus" onClick={addFriend}>Kết bạn</Button>}
+              {p.friendshipStatus === "ACCEPTED" ? (
+                <Button variant="secondary" icon="users" disabled={friendActionBusy} onClick={removeFriend}>Hủy kết bạn</Button>
+              ) : p.friendshipStatus === "PENDING_SENT" ? (
+                <Button variant="secondary" disabled>Đã gửi lời mời</Button>
+              ) : p.friendshipStatus === "PENDING_RECEIVED" ? (
+                <>
+                  <Button disabled={friendActionBusy} icon="check" onClick={acceptFriendRequest}>Chấp nhận</Button>
+                  <Button variant="secondary" disabled={friendActionBusy} onClick={rejectFriendRequest}>Xóa lời mời</Button>
+                </>
+              ) : (
+                <Button variant="secondary" icon="user_plus" onClick={addFriend}>Kết bạn</Button>
+              )}
             </>
           )}
         </div>

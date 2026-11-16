@@ -40,6 +40,11 @@ export function SocketProvider({ children }) {
             detail: JSON.parse(message.body),
           }))
         })
+        client.subscribe('/user/queue/notifications', (message) => {
+          window.dispatchEvent(new CustomEvent('cmctalk-notifications-updated', {
+            detail: JSON.parse(message.body),
+          }))
+        })
       },
       onDisconnect: () => {
         setConnected(false)

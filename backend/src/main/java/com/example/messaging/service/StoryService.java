@@ -4,7 +4,9 @@ import com.example.messaging.dto.feed.CreateStoryRequest;
 import com.example.messaging.dto.feed.StoryResponse;
 import com.example.messaging.entity.SocialStory;
 import com.example.messaging.entity.User;
+import com.example.messaging.entity.enums.FriendRequestStatus;
 import com.example.messaging.exception.ApiException;
+import com.example.messaging.repository.FriendRequestRepository;
 import com.example.messaging.repository.SocialStoryCommentRepository;
 import com.example.messaging.repository.SocialStoryReactionRepository;
 import com.example.messaging.repository.SocialStoryRepository;
@@ -23,6 +25,8 @@ public class StoryService {
     private final SocialStoryReactionRepository reactionRepository;
     private final SocialStoryCommentRepository commentRepository;
     private final UserService userService;
+    private final FriendRequestRepository friendRequestRepository;
+    private final NotificationService notificationService;
 
     @Transactional(readOnly = true)
     public List<StoryResponse> list() {
@@ -58,6 +62,14 @@ public class StoryService {
                 .mediaType(hasMedia ? mediaType : null)
                 .expiresAt(now.plusHours(24))
                 .build());
+        friendRequestRepository.findBySenderUserIdAndStatusOrReceiverUserIdAndStatus(
+                        authorId, FriendRequestStatus.ACCEPTED, authorId, FriendRequestStatus.ACCEPTED)
+                .stream()
+                .map(requestEdge -> requestEdge.getSender().getUserId().equals(authorId)
+                        ? requestEdge.getReceiver().getUserId() : requestEdge.getSender().getUserId())
+                .distinct()
+                .forEach(friendId -> notificationService.create(friendId, authorId, "STORY_CREATED", "STORY",
+                        story.getStoryId(), "đã đăng tin mới."));
         return toResponse(story);
     }
 

@@ -4,19 +4,15 @@ import { Icon } from "../components/Icon"
 import { Avatar, Button, EmptyState, ErrorBlock, Loading, useToast } from "../components/ui"
 import { notificationApi } from "../api/notificationApi"
 import { friendApi } from "../api/friendApi"
-import { groupApi } from "../api/groupApi"
 import { conversationApi } from "../api/conversationApi"
 import { getApiErrorMessage } from "../utils/apiError"
 import { timeAgo } from "../utils/format"
 
 const iconFor = (item) => {
   if (item.type === "friend") return "users"
-  if (item.type === "group") return "group"
   const t = item.notification.type || ""
-  if (t === "MESSAGE") return "comment"
+  if (t === "POST_CREATED" || t === "STORY_CREATED") return "image"
   if (t.startsWith("EVENT_")) return "calendar"
-  if (t === "FRIEND_REQUEST_ACCEPTED") return "users"
-  if (t === "POST_SHARED") return "share"
   if (t === "POST_REACTION") return "heart"
   return "bell"
 }
@@ -26,7 +22,7 @@ const CATEGORIES = [["all", "Tất cả"], ["unread", "Chưa đọc"], ["invites
 export default function NotificationsPage() {
   const navigate = useNavigate()
   const toast = useToast()
-  const [data, setData] = useState({ friends: [], groups: [], activities: [] })
+  const [data, setData] = useState({ friends: [], activities: [] })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [category, setCategory] = useState("all")
@@ -34,22 +30,41 @@ export default function NotificationsPage() {
   const badge = () => window.dispatchEvent(new Event("cmctalk-notifications-updated"))
 
   const load = useCallback(() => {
-    Promise.all([friendApi.received(), groupApi.notifications(), notificationApi.list()])
-      .then(([f, g, a]) => { setData({ friends: f.data || [], groups: g.data || [], activities: a.data || [] }); setError("") })
-      .catch((e) => setError(getApiErrorMessage(e, "Không thể tải thông báo. Vui lòng thử lại.")))
+    Promise.allSettled([friendApi.received(), notificationApi.list()])
+      .then(([friends, activities]) => {
+        if (friends.status === "fulfilled" || activities.status === "fulfilled") {
+          setData((current) => ({
+            friends: friends.status === "fulfilled" ? (friends.value.data || []) : current.friends,
+            activities: activities.status === "fulfilled" ? (activities.value.data || []) : current.activities,
+          }))
+          setError("")
+        } else {
+          setError(getApiErrorMessage(friends.reason, "Không thể tải thông báo. Vui lòng thử lại."))
+        }
+      })
       .finally(() => setLoading(false))
   }, [])
   useEffect(() => { load() }, [load])
+  useEffect(() => {
+    const refresh = () => load()
+    const timer = window.setInterval(refresh, 20000)
+    window.addEventListener("focus", refresh)
+    window.addEventListener("cmctalk-notifications-updated", refresh)
+    return () => {
+      window.clearInterval(timer)
+      window.removeEventListener("focus", refresh)
+      window.removeEventListener("cmctalk-notifications-updated", refresh)
+    }
+  }, [load])
 
   const items = useMemo(() => [
     ...data.activities.map((n) => ({ id: `a${n.id}`, type: "activity", createdAt: n.createdAt, unread: !n.read, notification: n })),
     ...data.friends.map((r) => ({ id: `f${r.id}`, type: "friend", createdAt: r.createdAt, unread: true, request: r })),
-    ...data.groups.map((n) => ({ id: `g${n.id}`, type: "group", createdAt: n.createdAt, unread: !n.read, notification: n })),
   ].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)), [data])
 
   const visible = items.filter((i) => {
     if (category === "unread") return i.unread
-    if (category === "invites") return i.type === "friend" || (i.type === "group" && i.notification.type === "INVITE")
+    if (category === "invites") return i.type === "friend"
     return true
   })
   const unreadCount = items.filter((i) => i.unread).length
@@ -69,22 +84,6 @@ export default function NotificationsPage() {
     badge()
   }, "Không thể xử lý lời mời kết bạn.")
 
-  const openGroup = (n) => run(`g${n.id}`, async () => {
-    if (!n.read) {
-      await groupApi.markNotificationRead(n.id)
-      setData((d) => ({ ...d, groups: d.groups.map((x) => (x.id === n.id ? { ...x, read: true } : x)) }))
-      badge()
-    }
-    navigate(`/groups/${n.groupId}`)
-  }, "Không thể cập nhật thông báo.")
-
-  const respondInvite = (n, approved) => run(`g${n.id}`, async () => {
-    await groupApi.respondInvite(n.referenceId, approved)
-    setData((d) => ({ ...d, groups: d.groups.filter((x) => x.id !== n.id) }))
-    badge()
-    toast(approved ? "Đã tham gia nhóm." : "Đã từ chối lời mời.")
-  }, "Không thể xử lý lời mời vào nhóm.")
-
   const openActivity = (n) => run(`a${n.id}`, async () => {
     if (!n.read) {
       await notificationApi.markRead(n.id)
@@ -93,7 +92,7 @@ export default function NotificationsPage() {
     }
     if (n.referenceType === "USER" && n.actorId) navigate(`/profile/${n.actorId}`)
     else if (n.referenceType === "POST") navigate(`/feed?postId=${n.referenceId || ""}`)
-    else if (n.referenceType === "CONVERSATION" && n.referenceId) navigate(`/messages/${n.referenceId}`)
+    else if (n.referenceType === "STORY") navigate("/feed")
     else if (n.referenceType === "EVENT" && n.referenceId) navigate(`/events/${n.referenceId}`)
     else if (n.actorId) navigate(`/profile/${n.actorId}`)
   }, "Không thể mở thông báo.")
@@ -105,14 +104,14 @@ export default function NotificationsPage() {
   }, "Không thể xóa thông báo.")
 
   const markAll = () => run("all", async () => {
-    await Promise.all([...data.groups.filter((g) => !g.read).map((g) => groupApi.markNotificationRead(g.id)), notificationApi.markAllRead()])
+    await notificationApi.markAllRead()
     load(); badge()
   }, "Không thể đánh dấu đã đọc.")
 
   return (
     <div className="notifications-page">
       <header className="page-title-row notifications-header">
-        <div><h1>Thông báo</h1><p>Cập nhật mới từ bạn bè, nhóm và hoạt động của bạn.</p></div>
+        <div><h1>Thông báo</h1><p>Lời mời kết bạn, bài viết, lượt thích, sự kiện và tin từ bạn bè.</p></div>
         <Button variant="secondary" disabled={unreadCount === 0 || busyId === "all"} onClick={markAll}>Đánh dấu đã đọc</Button>
       </header>
       <div className="notification-tabs">
@@ -132,24 +131,6 @@ export default function NotificationsPage() {
                     <span><strong>{r.senderDisplayName}</strong><p>đã gửi cho bạn lời mời kết bạn · {timeAgo(r.createdAt)}</p></span>
                     <Button disabled={busy} onClick={() => respondFriend(r, true)}>Xác nhận</Button>
                     <Button variant="secondary" disabled={busy} onClick={() => respondFriend(r, false)}>Xóa</Button>
-                  </div>
-                )
-              }
-              if (item.type === "group") {
-                const n = item.notification
-                const invite = n.type === "INVITE"
-                return (
-                  <div className={`notif-request ${item.unread ? "unread" : ""}`} key={item.id}>
-                    <span className="note-avatar"><Avatar name={n.groupName} /><i><Icon name="group" size={14} /></i></span>
-                    <span style={{ cursor: invite ? "default" : "pointer" }} onClick={() => !invite && openGroup(n)}><strong>{n.groupName}</strong><p>{n.message} · {timeAgo(n.createdAt)}</p></span>
-                    {invite ? (
-                      <>
-                        <Button disabled={busy} onClick={() => respondInvite(n, true)}>Tham gia</Button>
-                        <Button variant="secondary" disabled={busy} onClick={() => respondInvite(n, false)}>Từ chối</Button>
-                      </>
-                    ) : (
-                      <Button variant="secondary" disabled={busy} onClick={() => openGroup(n)}>Xem nhóm</Button>
-                    )}
                   </div>
                 )
               }
