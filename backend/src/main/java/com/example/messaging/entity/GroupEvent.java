@@ -43,6 +43,12 @@ public class GroupEvent {
     @Column(name = "ends_at")
     private LocalDateTime endsAt;
 
+    @Column(name = "media_url", length = 1000)
+    private String mediaUrl;
+
+    @Column(name = "media_type", length = 20)
+    private String mediaType;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 

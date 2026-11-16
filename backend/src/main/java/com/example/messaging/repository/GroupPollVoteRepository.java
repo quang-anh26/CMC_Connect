@@ -9,4 +9,5 @@ public interface GroupPollVoteRepository extends JpaRepository<GroupPollVote, Lo
     Optional<GroupPollVote> findByPollIdAndUserUserId(Long pollId, Long userId);
     long countByOptionId(Long optionId);
     void deleteByPollId(Long pollId);
+    void deleteByOption_Id(Long optionId);
 }

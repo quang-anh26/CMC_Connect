@@ -18,6 +18,7 @@ export const groupApi = {
   removeComment: (groupId, commentId) => axiosClient.delete(`/api/groups/${groupId}/comments/${commentId}`),
   pin: (groupId, postId) => axiosClient.patch(`/api/groups/${groupId}/posts/${postId}/pin`),
   createPoll: (groupId, payload) => axiosClient.post(`/api/groups/${groupId}/polls`, payload),
+  updatePoll: (groupId, postId, payload) => axiosClient.put(`/api/groups/${groupId}/posts/${postId}/poll`, payload),
   votePoll: (groupId, postId, optionId) => axiosClient.post(`/api/groups/${groupId}/posts/${postId}/poll-votes`, { optionId }),
   events: (groupId) => axiosClient.get(`/api/groups/${groupId}/events`),
   createEvent: (groupId, payload) => axiosClient.post(`/api/groups/${groupId}/events`, payload),

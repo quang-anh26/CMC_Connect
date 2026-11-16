@@ -125,6 +125,12 @@ public class GroupController {
         return ResponseEntity.ok(groupService.createPoll(groupId, userId, request));
     }
 
+    @PutMapping("/{groupId}/posts/{postId}/poll")
+    public ResponseEntity<?> updatePoll(@PathVariable Long groupId, @PathVariable Long postId, @CurrentUser Long userId,
+                                        @Valid @RequestBody GroupRequests.CreatePoll request) {
+        return ResponseEntity.ok(groupService.updatePoll(groupId, postId, userId, request));
+    }
+
     @PostMapping("/{groupId}/posts/{postId}/poll-votes")
     public ResponseEntity<?> votePoll(@PathVariable Long groupId, @PathVariable Long postId, @CurrentUser Long userId,
                                       @Valid @RequestBody GroupRequests.PollVote request) {
@@ -134,6 +140,16 @@ public class GroupController {
     @GetMapping("/{groupId}/events")
     public ResponseEntity<?> events(@PathVariable Long groupId, @CurrentUser Long userId) {
         return ResponseEntity.ok(groupService.listEvents(groupId, userId));
+    }
+
+    @GetMapping("/{groupId}/events/{eventId}/media")
+    public ResponseEntity<Resource> eventMedia(@PathVariable Long groupId, @PathVariable Long eventId,
+                                               @CurrentUser Long userId) throws IOException {
+        Path file = groupService.groupEventMedia(groupId, eventId, userId);
+        Resource resource = new FileSystemResource(file);
+        String contentType = Files.probeContentType(file);
+        MediaType mediaType = contentType == null ? MediaType.APPLICATION_OCTET_STREAM : MediaType.parseMediaType(contentType);
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).contentType(mediaType).body(resource);
     }
 
     @PostMapping("/{groupId}/events")
@@ -259,7 +275,8 @@ public class GroupController {
                                     @RequestParam("file") MultipartFile file,
                                     @RequestParam(defaultValue = "POST") String purpose) {
         boolean groupImage = "GROUP_IMAGE".equalsIgnoreCase(purpose);
-        if (!groupImage && !"POST".equalsIgnoreCase(purpose)) return ResponseEntity.badRequest().body(Map.of("message", "Mục đích tải lên không hợp lệ"));
+        boolean eventMedia = "EVENT".equalsIgnoreCase(purpose);
+        if (!groupImage && !eventMedia && !"POST".equalsIgnoreCase(purpose)) return ResponseEntity.badRequest().body(Map.of("message", "Mục đích tải lên không hợp lệ"));
         groupService.authorizeUpload(groupId, userId, groupImage);
         if (file.getOriginalFilename() == null || !file.getOriginalFilename().contains(".")) {
             return ResponseEntity.badRequest().body(Map.of("message", "Định dạng tệp không hợp lệ"));
@@ -274,6 +291,9 @@ public class GroupController {
             return ResponseEntity.badRequest().body(Map.of("message", "MIME type không được hỗ trợ"));
         }
         String mediaType = contentType.startsWith("image/") ? "IMAGE" : contentType.startsWith("video/") ? "VIDEO" : "FILE";
+        if (eventMedia && !Set.of("IMAGE", "VIDEO").contains(mediaType)) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Sự kiện chỉ hỗ trợ ảnh hoặc video"));
+        }
         String url = !groupImage && groupService.isPrivateGroup(groupId, userId)
                 ? fileStorageService.storePrivateGroupFile(file, groupId)
                 : fileStorageService.store(file);

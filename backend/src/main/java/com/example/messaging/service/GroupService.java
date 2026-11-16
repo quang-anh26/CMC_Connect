@@ -215,9 +215,13 @@ public class GroupService {
             posts = visiblePosts;
         }
         String query = search == null ? "" : search.trim().toLowerCase(Locale.ROOT);
+        Map<Long, Long> reactionCounts = new HashMap<>();
+        if ("POPULAR".equalsIgnoreCase(sort)) {
+            for (GroupPost post : posts) reactionCounts.put(post.getPostId(), reactionRepository.countByPostPostId(post.getPostId()));
+        }
         posts = posts.stream().filter(post -> query.isEmpty() || post.getContent().toLowerCase(Locale.ROOT).contains(query))
                 .filter(post -> !mediaOnly || post.getMediaUrl() != null)
-                .sorted(postComparator(sort)).toList();
+                .sorted(postComparator(sort, reactionCounts)).toList();
         return posts.stream().map(post -> postResponse(post, viewerId)).toList();
     }
 
@@ -247,7 +251,7 @@ public class GroupService {
         GroupPost post = getPostOrThrow(groupId, postId, requesterId);
         if (!post.getAuthor().getUserId().equals(requesterId)) throw ApiException.forbidden("Chỉ tác giả mới được sửa bài viết");
         String content = clean(request.content());
-        String mediaUrl = clean(request.mediaUrl());
+        String mediaUrl = request.mediaUrl() == null ? post.getMediaUrl() : clean(request.mediaUrl());
         if (mediaUrl != null && mediaUrl.equals(
                 "/api/groups/" + groupId + "/posts/" + postId + "/media")) {
             mediaUrl = post.getMediaUrl();
@@ -293,6 +297,43 @@ public class GroupService {
     }
 
     @Transactional
+    public Map<String, Object> updatePoll(Long groupId, Long postId, Long requesterId, GroupRequests.CreatePoll request) {
+        requireMember(groupId, requesterId);
+        GroupPost post = getPostOrThrow(groupId, postId, requesterId);
+        if (!"POLL".equals(post.getPostType())) throw ApiException.badRequest("Bài viết này không phải bình chọn");
+        if (!post.getAuthor().getUserId().equals(requesterId)) throw ApiException.forbidden("Chỉ người tạo mới được sửa bình chọn");
+
+        String question = request.question().trim();
+        if (containsSpam(post.getGroup(), question)) throw ApiException.badRequest("Câu hỏi chứa từ khóa không được phép");
+        List<String> labels = request.options().stream().map(String::trim).filter(label -> !label.isBlank()).distinct().toList();
+        if (labels.size() < 2) throw ApiException.badRequest("Bình chọn cần ít nhất hai lựa chọn khác nhau");
+
+        GroupPoll poll = pollRepository.findByPostPostId(postId)
+                .orElseThrow(() -> ApiException.notFound("Không tìm thấy bình chọn"));
+        List<GroupPollOption> existingOptions = pollOptionRepository.findByPollIdOrderByIdAsc(poll.getId());
+        Set<String> retainedLabels = new HashSet<>(labels);
+        for (GroupPollOption option : existingOptions) {
+            if (!retainedLabels.contains(option.getLabel())) {
+                pollVoteRepository.deleteByOption_Id(option.getId());
+                pollOptionRepository.delete(option);
+            }
+        }
+        Set<String> existingLabels = new HashSet<>();
+        for (GroupPollOption option : existingOptions) {
+            if (retainedLabels.contains(option.getLabel())) existingLabels.add(option.getLabel());
+        }
+        for (String label : labels) {
+            if (!existingLabels.contains(label)) {
+                pollOptionRepository.save(GroupPollOption.builder().poll(poll).label(label).build());
+            }
+        }
+        post.setContent(question);
+        poll.setEndsAt(request.endsAt());
+        pollRepository.save(poll);
+        return postResponse(postRepository.save(post), requesterId);
+    }
+
+    @Transactional
     public Map<String, Object> votePoll(Long groupId, Long postId, Long userId, Long optionId) {
         GroupPost post = getPostOrThrow(groupId, postId, userId);
         requireMember(groupId, userId);
@@ -324,10 +365,33 @@ public class GroupService {
         if (request.endsAt() != null && !request.endsAt().isAfter(request.startsAt())) {
             throw ApiException.badRequest("Thời gian kết thúc phải sau thời gian bắt đầu");
         }
+        String mediaUrl = clean(request.mediaUrl());
+        String mediaType = request.mediaType() == null ? null : request.mediaType().trim().toUpperCase(Locale.ROOT);
+        if (mediaUrl != null) {
+            if (!Set.of("IMAGE", "VIDEO").contains(mediaType)) throw ApiException.badRequest("Sự kiện chỉ hỗ trợ ảnh hoặc video");
+            if ("PRIVATE".equals(group.getVisibility())) privateGroupUploadPath(mediaUrl, groupId);
+            else if (!mediaUrl.startsWith("/uploads/")) throw ApiException.badRequest("Tệp sự kiện không hợp lệ");
+        }
         GroupEvent event = eventRepository.save(GroupEvent.builder().group(group).createdBy(userService.getByIdOrThrow(creatorId))
                 .title(request.title().trim()).description(clean(request.description())).location(clean(request.location()))
-                .startsAt(request.startsAt()).endsAt(request.endsAt()).build());
+                .startsAt(request.startsAt()).endsAt(request.endsAt()).mediaUrl(mediaUrl).mediaType(mediaUrl == null ? null : mediaType).build());
         return eventResponse(event, creatorId);
+    }
+
+    @Transactional(readOnly = true)
+    public Path groupEventMedia(Long groupId, Long eventId, Long viewerId) {
+        requireGroupContentAccess(groupId, viewerId);
+        GroupEvent event = eventRepository.findByIdAndGroupGroupId(eventId, groupId)
+                .orElseThrow(() -> ApiException.notFound("Không tìm thấy sự kiện"));
+        String mediaUrl = event.getMediaUrl();
+        if (mediaUrl == null) throw ApiException.notFound("Sự kiện không có tệp đính kèm");
+        if (mediaUrl.startsWith("/api/groups/" + groupId + "/uploads/")) return privateGroupUploadPath(mediaUrl, groupId);
+        if (!mediaUrl.startsWith("/uploads/")) throw ApiException.notFound("Không tìm thấy tệp sự kiện");
+        String fileName = safeUploadName(mediaUrl.substring("/uploads/".length()));
+        Path directory = uploadDirectory.resolve().toAbsolutePath().normalize();
+        Path file = directory.resolve(fileName).normalize();
+        if (!file.startsWith(directory) || !Files.isRegularFile(file)) throw ApiException.notFound("Không tìm thấy tệp sự kiện");
+        return file;
     }
 
     @Transactional
@@ -745,6 +809,8 @@ public class GroupService {
         result.put("eventId", event.getId()); result.put("title", event.getTitle());
         result.put("description", event.getDescription()); result.put("location", event.getLocation());
         result.put("startsAt", event.getStartsAt()); result.put("endsAt", event.getEndsAt());
+        result.put("mediaUrl", event.getMediaUrl() == null ? null : "/api/groups/" + event.getGroup().getGroupId() + "/events/" + event.getId() + "/media");
+        result.put("mediaType", event.getMediaType());
         result.put("createdBy", event.getCreatedBy().getUserId()); result.put("creatorName", displayName(event.getCreatedBy()));
         result.put("participantCount", eventParticipantRepository.countByEventId(event.getId()));
         result.put("participating", eventParticipantRepository.findByEventIdAndUserUserId(event.getId(), viewerId).isPresent());
@@ -769,10 +835,14 @@ public class GroupService {
         return result;
     }
 
-    private Comparator<GroupPost> postComparator(String sort) {
+    private Comparator<GroupPost> postComparator(String sort, Map<Long, Long> reactionCounts) {
         Comparator<GroupPost> newest = Comparator.comparing(GroupPost::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder()));
-        if ("OLDEST".equalsIgnoreCase(sort)) return Comparator.comparing(GroupPost::isPinned).reversed().thenComparing(GroupPost::getCreatedAt);
-        return Comparator.comparing(GroupPost::isPinned).reversed().thenComparing(newest);
+        Comparator<GroupPost> pinned = Comparator.comparing(GroupPost::isPinned).reversed();
+        if ("POPULAR".equalsIgnoreCase(sort)) {
+            return Comparator.comparingLong((GroupPost post) -> reactionCounts.getOrDefault(post.getPostId(), 0L)).reversed().thenComparing(newest);
+        }
+        if ("OLDEST".equalsIgnoreCase(sort)) return pinned.thenComparing(GroupPost::getCreatedAt);
+        return pinned.thenComparing(newest);
     }
 
     private String normalizeVisibility(String value) {
