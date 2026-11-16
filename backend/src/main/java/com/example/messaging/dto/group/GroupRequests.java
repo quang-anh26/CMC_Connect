@@ -60,5 +60,7 @@ public final class GroupRequests {
             @Size(max = 2000) String description,
             @Size(max = 200) String location,
             @NotNull LocalDateTime startsAt,
-            LocalDateTime endsAt) {}
+            LocalDateTime endsAt,
+            String mediaUrl,
+            String mediaType) {}
 }

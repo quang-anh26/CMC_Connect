@@ -54,12 +54,15 @@ function PollCard({ post, canVote, onVote }) {
   const ended = post.poll?.endsAt && new Date(post.poll.endsAt) <= new Date()
   return (
     <section className="group-poll" aria-label="Bình chọn">
-      {options.map((o) => (
-        <button type="button" key={o.optionId} disabled={!canVote || ended} className={`poll-option ${o.selected ? "selected" : ""}`} onClick={() => onVote(post, o.optionId)}>
-          <span className="poll-bar" style={{ width: `${total ? Math.round((o.votes * 100) / total) : 0}%` }} />
-          <span className="poll-label">{o.label}</span><b>{o.votes}</b>
-        </button>
-      ))}
+      {options.map((o) => {
+        const percentage = total ? Math.round((o.votes * 100) / total) : 0
+        return (
+          <button type="button" key={o.optionId} disabled={!canVote || ended} className={`poll-option ${o.selected ? "selected" : ""}`} onClick={() => onVote(post, o.optionId)}>
+            <span className="poll-bar" style={{ width: `${percentage}%` }} />
+            <span className="poll-label">{o.label}</span><b title={`${o.votes} lượt chọn`}>{percentage}%</b>
+          </button>
+        )
+      })}
       <p>{total} lượt chọn{post.poll?.endsAt ? ` · ${ended ? "Đã kết thúc" : `Kết thúc ${fmt(post.poll.endsAt)}`}` : ""}</p>
     </section>
   )
@@ -75,17 +78,22 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
   const [members, setMembers] = useState([])
   const [events, setEvents] = useState([])
   const [friends, setFriends] = useState([])
+  const [friendSearch, setFriendSearch] = useState("")
+  const [friendPickerOpen, setFriendPickerOpen] = useState(false)
+  const [invitingFriendId, setInvitingFriendId] = useState(null)
+  const [invitedFriendIds, setInvitedFriendIds] = useState(() => new Set())
   const [saved, setSaved] = useState({})
   const [tab, setTab] = useState("Bài viết")
   const [sort, setSort] = useState("NEWEST")
-  const [search, setSearch] = useState("")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [composerMode, setComposerMode] = useState("POST")
   const [content, setContent] = useState("")
   const [file, setFile] = useState(null)
   const [filePreview, setFilePreview] = useState("")
-  const [poll, setPoll] = useState({ question: "", options: ["", ""], endsAt: "" })
+  const [poll, setPoll] = useState({ question: "", options: ["", ""] })
+  const [pollEndDate, setPollEndDate] = useState("")
+  const [pollEndTime, setPollEndTime] = useState("")
   const [posting, setPosting] = useState(false)
   const [openComments, setOpenComments] = useState({})
   const commentListRefs = useRef({})
@@ -95,12 +103,26 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
   const [deletingComment, setDeletingComment] = useState(false)
   const [postToDelete, setPostToDelete] = useState(null)
   const [deletingPost, setDeletingPost] = useState(false)
+  const [editingPost, setEditingPost] = useState(null)
+  const [editDraft, setEditDraft] = useState("")
+  const [editPollOptions, setEditPollOptions] = useState(["", ""])
+  const [editPollEndDate, setEditPollEndDate] = useState("")
+  const [editPollEndTime, setEditPollEndTime] = useState("")
+  const [editFile, setEditFile] = useState(null)
+  const [editFilePreview, setEditFilePreview] = useState("")
+  const [removeCurrentMedia, setRemoveCurrentMedia] = useState(false)
+  const [savingEdit, setSavingEdit] = useState(false)
   const [menu, setMenu] = useState(null)
   const [showAdmin, setShowAdmin] = useState(false)
   const [mod, setMod] = useState({ requests: [], posts: [], reports: [], bans: [] })
   const [eventForm, setEventForm] = useState(null)
+  const [eventMediaFile, setEventMediaFile] = useState(null)
+  const [eventMediaPreview, setEventMediaPreview] = useState("")
   const [settings, setSettings] = useState(null)
   const fileRef = useRef(null)
+  const editFileRef = useRef(null)
+  const eventMediaRef = useRef(null)
+  const friendPickerRef = useRef(null)
 
   const role = group?.role
   const isMember = Boolean(group?.joined)
@@ -152,6 +174,18 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
     setFilePreview(url)
     return () => URL.revokeObjectURL(url)
   }, [file])
+  useEffect(() => {
+    if (!editFile) return setEditFilePreview("")
+    const url = URL.createObjectURL(editFile)
+    setEditFilePreview(url)
+    return () => URL.revokeObjectURL(url)
+  }, [editFile])
+  useEffect(() => {
+    if (!eventMediaFile) return setEventMediaPreview("")
+    const url = URL.createObjectURL(eventMediaFile)
+    setEventMediaPreview(url)
+    return () => URL.revokeObjectURL(url)
+  }, [eventMediaFile])
 
   const loadModeration = useCallback(async () => {
     const [requests, pending, reports, bans] = await Promise.all([
@@ -171,7 +205,7 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
       setError("")
       const canView = data.joined || data.visibility === "PUBLIC"
       const [p, m, ev] = await Promise.all([
-        canView ? groupApi.posts(groupId, { search, sort, mediaOnly: tab === "Media" }) : Promise.resolve({ data: [] }),
+        canView ? groupApi.posts(groupId, { sort, mediaOnly: tab === "Media" }) : Promise.resolve({ data: [] }),
         canView ? groupApi.members(groupId) : Promise.resolve({ data: [] }),
         canView ? groupApi.events(groupId) : Promise.resolve({ data: [] }),
       ])
@@ -190,10 +224,18 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
     } finally {
       setLoading(false)
     }
-  }, [groupId, search, sort, tab])
+  }, [groupId, sort, tab])
 
-  useEffect(() => { const t = setTimeout(loadGroup, search ? 300 : 0); return () => clearTimeout(t) }, [loadGroup, search])
+  useEffect(() => { loadGroup() }, [loadGroup])
   useEffect(() => { if (canModerate) loadModeration() }, [canModerate, loadModeration])
+  useEffect(() => {
+    if (!friendPickerOpen) return undefined
+    const closeOnOutsideClick = (event) => {
+      if (!friendPickerRef.current?.contains(event.target)) setFriendPickerOpen(false)
+    }
+    document.addEventListener("mousedown", closeOnOutsideClick)
+    return () => document.removeEventListener("mousedown", closeOnOutsideClick)
+  }, [friendPickerOpen])
   useEffect(() => {
     if (!isMember) return
     friendApi.accepted().then((r) => setFriends((r.data || []).map((x) => friendOf(x, user?.userId)))).catch(() => {})
@@ -238,8 +280,9 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
     if (!poll.question.trim() || options.length < 2) return toast("Bình chọn cần câu hỏi và ít nhất 2 lựa chọn.", "error")
     setPosting(true)
     try {
-      await groupApi.createPoll(groupId, { question: poll.question.trim(), options, endsAt: poll.endsAt || null })
-      setPoll({ question: "", options: ["", ""], endsAt: "" }); setComposerMode("POST")
+      await groupApi.createPoll(groupId, { question: poll.question.trim(), options, endsAt: pollEndDate ? `${pollEndDate}T${pollEndTime || "00:00"}` : null })
+      setPoll({ question: "", options: ["", ""] }); setComposerMode("POST")
+      setPollEndDate(""); setPollEndTime("")
       toast("Đã tạo bình chọn.")
       loadGroup()
     } catch (e) { fail(e, "Không thể tạo bình chọn.") } finally { setPosting(false) }
@@ -279,15 +322,74 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
       await groupApi.removePost(groupId, postToDelete.postId)
       setPosts((list) => list.filter((post) => post.postId !== postToDelete.postId))
       setPostToDelete(null)
-      toast("Đã xóa bài viết.")
-    } catch (e) { fail(e, "Không thể xóa bài viết.") }
+      toast(postToDelete.poll ? "Đã xóa bình chọn." : "Đã xóa bài viết.")
+    } catch (e) { fail(e, postToDelete.poll ? "Không thể xóa bình chọn." : "Không thể xóa bài viết.") }
     finally { setDeletingPost(false) }
   }
-  const editPost = async (post) => {
+  const editPost = (post) => {
     setMenu(null)
-    const next = window.prompt("Chỉnh sửa nội dung bài viết:", post.content || "")
-    if (next == null || !next.trim()) return
-    try { const { data } = await groupApi.updatePost(groupId, post.postId, { content: next.trim() }); setPosts((l) => l.map((p) => (p.postId === post.postId ? data : p))) } catch (e) { fail(e, "Không thể sửa bài viết.") }
+    setEditingPost(post)
+    setEditDraft(post.content || "")
+    setEditPollOptions(post.poll?.options?.map((option) => option.label) || ["", ""])
+    const existingPollEnd = post.poll?.endsAt || ""
+    setEditPollEndDate(existingPollEnd.slice(0, 10))
+    setEditPollEndTime(existingPollEnd.slice(11, 16))
+    setEditFile(null)
+    setEditFilePreview("")
+    setRemoveCurrentMedia(false)
+    if (editFileRef.current) editFileRef.current.value = ""
+  }
+  const saveEditedPost = async (event) => {
+    event.preventDefault()
+    if (!editingPost || savingEdit) return
+    const content = editDraft.trim()
+    if (editingPost.poll) {
+      if (!content) return toast("Vui lòng nhập câu hỏi cho bình chọn.", "error")
+      const options = editPollOptions.map((option) => option.trim()).filter(Boolean)
+      if (options.length < 2) return toast("Bình chọn cần ít nhất hai lựa chọn.", "error")
+      setSavingEdit(true)
+      try {
+        const { data } = await groupApi.updatePoll(groupId, editingPost.postId, {
+          question: content,
+          options,
+          endsAt: editPollEndDate ? `${editPollEndDate}T${editPollEndTime || "00:00"}` : null,
+        })
+        setPosts((list) => list.map((post) => post.postId === editingPost.postId ? data : post))
+        setEditingPost(null)
+        toast("Đã lưu bình chọn.")
+      } catch (e) { fail(e, "Không thể sửa bình chọn.") }
+      finally { setSavingEdit(false) }
+      return
+    }
+    const hasCurrentMedia = Boolean(editingPost.mediaUrl && !removeCurrentMedia)
+    if (!content && !hasCurrentMedia && !editFile) return
+    setSavingEdit(true)
+    try {
+      let mediaUrlValue = editingPost.mediaUrl || null
+      let mediaType = editingPost.mediaType || null
+      if (editFile) {
+        const { data: uploaded } = await groupApi.upload(groupId, editFile, "POST")
+        mediaUrlValue = uploaded.url
+        mediaType = uploaded.mediaType
+      } else if (removeCurrentMedia) {
+        // An empty string explicitly clears the existing attachment on the server.
+        mediaUrlValue = ""
+        mediaType = null
+      }
+      const { data } = await groupApi.updatePost(groupId, editingPost.postId, {
+        content,
+        mediaUrl: mediaUrlValue,
+        mediaType,
+      })
+      setPosts((list) => list.map((post) => post.postId === editingPost.postId ? data : post))
+      setEditingPost(null)
+      setEditFile(null)
+      setEditFilePreview("")
+      setRemoveCurrentMedia(false)
+      if (editFileRef.current) editFileRef.current.value = ""
+      toast("Đã cập nhật bài viết.")
+    } catch (e) { fail(e, "Không thể sửa bài viết.") }
+    finally { setSavingEdit(false) }
   }
   const pin = async (post) => {
     setMenu(null)
@@ -301,7 +403,7 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
   }
   const toggleSave = async (post) => {
     setMenu(null)
-    try { const { data } = await savedApi.toggle("GROUP_POST", post.postId); setSaved((s) => ({ ...s, [post.postId]: Boolean(data.saved) })); toast(data.saved ? "Đã lưu bài viết." : "Đã bỏ lưu bài viết.") } catch (e) { fail(e, "Không thể lưu bài viết.") }
+    try { const { data } = await savedApi.toggle("GROUP_POST", post.postId); setSaved((s) => ({ ...s, [post.postId]: Boolean(data.saved) })); toast(data.saved ? (post.poll ? "Đã lưu bình chọn." : "Đã lưu bài viết.") : (post.poll ? "Đã bỏ lưu bình chọn." : "Đã bỏ lưu bài viết.")) } catch (e) { fail(e, post.poll ? "Không thể lưu bình chọn." : "Không thể lưu bài viết.") }
   }
 
   const manageMember = async (member, action) => {
@@ -329,16 +431,38 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
 
   const decide = async (fn, ok, fb) => { try { await fn(); toast(ok); await loadModeration(); await loadGroup() } catch (e) { fail(e, fb) } }
 
-  const invite = async (e) => {
-    const userId = e.target.value
-    if (!userId) return
-    try { await groupApi.invite(groupId, Number(userId)); toast("Đã gửi lời mời.") } catch (err) { fail(err, "Không thể gửi lời mời.") }
-    e.target.value = ""
+  const inviteFriend = async (friend) => {
+    if (invitingFriendId || invitedFriendIds.has(String(friend.id))) return
+    setInvitingFriendId(String(friend.id))
+    try {
+      await groupApi.invite(groupId, Number(friend.id))
+      setInvitedFriendIds((current) => new Set(current).add(String(friend.id)))
+      toast(`Đã gửi lời mời cho ${friend.name}.`)
+    } catch (err) { fail(err, "Không thể gửi lời mời.") }
+    finally { setInvitingFriendId(null) }
   }
 
   const createEvent = async (e) => {
     e.preventDefault()
-    try { await groupApi.createEvent(groupId, { ...eventForm, endsAt: eventForm.endsAt || null }); setEventForm(null); toast("Đã tạo sự kiện nhóm."); loadGroup() } catch (err) { fail(err, "Không thể tạo sự kiện.") }
+    setPosting(true)
+    try {
+      let mediaUrl = null
+      let mediaType = null
+      if (eventMediaFile) {
+        const { data: upload } = await groupApi.upload(groupId, eventMediaFile, "EVENT")
+        mediaUrl = upload.url
+        mediaType = upload.mediaType
+      }
+      await groupApi.createEvent(groupId, { ...eventForm, endsAt: eventForm.endsAt || null, mediaUrl, mediaType })
+      setEventForm(null)
+      setEventMediaFile(null)
+      setEventMediaPreview("")
+      if (eventMediaRef.current) eventMediaRef.current.value = ""
+      setComposerMode("POST")
+      toast("Đã tạo sự kiện nhóm.")
+      loadGroup()
+    } catch (err) { fail(err, "Không thể tạo sự kiện.") }
+    finally { setPosting(false) }
   }
   const participate = async (eventId) => { try { await groupApi.participateEvent(groupId, eventId); loadGroup() } catch (e) { fail(e, "Không thể cập nhật tham gia sự kiện.") } }
 
@@ -372,6 +496,15 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
   )
 
   const authored = (p) => String(p.authorId) === String(user?.userId)
+  const orderedPosts = sort === "POPULAR"
+    ? [...posts].sort((a, b) => (Number(b.reactionCount) || 0) - (Number(a.reactionCount) || 0) || new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+    : posts
+  const normalizedFriendQuery = friendSearch.trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
+  const matchingFriends = friends.filter((friend) => {
+    const name = (friend.name || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
+    const username = (friend.username || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
+    return !normalizedFriendQuery || name.includes(normalizedFriendQuery) || username.includes(normalizedFriendQuery)
+  })
   return (
     <div className="directory-page group-detail">
       <button className="back-link-inline" onClick={() => navigate("/groups")}>← Tất cả nhóm</button>
@@ -440,31 +573,40 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
               {role && <div><dt>Vai trò của bạn</dt><dd>{ROLE_LABEL[role] || role}</dd></div>}
             </dl>
           </section>
-          {isMember && friends.length > 0 && (
+          {isMember && (
             <section className="panel group-side-panel">
               <h3>Mời bạn bè</h3>
-              <select className="toolbar-select" defaultValue="" onChange={invite}>
-                <option value="">Chọn bạn bè để mời</option>
-                {friends.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
-              </select>
+              <div className="group-friend-invite" ref={friendPickerRef}>
+                <label className="inline-search group-friend-search">
+                  <Icon name="search" size={16} />
+                  <input value={friendSearch} onFocus={() => setFriendPickerOpen(true)} onChange={(event) => { setFriendSearch(event.target.value); setFriendPickerOpen(true) }} placeholder="Tìm bạn bè" aria-label="Tìm bạn bè để mời vào nhóm" aria-expanded={friendPickerOpen} />
+                </label>
+                {friendPickerOpen && (
+                  <div className="group-friend-suggestions">
+                    {matchingFriends.map((friend) => {
+                      const invited = invitedFriendIds.has(String(friend.id))
+                      const inviting = invitingFriendId === String(friend.id)
+                      return (
+                        <div className="group-friend-suggestion" key={friend.id}>
+                          <Avatar name={friend.name} src={friend.avatar} size="sm" />
+                          <div className="group-friend-suggestion-name"><strong>{friend.name}</strong><small>{friend.username ? `@${friend.username}` : "Bạn bè"}</small></div>
+                          <button type="button" disabled={invited || Boolean(invitingFriendId)} onClick={() => inviteFriend(friend)}>{invited ? "Đã mời" : inviting ? "Đang gửi..." : "Mời"}</button>
+                        </div>
+                      )
+                    })}
+                    {matchingFriends.length === 0 && <p className="group-friend-empty">{friends.length ? "Không tìm thấy bạn bè phù hợp." : "Bạn chưa có bạn bè để mời."}</p>}
+                  </div>
+                )}
+              </div>
             </section>
           )}
           {!privatePreview && (
             <section className="panel group-side-panel">
-              <div className="section-heading"><h3>Sự kiện nhóm</h3>{isMember && <button onClick={() => setEventForm(eventForm ? null : { title: "", description: "", location: "", startsAt: "", endsAt: "" })}>{eventForm ? "Đóng" : "Tạo mới"}</button>}</div>
-              {eventForm && (
-                <form className="group-event-form" onSubmit={createEvent}>
-                  <input required maxLength={120} placeholder="Tên sự kiện" value={eventForm.title} onChange={(e) => setEventForm({ ...eventForm, title: e.target.value })} />
-                  <input placeholder="Địa điểm" value={eventForm.location} onChange={(e) => setEventForm({ ...eventForm, location: e.target.value })} />
-                  <label>Bắt đầu<input required type="datetime-local" value={eventForm.startsAt} onChange={(e) => setEventForm({ ...eventForm, startsAt: e.target.value })} /></label>
-                  <label>Kết thúc<input type="datetime-local" value={eventForm.endsAt} onChange={(e) => setEventForm({ ...eventForm, endsAt: e.target.value })} /></label>
-                  <textarea rows={2} placeholder="Mô tả" value={eventForm.description} onChange={(e) => setEventForm({ ...eventForm, description: e.target.value })} />
-                  <Button type="submit">Tạo sự kiện</Button>
-                </form>
-              )}
+              <h3>Sự kiện nhóm</h3>
               {events.length === 0 && <p className="aside-empty">Chưa có sự kiện nào.</p>}
               {events.map((ev) => (
                 <div className="group-event-item" key={ev.eventId}>
+                  {ev.mediaUrl && <div className="group-event-item-media"><GroupPostMedia post={{ mediaUrl: ev.mediaUrl, mediaType: ev.mediaType }} /></div>}
                   <strong>{ev.title}</strong>
                   <small>{fmt(ev.startsAt)}{ev.location ? ` · ${ev.location}` : ""}</small>
                   <small>{ev.participantCount} người tham gia · bởi {ev.creatorName}</small>
@@ -514,10 +656,11 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
           ) : (
             <>
               {activeTab === "Bài viết" && isMember && (
-                <form className="composer panel" onSubmit={composerMode === "POST" ? submitPost : submitPoll}>
+                <form className="composer panel" onSubmit={composerMode === "POST" ? submitPost : composerMode === "POLL" ? submitPoll : createEvent}>
                   <div className="compose-modes">
                     <button type="button" className={composerMode === "POST" ? "selected" : ""} onClick={() => setComposerMode("POST")}>Bài viết</button>
                     <button type="button" className={composerMode === "POLL" ? "selected" : ""} onClick={() => setComposerMode("POLL")}>Bình chọn</button>
+                    {isMember && <button type="button" className={composerMode === "EVENT" ? "selected" : ""} onClick={() => { setComposerMode("EVENT"); setEventForm((current) => current || { title: "", description: "", location: "", startsAt: "", endsAt: "" }) }}>Sự kiện</button>}
                   </div>
                   {composerMode === "POST" ? (
                     <>
@@ -536,16 +679,46 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
                         <Button type="submit" disabled={posting || (!content.trim() && !file)}>{posting ? "Đang đăng..." : group.postApprovalRequired ? "Gửi duyệt" : "Đăng bài"}</Button>
                       </div>
                     </>
-                  ) : (
-                    <div className="form-grid" style={{ padding: "6px 18px 16px" }}>
+                  ) : composerMode === "POLL" ? (
+                    <div className="form-grid group-poll-composer">
                       <label className="full">Câu hỏi<textarea rows={2} required maxLength={10000} value={poll.question} onChange={(e) => setPoll({ ...poll, question: e.target.value })} placeholder="Đặt câu hỏi..." /></label>
                       {poll.options.map((o, i) => (
-                        <label className="full" key={i}>Lựa chọn {i + 1}<input value={o} maxLength={120} onChange={(e) => setPoll({ ...poll, options: poll.options.map((x, j) => (j === i ? e.target.value : x)) })} /></label>
+                        <div className="full group-poll-choice" key={i}>
+                          <label>Lựa chọn {i + 1}<input value={o} maxLength={120} onChange={(e) => setPoll((current) => ({ ...current, options: current.options.map((x, j) => (j === i ? e.target.value : x)) }))} /></label>
+                          {poll.options.length > 2 && <button type="button" className="group-poll-choice-remove" aria-label={`Xóa lựa chọn ${i + 1}`} title="Xóa lựa chọn" onClick={() => setPoll((current) => ({ ...current, options: current.options.filter((_, j) => j !== i) }))}><Icon name="close" size={16} /></button>}
+                        </div>
                       ))}
-                      <div className="full" style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                        {poll.options.length < 6 && <Button variant="secondary" onClick={() => setPoll({ ...poll, options: [...poll.options, ""] })}>Thêm lựa chọn</Button>}
-                        <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 12 }}>Kết thúc<input type="datetime-local" value={poll.endsAt} onChange={(e) => setPoll({ ...poll, endsAt: e.target.value })} /></label>
-                        <span style={{ marginLeft: "auto" }}><Button type="submit" disabled={posting}>Tạo bình chọn</Button></span>
+                      <div className="full group-poll-compose-controls">
+                        {poll.options.length < 6 && <Button variant="secondary" onClick={() => setPoll((current) => ({ ...current, options: [...current.options, ""] }))}>Thêm lựa chọn</Button>}
+                        <label className="group-poll-compose-end">Kết thúc:
+                          <span className="group-poll-deadline">
+                            <input aria-label="Ngày kết thúc" type="date" lang="vi" value={pollEndDate} onChange={(e) => setPollEndDate(e.target.value)} />
+                            <span aria-hidden="true">·</span>
+                            <input aria-label="Giờ kết thúc" type="time" lang="en-US" value={pollEndTime} onChange={(e) => setPollEndTime(e.target.value)} />
+                          </span>
+                        </label>
+                        <Button type="submit" disabled={posting}>{posting ? "Đang tạo..." : "Tạo bình chọn"}</Button>
+                      </div>
+                    </div>
+                  ) : eventForm && (
+                    <div className="form-grid group-event-composer">
+                      <label className="full">Tên sự kiện<input required maxLength={120} placeholder="Tên sự kiện" value={eventForm.title} onChange={(e) => setEventForm({ ...eventForm, title: e.target.value })} /></label>
+                      <label className="full">Địa điểm<input maxLength={200} placeholder="Địa điểm" value={eventForm.location} onChange={(e) => setEventForm({ ...eventForm, location: e.target.value })} /></label>
+                      <label>Bắt đầu<input required type="datetime-local" value={eventForm.startsAt} onChange={(e) => setEventForm({ ...eventForm, startsAt: e.target.value })} /></label>
+                      <label>Kết thúc<input type="datetime-local" value={eventForm.endsAt} onChange={(e) => setEventForm({ ...eventForm, endsAt: e.target.value })} /></label>
+                      <label className="full">Mô tả<textarea rows={3} maxLength={2000} placeholder="Mô tả sự kiện" value={eventForm.description} onChange={(e) => setEventForm({ ...eventForm, description: e.target.value })} /></label>
+                      <div className="full group-event-bottom-row">
+                        <div className="group-event-media-field">
+                          <input ref={eventMediaRef} type="file" accept="image/*,video/*" hidden onChange={(event) => setEventMediaFile(event.target.files?.[0] || null)} />
+                          <button type="button" className="group-event-media-picker" onClick={() => eventMediaRef.current?.click()}><Icon name="image" size={18} /><span><strong>{eventMediaFile ? eventMediaFile.name : "Thêm ảnh hoặc video"}</strong><small>Ảnh hoặc video giúp mọi người dễ nhận biết sự kiện.</small></span><Icon name="plus" size={18} /></button>
+                          {eventMediaPreview && (
+                            <div className="group-event-media-preview">
+                              {eventMediaFile.type.startsWith("video/") ? <video src={eventMediaPreview} controls /> : <img src={eventMediaPreview} alt="Xem trước ảnh sự kiện" />}
+                              <button type="button" aria-label="Bỏ ảnh hoặc video sự kiện" onClick={() => { setEventMediaFile(null); setEventMediaPreview(""); if (eventMediaRef.current) eventMediaRef.current.value = "" }}><Icon name="close" size={16} /></button>
+                            </div>
+                          )}
+                        </div>
+                        <Button type="submit" disabled={posting || !eventForm.title.trim() || !eventForm.startsAt}>{posting ? "Đang tạo..." : "Tạo sự kiện"}</Button>
                       </div>
                     </div>
                   )}
@@ -555,18 +728,17 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
                 <h3>{activeTab === "Media" ? "Ảnh và tệp" : "Bài viết"}</h3>
                 {activeTab === "Bài viết" && (
                   <div style={{ display: "flex", gap: 8 }}>
-                    <label className="inline-search"><Icon name="search" /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Tìm trong bài viết" /></label>
                     <select className="toolbar-select" value={sort} onChange={(e) => setSort(e.target.value)}><option value="NEWEST">Mới nhất</option><option value="OLDEST">Cũ nhất</option><option value="POPULAR">Nổi bật</option></select>
                   </div>
                 )}
               </div>
               {posts.length === 0 && <EmptyState title={activeTab === "Media" ? "Chưa có tệp được chia sẻ" : "Chưa có bài viết"} copy={isMember ? "Hãy bắt đầu cuộc trò chuyện đầu tiên trong nhóm." : "Tham gia nhóm để xem và đăng bài."} icon="forum" />}
-              {posts.map((p) => {
+              {orderedPosts.map((p) => {
                 const picked = POST_REACTIONS.find((r) => r.type === p.viewerReaction)
                 const comments = p.comments || []
                 return (
                   <article className={`post panel${menu === `p${p.postId}` ? " group-post-menu-open" : ""}`} key={p.postId}>
-                    {p.pinned && <div className="pinned-label"><Icon name="pin" size={14} /> Bài viết đã ghim</div>}
+                    {p.pinned && <div className="pinned-label"><Icon name="pin" size={14} /> {p.poll ? "Bình chọn đã ghim" : "Bài viết đã ghim"}</div>}
                     <header className="post-head">
                       <span style={{ cursor: "pointer" }} onClick={() => navigate(`/profile/${p.authorId}`)}><Avatar name={p.authorName} src={p.authorAvatar} /></span>
                       <div><strong>{p.authorName}</strong><span>{fmt(p.createdAt)}</span></div>
@@ -574,11 +746,11 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
                         <button className="icon-button" aria-label="Tùy chọn bài viết" onClick={() => setMenu(menu === `p${p.postId}` ? null : `p${p.postId}`)}><Icon name="more" /></button>
                         {menu === `p${p.postId}` && (
                           <div className="pop-menu post-menu saved-item-menu">
-                            <button onClick={() => toggleSave(p)}><Icon name="bookmark" size={16} />{saved[p.postId] ? "Bỏ lưu" : "Lưu bài viết"}</button>
-                            {authored(p) && <button onClick={() => editPost(p)}><Icon name="edit" size={16} />Sửa bài viết</button>}
-                            {canModerate && <button onClick={() => pin(p)}><Icon name="pin" size={16} />{p.pinned ? "Bỏ ghim" : "Ghim bài viết"}</button>}
+                            <button onClick={() => toggleSave(p)}><Icon name="bookmark" size={16} />{saved[p.postId] ? (p.poll ? "Bỏ lưu bình chọn" : "Bỏ lưu bài viết") : (p.poll ? "Lưu bình chọn" : "Lưu bài viết")}</button>
+                            {authored(p) && <button onClick={() => editPost(p)}><Icon name="edit" size={16} />{p.poll ? "Sửa bình chọn" : "Sửa bài viết"}</button>}
+                            {canModerate && <button onClick={() => pin(p)}><Icon name="pin" size={16} />{p.pinned ? (p.poll ? "Bỏ ghim bình chọn" : "Bỏ ghim bài viết") : (p.poll ? "Ghim bình chọn" : "Ghim bài viết")}</button>}
                             {!authored(p) && isMember && <button onClick={() => reportPost(p)}>Báo cáo bài viết</button>}
-                            {(authored(p) || canModerate) && <button className="danger" onClick={() => { setMenu(null); setPostToDelete(p) }}><Icon name="trash" size={16} />Xóa bài viết</button>}
+                            {(authored(p) || canModerate) && <button className="danger" onClick={() => { setMenu(null); setPostToDelete(p) }}><Icon name="trash" size={16} />{p.poll ? "Xóa bình chọn" : "Xóa bài viết"}</button>}
                           </div>
                         )}
                       </div>
@@ -592,7 +764,7 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
                       <button type="button" onClick={() => setOpenComments((o) => ({ ...o, [p.postId]: true }))}><Icon name="comment" />Bình luận</button>
                     </div>
                     {openComments[p.postId] && (
-                      <Modal title={`Bài viết của ${p.authorName}`} close={() => closePostComments(p.postId)} wide className="post-comments-modal" backdropClassName="post-comments-backdrop" portal preservePage>
+                      <Modal title={`${p.poll ? "Bình chọn" : "Bài viết"} của ${p.authorName}`} close={() => closePostComments(p.postId)} wide className="post-comments-modal" backdropClassName="post-comments-backdrop" portal preservePage>
                         <div className="post-comments-dialog">
                           <div className="post-comments-scroll">
                             <div className="post-comments-author">
@@ -601,15 +773,16 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
                               <div className="menu-wrap group-comments-post-menu">
                                 <button type="button" className="icon-button" aria-label="Tùy chọn bài viết" onClick={() => setMenu(menu === `cp${p.postId}` ? null : `cp${p.postId}`)}><Icon name="more" /></button>
                                 {menu === `cp${p.postId}` && <div className="pop-menu post-menu">
-                                  <button onClick={() => toggleSave(p)}><Icon name="bookmark" size={16} />{saved[p.postId] ? "Bỏ lưu" : "Lưu bài viết"}</button>
-                                  {authored(p) && <button onClick={() => editPost(p)}><Icon name="edit" size={16} />Sửa bài viết</button>}
-                                  {canModerate && <button onClick={() => pin(p)}><Icon name="pin" size={16} />{p.pinned ? "Bỏ ghim" : "Ghim bài viết"}</button>}
+                                  <button onClick={() => toggleSave(p)}><Icon name="bookmark" size={16} />{saved[p.postId] ? (p.poll ? "Bỏ lưu bình chọn" : "Bỏ lưu bài viết") : (p.poll ? "Lưu bình chọn" : "Lưu bài viết")}</button>
+                                  {authored(p) && <button onClick={() => editPost(p)}><Icon name="edit" size={16} />{p.poll ? "Sửa bình chọn" : "Sửa bài viết"}</button>}
+                                  {canModerate && <button onClick={() => pin(p)}><Icon name="pin" size={16} />{p.pinned ? (p.poll ? "Bỏ ghim bình chọn" : "Bỏ ghim bài viết") : (p.poll ? "Ghim bình chọn" : "Ghim bài viết")}</button>}
                                   {!authored(p) && isMember && <button onClick={() => reportPost(p)}>Báo cáo bài viết</button>}
-                                  {(authored(p) || canModerate) && <button className="danger" onClick={() => { setMenu(null); setPostToDelete(p) }}><Icon name="trash" size={16} />Xóa bài viết</button>}
+                                  {(authored(p) || canModerate) && <button className="danger" onClick={() => { setMenu(null); setPostToDelete(p) }}><Icon name="trash" size={16} />{p.poll ? "Xóa bình chọn" : "Xóa bài viết"}</button>}
                                 </div>}
                               </div>
                             </div>
                             {p.content && <p className="post-comments-copy">{p.content}</p>}
+                            {p.poll && <PollCard post={p} canVote={isMember} onVote={votePoll} />}
                             {p.mediaUrl && <div className="group-comments-media"><GroupPostMedia post={p} /></div>}
                             <div className="post-viewer-stats">♥ {p.reactionCount || 0} lượt thích <span>{comments.length} bình luận</span></div>
                             <div className="post-viewer-actions group-comments-actions">
@@ -647,23 +820,72 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
           <div className="group-comment-confirm-layer" onMouseDown={(event) => event.target === event.currentTarget && (setCommentToDelete(null), setPostToDelete(null))}>
             <div className="modal collection-delete-modal group-comment-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="group-comment-confirm-title" onMouseDown={(event) => event.stopPropagation()}>
               <header>
-                <h2 id="group-comment-confirm-title">{postToDelete ? "Xóa bài viết" : "Xóa bình luận"}</h2>
+                <h2 id="group-comment-confirm-title">{postToDelete ? (postToDelete.poll ? "Xóa bình chọn" : "Xóa bài viết") : "Xóa bình luận"}</h2>
                 <button type="button" aria-label="Đóng" onClick={() => { setCommentToDelete(null); setPostToDelete(null) }}><Icon name="close" /></button>
               </header>
               <div className="collection-delete-content">
                 <span className="collection-delete-icon"><Icon name="trash" size={20} /></span>
                 <div>
-                  <strong>Bạn có chắc muốn xóa {postToDelete ? "bài viết" : "bình luận"} này?</strong>
-                  <p>{postToDelete ? "Bài viết sẽ bị xóa khỏi nhóm và không thể khôi phục." : "Bình luận sẽ bị xóa khỏi bài viết trong nhóm."}</p>
+                  <strong>Bạn có chắc muốn xóa {postToDelete ? (postToDelete.poll ? "bình chọn" : "bài viết") : "bình luận"} này?</strong>
+                  <p>{postToDelete ? (postToDelete.poll ? "Bình chọn và các lượt chọn sẽ bị xóa khỏi nhóm, không thể khôi phục." : "Bài viết sẽ bị xóa khỏi nhóm và không thể khôi phục.") : "Bình luận sẽ bị xóa khỏi bài viết trong nhóm."}</p>
                 </div>
               </div>
               <div className="modal-actions">
                 <Button variant="secondary" disabled={deletingComment || deletingPost} onClick={() => { setCommentToDelete(null); setPostToDelete(null) }}>Hủy</Button>
-                <Button variant="danger" disabled={deletingComment || deletingPost} onClick={postToDelete ? removePost : removeComment}>{deletingPost ? "Đang xóa..." : deletingComment ? "Đang xóa..." : postToDelete ? "Xóa bài viết" : "Xóa bình luận"}</Button>
+                <Button variant="danger" disabled={deletingComment || deletingPost} onClick={postToDelete ? removePost : removeComment}>{deletingPost ? "Đang xóa..." : deletingComment ? "Đang xóa..." : postToDelete ? (postToDelete.poll ? "Xóa bình chọn" : "Xóa bài viết") : "Xóa bình luận"}</Button>
               </div>
             </div>
           </div>
         , document.body
+      )}
+
+      {editingPost && (
+        <Modal title={editingPost.poll ? "Sửa bình chọn" : "Sửa bài viết"} portal preservePage close={() => { if (!savingEdit) { setEditingPost(null); setEditFile(null); setEditFilePreview(""); setRemoveCurrentMedia(false) } }}>
+          <form onSubmit={saveEditedPost}>
+            <div className="form-grid">
+              <label className="full">{editingPost.poll ? "Câu hỏi" : "Nội dung"}<textarea rows={editingPost.poll ? 2 : 6} maxLength={10000} autoFocus value={editDraft} onChange={(event) => setEditDraft(event.target.value)} placeholder={editingPost.poll ? "Đặt câu hỏi..." : "Bạn muốn chia sẻ điều gì?"} /></label>
+              {editingPost.poll ? (
+                <>
+                  {editPollOptions.map((option, index) => (
+                    <div className="full group-poll-choice" key={index}>
+                      <label>Lựa chọn {index + 1}<input value={option} maxLength={120} onChange={(event) => setEditPollOptions((current) => current.map((value, i) => i === index ? event.target.value : value))} /></label>
+                      {editPollOptions.length > 2 && <button type="button" className="group-poll-choice-remove" aria-label={`Xóa lựa chọn ${index + 1}`} title="Xóa lựa chọn" onClick={() => setEditPollOptions((current) => current.filter((_, i) => i !== index))}><Icon name="close" size={16} /></button>}
+                    </div>
+                  ))}
+                  <div className="full group-poll-edit-controls">
+                    {editPollOptions.length < 10 && <Button type="button" variant="secondary" onClick={() => setEditPollOptions((current) => [...current, ""])}>Thêm lựa chọn</Button>}
+                    <label className="group-poll-end-field">Kết thúc:
+                      <span className="group-poll-deadline">
+                        <input aria-label="Ngày kết thúc" type="date" lang="vi" value={editPollEndDate} onChange={(event) => setEditPollEndDate(event.target.value)} />
+                        <span aria-hidden="true">·</span>
+                        <input aria-label="Giờ kết thúc" type="time" lang="en-US" value={editPollEndTime} onChange={(event) => setEditPollEndTime(event.target.value)} />
+                      </span>
+                    </label>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <label className="full">Thêm ảnh hoặc video<span className="group-file-picker"><span>{editFile ? editFile.name : "Chọn ảnh hoặc video"}</span><input ref={editFileRef} type="file" accept="image/*,video/*" onChange={(event) => { const nextFile = event.target.files?.[0] || null; setEditFile(nextFile); if (nextFile) setRemoveCurrentMedia(false) }} /></span></label>
+                  {editFile && editFilePreview ? (
+                    <div className="full group-edit-media-preview">
+                      {editFile.type.startsWith("video/") ? <video src={editFilePreview} controls /> : <img src={editFilePreview} alt="Xem trước tệp mới" />}
+                      <Button type="button" variant="secondary" disabled={savingEdit} onClick={() => { setEditFile(null); setEditFilePreview(""); if (editFileRef.current) editFileRef.current.value = "" }}>Bỏ tệp mới</Button>
+                    </div>
+                  ) : editingPost.mediaUrl ? (
+                    <div className="full edit-current-media-options">
+                      <p className="aside-empty">{removeCurrentMedia ? "Tệp đính kèm hiện tại sẽ bị xóa khi lưu." : "Tệp đính kèm hiện tại sẽ được giữ nguyên nếu không chọn tệp mới."}</p>
+                      <label className="check-row"><input type="checkbox" checked={removeCurrentMedia} onChange={(event) => setRemoveCurrentMedia(event.target.checked)} />Xóa ảnh/video hiện tại</label>
+                    </div>
+                  ) : null}
+                </>
+              )}
+            </div>
+            <div className="modal-actions">
+              <Button type="button" variant="secondary" disabled={savingEdit} onClick={() => { setEditingPost(null); setEditFile(null); setEditFilePreview(""); setRemoveCurrentMedia(false) }}>Hủy</Button>
+              <Button type="submit" disabled={savingEdit || (editingPost.poll ? (!editDraft.trim() || editPollOptions.filter((option) => option.trim()).length < 2) : (!editDraft.trim() && !(editingPost.mediaUrl && !removeCurrentMedia) && !editFile))}>{savingEdit ? "Đang lưu..." : editingPost.poll ? "Lưu bình chọn" : "Lưu thay đổi"}</Button>
+            </div>
+          </form>
+        </Modal>
       )}
 
       {settingsOpen && settings && (
