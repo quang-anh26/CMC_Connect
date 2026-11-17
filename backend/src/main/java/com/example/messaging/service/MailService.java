@@ -15,8 +15,19 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
 /**
- * Gửi email. Khi app.mail.enabled=false (mặc định) mã xác thực chỉ được in ra log
+ * Gửi email. Khi app.mail.enabled=false (mặc định) mã xác thực chỉ được in ra
+ * log
  * để có thể test mà không cần cấu hình SMTP.
  */
 @Slf4j
@@ -34,6 +45,15 @@ public class MailService {
     @Value("${spring.mail.username:}")
     private String smtpUsername;
 
+    /**
+     * Nếu đặt BREVO_API_KEY thì gửi mail qua API HTTPS của Brevo (dùng khi host
+     * chặn cổng SMTP, ví dụ Railway).
+     */
+    @Value("${BREVO_API_KEY:}")
+    private String brevoApiKey;
+
+    private static final HttpClient HTTP = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
+
     public MailService(ObjectProvider<JavaMailSender> mailSenderProvider) {
         this.mailSenderProvider = mailSenderProvider;
     }
@@ -41,14 +61,20 @@ public class MailService {
     @Value("${spring.mail.password:}")
     private String smtpPassword;
 
-    /** Tự bật gửi mail thật khi đã khai báo MAIL_USERNAME + MAIL_PASSWORD, không cần thêm MAIL_ENABLED. */
+    /**
+     * Tự bật gửi mail thật khi đã khai báo MAIL_USERNAME + MAIL_PASSWORD, không cần
+     * thêm MAIL_ENABLED.
+     */
     private boolean isMailActive() {
         boolean hasCredentials = smtpUsername != null && !smtpUsername.isBlank()
                 && smtpPassword != null && !smtpPassword.isBlank();
         return enabled || hasCredentials;
     }
 
-    /** In trạng thái cấu hình ngay khi backend khởi động để biết file cấu hình đã được đọc hay chưa. */
+    /**
+     * In trạng thái cấu hình ngay khi backend khởi động để biết file cấu hình đã
+     * được đọc hay chưa.
+     */
     @EventListener(ApplicationReadyEvent.class)
     public void logMailStatus() {
         if (isMailActive()) {
@@ -63,13 +89,20 @@ public class MailService {
     }
 
     /**
-     * @return true nếu email thật đã được gửi đi; false nếu đang ở chế độ DEV (chỉ in mã ra console).
+     * @return true nếu email thật đã được gửi đi; false nếu đang ở chế độ DEV (chỉ
+     *         in mã ra console).
      */
     public boolean sendVerificationCode(String to, String code, long ttlMinutes) {
         return sendVerificationCode(to, code, ttlMinutes, false);
     }
 
     public boolean sendVerificationCode(String to, String code, long ttlMinutes, boolean resetPassword) {
+        if (brevoApiKey != null && !brevoApiKey.isBlank()) {
+            String subject = resetPassword
+                    ? "CMC Talk - Mã đặt lại mật khẩu của bạn là " + code
+                    : "CMC Talk - Mã xác thực của bạn là " + code;
+            return sendViaBrevo(to, subject, buildHtml(code, ttlMinutes, resetPassword));
+        }
         if (!isMailActive()) {
             log.warn("""
                     =====================================================================
@@ -103,20 +136,64 @@ public class MailService {
             log.info("Đã gửi email xác thực tới {}", to);
             return true;
         } catch (MailAuthenticationException e) {
-            // Sai MAIL_USERNAME/MAIL_PASSWORD (Gmail yêu cầu App Password 16 ký tự, không dùng mật khẩu đăng nhập)
-            log.error("Đăng nhập SMTP thất bại - kiểm tra MAIL_USERNAME / MAIL_PASSWORD (Gmail phải dùng App Password): {}",
+            // Sai MAIL_USERNAME/MAIL_PASSWORD (Gmail yêu cầu App Password 16 ký tự, không
+            // dùng mật khẩu đăng nhập)
+            log.error(
+                    "Đăng nhập SMTP thất bại - kiểm tra MAIL_USERNAME / MAIL_PASSWORD (Gmail phải dùng App Password): {}",
                     rootMessage(e), e);
             throw new ApiException("Máy chủ gửi email cấu hình sai tài khoản SMTP. Vui lòng liên hệ quản trị viên",
                     HttpStatus.SERVICE_UNAVAILABLE);
         } catch (MailException | MessagingException | java.io.UnsupportedEncodingException e) {
             log.error("Không gửi được email xác thực tới {}: {}", to, rootMessage(e), e);
-            throw new ApiException("Không thể gửi email xác thực. Vui lòng thử lại sau", HttpStatus.SERVICE_UNAVAILABLE);
+            throw new ApiException("Không thể gửi email xác thực. Vui lòng thử lại sau",
+                    HttpStatus.SERVICE_UNAVAILABLE);
+        }
+    }
+
+    private boolean sendViaBrevo(String to, String subject, String html) {
+        String fromAddress = (from != null && !from.isBlank()) ? from : smtpUsername;
+        if (fromAddress == null || fromAddress.isBlank()) {
+            log.error("Thiếu MAIL_FROM nên không gửi được email qua Brevo");
+            throw new ApiException("Hệ thống gửi email chưa được cấu hình", HttpStatus.SERVICE_UNAVAILABLE);
+        }
+        try {
+            Map<String, Object> body = new LinkedHashMap<>();
+            body.put("sender", Map.of("name", "CMC Talk", "email", fromAddress.trim()));
+            body.put("to", List.of(Map.of("email", to)));
+            body.put("subject", subject);
+            body.put("htmlContent", html);
+            String json = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(body);
+
+            HttpRequest request = HttpRequest.newBuilder(URI.create("https://api.brevo.com/v3/smtp/email"))
+                    .timeout(Duration.ofSeconds(15))
+                    .header("api-key", brevoApiKey.trim())
+                    .header("Content-Type", "application/json")
+                    .header("accept", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(json))
+                    .build();
+            HttpResponse<String> response = HTTP.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() / 100 == 2) {
+                log.info("Đã gửi email xác thực tới {} qua Brevo", to);
+                return true;
+            }
+            log.error("Brevo từ chối gửi email (HTTP {}): {}", response.statusCode(), response.body());
+            throw new ApiException("Không thể gửi email xác thực. Vui lòng thử lại sau",
+                    HttpStatus.SERVICE_UNAVAILABLE);
+        } catch (IOException e) {
+            log.error("Không gọi được API Brevo: {}", rootMessage(e), e);
+            throw new ApiException("Không thể gửi email xác thực. Vui lòng thử lại sau",
+                    HttpStatus.SERVICE_UNAVAILABLE);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new ApiException("Không thể gửi email xác thực. Vui lòng thử lại sau",
+                    HttpStatus.SERVICE_UNAVAILABLE);
         }
     }
 
     private static String rootMessage(Throwable t) {
         Throwable root = t;
-        while (root.getCause() != null && root.getCause() != root) root = root.getCause();
+        while (root.getCause() != null && root.getCause() != root)
+            root = root.getCause();
         return root.getClass().getSimpleName() + ": " + root.getMessage();
     }
 
@@ -126,13 +203,16 @@ public class MailService {
                 + "<h2 style=\"margin:0 0 8px;color:#0b5fd6\">CMC Talk</h2>"
                 + "<p style=\"color:#333;font-size:15px\">"
                 + (resetPassword ? "Mã xác thực để đặt lại mật khẩu tài khoản của bạn:"
-                                 : "Mã xác thực email đăng ký tài khoản của bạn:") + "</p>"
-                + "<p style=\"font-size:34px;font-weight:700;letter-spacing:8px;margin:18px 0;color:#111\">" + code + "</p>"
+                        : "Mã xác thực email đăng ký tài khoản của bạn:")
+                + "</p>"
+                + "<p style=\"font-size:34px;font-weight:700;letter-spacing:8px;margin:18px 0;color:#111\">" + code
+                + "</p>"
                 + "<p style=\"color:#555;font-size:14px\">Mã có hiệu lực trong " + ttlMinutes + " phút. "
                 + "Tuyệt đối không chia sẻ mã này cho bất kỳ ai.</p>"
                 + "<p style=\"color:#888;font-size:12px\">"
                 + (resetPassword ? "Nếu bạn không yêu cầu đặt lại mật khẩu, hãy bỏ qua email này."
-                                 : "Nếu bạn không yêu cầu đăng ký, hãy bỏ qua email này.") + "</p>"
+                        : "Nếu bạn không yêu cầu đăng ký, hãy bỏ qua email này.")
+                + "</p>"
                 + "</div>";
     }
 }
