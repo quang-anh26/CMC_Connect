@@ -4002,3 +4002,182 @@ button.saved-preview{cursor:pointer}
 .chat-panel .bubble-row .bubble > span:not(.reply-content) {
   color: inherit;
 }
+
+/* Keep every message in normal vertical flow so rows never overlap. */
+.chat-panel .chat-history {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+}
+.chat-panel .chat-history > .chat-message-entry {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+}
+.chat-panel .chat-history > .chat-day {
+  align-self: start;
+}
+.chat-panel .chat-history > .chat-day.system-row {
+  align-self: center;
+  text-align: center;
+}
+.chat-panel .chat-history > .load-more {
+  flex: 0 0 auto;
+  align-self: start;
+}
+.chat-panel .chat-message-entry > .bubble-row {
+  flex: 0 0 auto;
+  width: fit-content;
+  align-self: flex-start;
+}
+.chat-panel .chat-message-entry > .bubble-row.outgoing {
+  align-self: flex-end;
+}
+.chat-panel .chat-history > .typing {
+  flex: 0 0 auto;
+  align-self: start;
+}
+
+/* ===== SỬA LỖI CHỮ BỊ ĐÈ LÊN NHAU TRONG KHUNG CHAT (đặt CUỐI file index.css) ===== */
+/* Danh sách tin nhắn dùng bố cục KHỐI (block): các tin nhắn tự xếp nối tiếp nhau theo chiều dọc,
+   không thể bị co lại hay chồng lên nhau như khi dùng flex. */
+.chat-panel .chat-history {
+  display: block;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 22px 16px;
+}
+.chat-panel .chat-history > * {
+  flex: none;
+  height: auto;
+  min-height: 0;
+  max-height: none;
+  position: relative;
+}
+.chat-panel .chat-history > .chat-message-entry {
+  display: block;
+  width: 100%;
+  margin: 0 0 12px;
+  overflow: visible;
+}
+.chat-panel .chat-history > .chat-message-entry > .chat-day {
+  display: block;
+  width: fit-content;
+  margin: 0 auto 8px;
+  text-align: center;
+  line-height: 1.4;
+}
+.chat-panel .chat-history > .chat-day,
+.chat-panel .chat-history > .chat-day.system-row {
+  display: block;
+  width: fit-content;
+  margin: 4px auto 12px;
+  text-align: center;
+  line-height: 1.4;
+}
+.chat-panel .chat-history > .load-more {
+  display: block;
+  margin: 0 auto 12px;
+}
+.chat-panel .chat-history > .typing {
+  display: flex;
+  margin: 0 0 12px;
+}
+
+/* Một hàng tin nhắn: avatar (nếu có) + cột nội dung (bong bóng, giờ gửi) */
+.chat-panel .chat-message-entry > .bubble-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  width: fit-content;
+  height: auto;
+  max-width: min(76%, 560px);
+}
+.chat-panel .chat-message-entry > .bubble-row.outgoing { margin-left: auto; }
+.chat-panel .chat-message-entry > .bubble-row.incoming { margin-right: auto; }
+.chat-panel .chat-message-entry > .bubble-row > div:not(.avatar) {
+  display: block;
+  height: auto;
+  min-width: 0;
+  max-width: 100%;
+}
+.chat-panel .bubble-row > div:not(.avatar) > * { height: auto; min-height: 0; }
+.chat-panel .bubble-row > div:not(.avatar) > .bubble-wrap { margin-bottom: 4px; }
+.chat-panel .bubble-row > div:not(.avatar) > .sender-name { display: block; margin-bottom: 3px; }
+.chat-panel .bubble-row > div:not(.avatar) > .inline-editor { margin-bottom: 4px; }
+.chat-panel .bubble-row > div:not(.avatar) > .reaction-row { margin-bottom: 4px; }
+.chat-panel .bubble-row.outgoing > div:not(.avatar) > .bubble-wrap,
+.chat-panel .bubble-row.outgoing > div:not(.avatar) > .reaction-row { justify-content: flex-end; }
+.chat-panel .bubble-row > div:not(.avatar) > span {
+  display: block;
+  line-height: 1.3;
+  text-align: left;
+}
+.chat-panel .bubble-row.outgoing > div:not(.avatar) > span { text-align: right; }
+.chat-panel .bubble-wrap { height: auto; min-height: 0; }
+
+/* Bong bóng thường */
+.chat-panel .bubble-row .bubble {
+  display: block;
+  height: auto;
+  min-height: 0;
+  overflow: visible;
+  line-height: 1.4;
+}
+
+/* Tin nhắn có trả lời: ô trích dẫn nằm TRÊN, nội dung nằm DƯỚI, không đè nhau */
+.chat-panel .bubble-row .bubble.with-reply {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  height: auto;
+  overflow: visible;
+}
+.chat-panel .bubble-row.outgoing .bubble.with-reply { align-items: flex-end; }
+.chat-panel .bubble-row .bubble.with-reply .reply-quote {
+  flex: none;
+  height: auto;
+  min-height: 0;
+  margin: 0;
+  line-height: 1.35;
+  position: static;
+}
+.chat-panel .bubble-row .bubble.with-reply .reply-content {
+  flex: none;
+  display: block;
+  height: auto;
+  margin: 0;
+  line-height: 1.4;
+  position: static;
+}
+
+/* Tin nhắn thoại: kích thước cố định, không tràn sang tin khác */
+.chat-panel .chat-audio {
+  display: block;
+  flex: none;
+  width: 300px;
+  max-width: 100%;
+  height: 40px;
+  margin: 0;
+}
+.chat-panel .chat-image-btn { flex: none; }
+
+/* Avatar cạnh tin nhắn: giữ hình tròn */
+.chat-panel .bubble-row > .avatar {
+  display: grid;
+  place-items: center;
+  flex: none;
+  align-self: flex-end;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  max-width: 32px;
+  margin-bottom: 18px;
+  box-sizing: border-box;
+}

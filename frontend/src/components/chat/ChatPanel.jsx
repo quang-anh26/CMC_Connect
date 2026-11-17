@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Icon } from "../Icon"
 import { Avatar, Loading } from "../ui"
 import { messageApi } from "../../api/messageApi"
@@ -407,7 +407,7 @@ export default function ChatPanel({ conversationId, conversation, onConversation
           const img = isImageMessage(m) && !m.deleted
           const reactions = m.reactions || []
           return (
-            <React.Fragment key={m.messageId}>
+            <div className="chat-message-entry" key={m.messageId}>
               {showDay && <div className="chat-day">{showDay}</div>}
               <div
                 className={`bubble-row ${mine ? "outgoing" : "incoming"}`}
@@ -518,7 +518,7 @@ export default function ChatPanel({ conversationId, conversation, onConversation
                   </span>
                 </div>
               </div>
-            </React.Fragment>
+            </div>
           )
         })}
         {typingNames.length > 0 && (

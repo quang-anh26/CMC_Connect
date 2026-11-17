@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react"
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { EmptyState } from "../components/ui"
 import CallOverlay from "../components/CallOverlay"
@@ -48,6 +48,13 @@ export default function MessagesPage() {
     if (found) setSelected((cur) => (cur && String(cur.conversationId) === String(conversationId) ? { ...found, ...patchedKeys(cur, found) } : found))
   }, [conversationId, state.list, state.requests, archived])
 
+  // Cuộc trò chuyện đang mở, tính ngay lúc render: tránh một nhịp hiển thị tên/hình nền của cuộc chat cũ (gây nháy khung).
+  const activeConversation = useMemo(() => {
+    if (!conversationId) return null
+    if (selected && String(selected.conversationId) === String(conversationId)) return selected
+    return [...state.list, ...(state.requests || []), ...archived].find((c) => String(c.conversationId) === String(conversationId)) || null
+  }, [conversationId, selected, state.list, state.requests, archived])
+
   const patchSelected = useCallback((valueOrFn) => {
     setSelected((cur) => (typeof valueOrFn === "function" ? valueOrFn(cur) : cur ? { ...cur, ...valueOrFn } : valueOrFn))
   }, [])
@@ -72,7 +79,7 @@ export default function MessagesPage() {
       <ConversationList
         state={state}
         archived={archived}
-        activeConversation={selected}
+        activeConversation={activeConversation}
         activeId={conversationId}
         onOpen={openConversation}
         onReload={load}
@@ -81,9 +88,9 @@ export default function MessagesPage() {
       />
       {conversationId ? (
         <ChatPanel
-          key={conversationId}
+          key={`chat-${conversationId}`}
           conversationId={conversationId}
-          conversation={selected}
+          conversation={activeConversation}
           onConversationChange={patchSelected}
           infoOpen={info}
           onToggleInfo={() => setInfo((v) => !v)}
@@ -97,10 +104,10 @@ export default function MessagesPage() {
           <EmptyState title="Chọn một cuộc trò chuyện" copy="Chọn bạn bè ở danh sách bên trái hoặc bắt đầu cuộc trò chuyện mới." icon="message" />
         </section>
       )}
-      {conversationId && info && selected && (
+      {conversationId && info && activeConversation && (
         <ContactInfo
-          key={conversationId}
-          conversation={selected}
+          key={`info-${conversationId}`}
+          conversation={activeConversation}
           messages={messages}
           onClose={() => setInfo(false)}
           onUpdated={patchSelected}
