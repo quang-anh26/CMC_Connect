@@ -28,9 +28,11 @@ function ReactionIcons({ reactions = [] }) {
     <span className="post-reaction-summary" aria-label="Các biểu cảm đã được thả">
       {reactions.map((reaction) => {
         const knownReaction = POST_REACTIONS.find((item) => item.type === reaction.reactionType)
-        return knownReaction
-          ? <span key={reaction.reactionType} title={`${reaction.count} ${knownReaction.label}`}>{knownReaction.emoji}</span>
-          : null
+        return (
+          <span key={reaction.reactionType} title={`${reaction.count} ${knownReaction?.label || reaction.reactionType}`}>
+            {knownReaction?.emoji || "👍"}
+          </span>
+        )
       })}
     </span>
   )
@@ -480,7 +482,7 @@ export function PostCard({ post, meId, onChange, onRemove, onHide, onShared, ope
             }}
           >
             {selectedReaction ? <span className="reaction-emoji">{selectedReaction.emoji}</span> : <Icon name="heart" />}
-            {selectedReaction?.label || "Thích"}
+            {selectedReaction?.label || "Yêu thích"}
           </button>
           {reactionPickerOpen && (
             <div className="post-reaction-picker">
@@ -522,7 +524,7 @@ export function PostCard({ post, meId, onChange, onRemove, onHide, onShared, ope
                 <span>{comments.length} bình luận · {post.shareCount || 0} lượt chia sẻ</span>
               </div>
               <div className="post-viewer-actions">
-                <button type="button" disabled={reacting} className={likedByViewer ? "liked" : ""} aria-pressed={likedByViewer} onClick={() => react(selectedReaction?.type || "LOVE")}><Icon name="heart" /> Thích</button>
+                <button type="button" disabled={reacting} className={likedByViewer ? "liked" : ""} aria-pressed={likedByViewer} onClick={() => react(selectedReaction?.type || "LOVE")}><Icon name="heart" /> {selectedReaction?.label || "Yêu thích"}</button>
                 <button type="button" onClick={() => commentsModalListRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}><Icon name="comment" /> Bình luận</button>
                 <button type="button" onClick={() => setShareOpen(true)}><Icon name="share" /> Chia sẻ</button>
                 <button type="button" onClick={save}><Icon name="bookmark" /> {post.savedByViewer ? "Đã lưu" : "Lưu"}</button>
@@ -558,7 +560,7 @@ export function PostCard({ post, meId, onChange, onRemove, onHide, onShared, ope
             </header>
             {post.content && <p className="post-viewer-copy">{post.content}</p>}
             <div className="post-viewer-actions">
-              <button type="button" disabled={reacting} className={likedByViewer ? "liked" : ""} aria-pressed={likedByViewer} onClick={() => react(selectedReaction?.type || "LOVE")}><Icon name="heart" /> Thích</button>
+              <button type="button" disabled={reacting} className={likedByViewer ? "liked" : ""} aria-pressed={likedByViewer} onClick={() => react(selectedReaction?.type || "LOVE")}><Icon name="heart" /> {selectedReaction?.label || "Yêu thích"}</button>
               <button type="button" onClick={() => { setViewerOpen(false); setCommentsModalOpen(true) }}><Icon name="comment" /> Bình luận</button>
               <button type="button" onClick={() => setShareOpen(true)}><Icon name="share" /> Chia sẻ</button>
               <button type="button" onClick={save}><Icon name="bookmark" /> {post.savedByViewer ? "Đã lưu" : "Lưu"}</button>

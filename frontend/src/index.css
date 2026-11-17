@@ -32,7 +32,7 @@
     min-height: 100vh;
     color: var(--text);
     background: var(--bg);
-    font-family: "Be Vietnam Pro", sans-serif;
+    font-family: "Be Vietnam Pro", "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif;
     font-size: 15px;
     line-height: 1.6;
   }
@@ -709,16 +709,22 @@
   background: var(--surface);
   box-shadow: var(--shadow);
 }
-.post-reaction-picker button {
+.post-reaction-picker button,
+.post-actions .post-reaction-picker button {
   width: 36px;
   min-height: 36px;
   flex: none;
+  display: grid;
+  place-items: center;
   padding: 0;
   border-radius: 50%;
-  font-size: 22px;
+  font-size: 22px !important;
+  line-height: 1;
+  color: initial;
   transition: transform .12s;
 }
-.post-reaction-picker button:hover {
+.post-reaction-picker button:hover,
+.post-actions .post-reaction-picker button:hover {
   transform: scale(1.2);
 }
 .post-actions {

@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@fontsource/noto-color-emoji": "^5.3.2",
     "@stomp/stompjs": "^7.0.0",
     "axios": "^1.7.7",
     "react": "^18.3.1",
