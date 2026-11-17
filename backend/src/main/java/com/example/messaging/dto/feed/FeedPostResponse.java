@@ -22,6 +22,7 @@ public class FeedPostResponse {
     long likeCount;
     boolean likedByViewer;
     String viewerReaction;
+    List<PostReactionSummary> reactionSummary;
     List<FeedCommentResponse> comments;
     long shareCount;
     boolean savedByViewer;

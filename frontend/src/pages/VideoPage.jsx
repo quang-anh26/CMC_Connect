@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Icon } from "../components/Icon"
 import { Avatar, Button, EmptyState, ErrorBlock, Loading, Modal, useAsync, useToast } from "../components/ui"
-import { POST_REACTIONS } from "../components/Posts"
+import { POST_REACTIONS, PostCard } from "../components/Posts"
 import { videoApi } from "../api/videoApi"
 import { feedApi } from "../api/feedApi"
 import { useAuth } from "../context/AuthContext"
@@ -97,6 +97,7 @@ export default function VideoPage() {
   const [sharing, setSharing] = useState(null)
   const [menu, setMenu] = useState(null)
   const [open, setOpen] = useState(null)
+  const [selectedVideoId, setSelectedVideoId] = useState(null)
   const [draft, setDraft] = useState("")
   useEffect(() => { const t = setTimeout(() => { setDebounced(query.trim()); setPage(0) }, 300); return () => clearTimeout(t) }, [query])
   useEffect(() => {
@@ -109,11 +110,17 @@ export default function VideoPage() {
 
   useEffect(() => {
     if (!data) return
-    setCards((prev) => (page === 0 ? data.content || [] : [...prev, ...(data.content || [])]))
+    setCards((prev) => {
+      const incoming = data.content || []
+      if (page === 0) return incoming
+      const existingIds = new Set(prev.map((card) => String(card.video.postId)))
+      return [...prev, ...incoming.filter((card) => !existingIds.has(String(card.video.postId)))]
+    })
   }, [data, page])
 
   const patch = (postId, fn) => setCards((cs) => cs.map((c) => (c.video.postId === postId ? fn(c) : c)))
   const fail = (err, fb) => toast(getApiErrorMessage(err, fb), "error")
+  const selectedCard = cards.find((card) => String(card.video.postId) === String(selectedVideoId))
   const react = async (c, type) => { try { const { data: v } = await feedApi.react(c.video.postId, type); patch(c.video.postId, (x) => ({ ...x, video: v })) } catch (e) { fail(e, "Không thể thả cảm xúc.") } }
   const save = async (c) => { try { const { data: r } = await videoApi.toggleSave(c.video.postId); patch(c.video.postId, (x) => ({ ...x, savedByViewer: r.saved ?? !x.savedByViewer })); toast(r.saved ? "Đã lưu video." : "Đã bỏ lưu video.") } catch (e) { fail(e, "Không thể lưu video.") } }
   const follow = async (c) => { try { const { data: r } = await videoApi.toggleFollow(c.video.postId); patch(c.video.postId, (x) => ({ ...x, followingCreator: r.following ?? !x.followingCreator })) } catch (e) { fail(e, "Không thể theo dõi.") } }
@@ -149,25 +156,43 @@ export default function VideoPage() {
           return (
             <article className={i === 0 ? "video-large" : ""} key={v.postId}>
               <div className="video-thumb">
-                <video src={videoApi.resolveMediaUrl(c.playbackUrl || v.imageUrl)} controls playsInline preload="metadata" onPlay={() => videoApi.view(v.postId).catch(() => {})} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                <button type="button" className="video-open-button" onClick={() => setSelectedVideoId(v.postId)} aria-label={`Mở video và bình luận của ${v.authorName}`}>
+                  <video src={videoApi.resolveMediaUrl(c.playbackUrl || v.imageUrl)} muted playsInline preload="metadata" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  <span className="video-open-play" aria-hidden="true">▶</span>
+                </button>
               </div>
               <div className="video-info">
-                <span style={{ cursor: "pointer" }} onClick={() => navigate(`/profile/${v.authorId}`)}><Avatar name={v.authorName} src={v.authorAvatar} /></span>
-                <div><h3>{v.content || "Video không có mô tả"}</h3><p>{v.authorName} · {timeAgo(v.createdAt)} · {v.viewCount} lượt xem</p></div>
+                <button type="button" className="video-author-avatar" aria-label={`Mở trang cá nhân của ${v.authorName}`} onClick={() => navigate(`/profile/${v.authorId}`)}><Avatar name={v.authorName} src={v.authorAvatar} /></button>
+                <div>
+                  <h3><button type="button" className="video-post-link" onClick={() => setSelectedVideoId(v.postId)}>{v.content || "Video không có mô tả"}</button></h3>
+                  <p><button type="button" className="video-author-link" onClick={() => navigate(`/profile/${v.authorId}`)}>{v.authorName}</button> · {timeAgo(v.createdAt)} · {v.viewCount} lượt xem</p>
+                </div>
                 {!mine && <button type="button" onClick={() => follow(c)} className="follow-chip">{c.followingCreator ? "Đang theo dõi" : "Theo dõi"}</button>}
                 <div style={{ position: "relative" }} onClick={(e) => e.stopPropagation()}>
                   <button className="icon-button" aria-label="Tùy chọn video" onClick={() => setMenu(menu === v.postId ? null : v.postId)}><Icon name="more" /></button>
                   {menu === v.postId && (
                     <div className="pop-menu post-menu">
-                      {mine ? <button className="danger" onClick={() => { setMenu(null); remove(c) }}><Icon name="trash" size={16} />Xóa video</button> : <button onClick={() => { setMenu(null); setReporting(c) }}>Báo cáo video</button>}
+                      {mine ? <button className="danger" onClick={() => { setMenu(null); remove(c) }}><Icon name="trash" size={16} />Xóa video</button> : <>
+                        <button onClick={() => { setMenu(null); setReporting(c) }}>Báo cáo video</button>
+                        <button onClick={async () => {
+                          setMenu(null)
+                          try {
+                            await feedApi.notInterested(v.authorId)
+                            setCards((current) => current.filter((card) => String(card.video.authorId) !== String(v.authorId)))
+                            toast(`Đã ẩn video của ${v.authorName}.`)
+                          } catch (err) {
+                            fail(err, "Không thể ẩn video.")
+                          }
+                        }}>Không quan tâm</button>
+                      </>}
                     </div>
                   )}
                 </div>
               </div>
               <div className="video-actions">
                 <div className="reaction-control">
-                  <button className={picked || v.likedByViewer ? "active-like" : ""} onClick={() => react(c, picked?.type || "LIKE")}>
-                    {picked ? <span className="reaction-emoji">{picked.emoji}</span> : <Icon name="heart" size={18} />}{v.likeCount}
+                  <button className={picked || v.likedByViewer ? "active-like" : ""} onClick={() => react(c, picked?.type || "LOVE")}>
+                    {picked ? <span className="reaction-emoji">{picked.emoji}</span> : <Icon name="heart" size={18} />}{v.likeCount > 0 ? v.likeCount : ""}
                   </button>
                   <div className="reaction-picker">{POST_REACTIONS.map((r) => <button key={r.type} type="button" title={r.label} onClick={() => react(c, r.type)}>{r.emoji}</button>)}</div>
                 </div>
@@ -195,6 +220,25 @@ export default function VideoPage() {
       {uploading && <UploadModal onClose={() => setUploading(false)} onDone={() => { setUploading(false); setPage(0); reload() }} />}
       {reporting && <ReportModal card={reporting} onClose={() => setReporting(null)} />}
       {sharing && <ShareModal card={sharing} onClose={() => setSharing(null)} onShared={() => patch(sharing.video.postId, (x) => ({ ...x, video: { ...x.video, shareCount: (x.video.shareCount || 0) + 1 } }))} />}
+      {selectedCard && (
+        <PostCard
+          key={selectedCard.video.postId}
+          post={{ ...selectedCard.video, imageUrl: selectedCard.playbackUrl || selectedCard.video.imageUrl, mediaType: "VIDEO" }}
+          meId={user?.userId}
+          hideCard
+          openCommentsOnMount
+          onChange={(post) => patch(post.postId, (card) => ({ ...card, video: { ...card.video, ...post } }))}
+          onHide={(authorId) => {
+            setCards((current) => current.filter((card) => String(card.video.authorId) !== String(authorId)))
+            setSelectedVideoId(null)
+          }}
+          onRemove={(postId) => {
+            setCards((current) => current.filter((card) => String(card.video.postId) !== String(postId)))
+            setSelectedVideoId(null)
+          }}
+          onCloseComments={() => setSelectedVideoId(null)}
+        />
+      )}
     </div>
   )
 }

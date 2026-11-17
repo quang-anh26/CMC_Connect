@@ -122,7 +122,9 @@ export default function ProfilePage() {
       setFriendActionBusy(false)
     }
   }
-  const replacePost = (post) => feed.setData((feed.data || []).map((x) => (x.postId === post.postId ? post : x)))
+  const replacePost = (post) => feed.setData((current) => (current || []).map((item) => (
+    item.postId === post.postId ? { ...item, ...post } : item
+  )))
 
   if (profile.loading) return <Loading />
   if (profile.error) return <ErrorBlock message={profile.error} onRetry={profile.reload} />
@@ -191,7 +193,7 @@ export default function ProfilePage() {
               {mine && <Composer me={me || p} onPosted={(post) => feed.setData([post, ...(feed.data || [])])} />}
               {feed.loading && <Loading />}
               {!feed.loading && posts.length === 0 && <EmptyState title="Chưa có bài viết" copy="Các bài viết bạn có quyền xem sẽ hiển thị tại đây." icon="home" />}
-              {posts.map((post) => <PostCard key={post.postId} post={post} meId={user?.userId} onChange={replacePost} onRemove={(id) => feed.setData((feed.data || []).filter((x) => x.postId !== id))} onShared={(c) => feed.setData([c, ...(feed.data || [])])} />)}
+              {posts.map((post) => <PostCard key={post.postId} post={post} meId={user?.userId} onChange={replacePost} onRemove={(id) => feed.setData((feed.data || []).filter((x) => x.postId !== id))} onHide={(authorId) => feed.setData((current) => (current || []).filter((x) => String(x.authorId) !== String(authorId)))} onShared={(c) => feed.setData([c, ...(feed.data || [])])} />)}
             </>
           )}
           {tab === "about" && (

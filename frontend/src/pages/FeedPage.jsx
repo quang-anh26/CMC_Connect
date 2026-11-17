@@ -131,7 +131,9 @@ export default function FeedPage() {
   const focusPostId = params.get("postId")
   const openCommentsPostId = params.get("openComments")
 
-  const update = useCallback((post) => setData((data || []).map((p) => (p.postId === post.postId ? post : p))), [data, setData])
+  const update = useCallback((post) => setData((current) => (current || []).map((item) => (
+    item.postId === post.postId ? { ...item, ...post } : item
+  ))), [setData])
 
   useEffect(() => {
     if (!focusPostId || !data) return
@@ -165,6 +167,7 @@ export default function FeedPage() {
             meId={user?.userId}
             onChange={update}
             onRemove={(id) => setData((data || []).filter((p) => p.postId !== id))}
+            onHide={(authorId) => setData((current) => (current || []).filter((p) => String(p.authorId) !== String(authorId)))}
             onShared={(created) => setData([created, ...(data || [])])}
           />
         ))}

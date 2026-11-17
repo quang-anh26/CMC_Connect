@@ -602,6 +602,11 @@
 .post {
   overflow: hidden;
 }
+.post.post-reaction-open {
+  position: relative;
+  z-index: 35;
+  overflow: visible;
+}
 .post-head {
   display: flex;
   gap: 11px;
@@ -658,15 +663,63 @@
   font-size: 12px;
   border-bottom: 1px solid var(--border);
 }
-.post-meta b {
+.post-reaction-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.post-reaction-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-right: 7px;
+  vertical-align: middle;
+}
+.post-reaction-summary > span {
+  width: 20px;
+  height: 20px;
   display: inline-grid;
   place-items: center;
-  width: 18px;
-  height: 18px;
-  color: white;
-  background: var(--blue);
+  border: 2px solid var(--surface);
   border-radius: 50%;
-  font-size: 10px;
+  background: var(--surface);
+  font-size: 15px;
+  object-fit: cover;
+}
+.post-reaction-control {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  min-width: 0;
+}
+.post-reaction-control > button {
+  width: 100%;
+  min-width: 0;
+}
+.post-reaction-picker {
+  position: absolute;
+  left: 0;
+  bottom: 100%;
+  z-index: 40;
+  display: flex;
+  gap: 2px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+.post-reaction-picker button {
+  width: 36px;
+  min-height: 36px;
+  flex: none;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 22px;
+  transition: transform .12s;
+}
+.post-reaction-picker button:hover {
+  transform: scale(1.2);
 }
 .post-actions {
   display: grid;
@@ -2038,6 +2091,30 @@
   position: relative;
   background: #172536;
 }
+.video-open-button {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  display: block;
+  overflow: hidden;
+  border: 0;
+  background: transparent;
+}
+.video-open-play {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  padding-left: 3px;
+  border-radius: 50%;
+  color: white;
+  background: rgba(0, 0, 0, 0.58);
+  transform: translate(-50%, -50%);
+}
 .video-thumb img {
   width: 100%;
   height: 100%;
@@ -2078,8 +2155,28 @@
 .video-info > div {
   flex: 1;
 }
+.video-author-avatar {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  line-height: 0;
+}
 .video-info h3 {
   font-size: 13px;
+}
+.video-post-link,
+.video-author-link {
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+}
+.video-post-link:hover,
+.video-author-link:hover {
+  color: var(--blue);
 }
 .video-info p {
   color: var(--muted);
@@ -3611,8 +3708,10 @@
 .post-viewer-side>header>div{display:flex;flex-direction:column;gap:3px}
 .post-viewer-side>header span,.post-viewer-comment small{color:var(--muted);font-size:11px}
 .post-viewer-copy{padding:14px 16px;white-space:pre-wrap;overflow-wrap:anywhere;border-bottom:1px solid var(--border)}
-.post-viewer-stats{padding:12px 16px;border-bottom:1px solid var(--border);font-size:12px;color:var(--blue)}
-.post-viewer-stats span{float:right;color:var(--muted)}
+.post-viewer-stats{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;font-size:12px;color:var(--blue)}
+.post-viewer-stats>span:last-child{margin-left:auto;color:var(--muted)}
+.post-viewer-reaction-count{display:inline-flex;align-items:center;gap:4px}
+.post-viewer-reaction-count .post-reaction-summary{margin-right:0}
 .post-viewer-comments{flex:1;min-height:0;overflow-y:auto;padding:8px 16px}
 .post-viewer-comment{display:flex;align-items:flex-start;gap:9px;padding:9px 0}
 .post-viewer-comment-profile{flex:none;width:32px;height:32px;padding:0;border-radius:50%}
