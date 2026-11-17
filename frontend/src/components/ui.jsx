@@ -189,5 +189,12 @@ export function useAsync(fn, deps = []) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [...deps, tick]);
-  return { ...state, reload: () => setTick((t) => t + 1), setData: (data) => setState((s) => ({ ...s, data })) };
+  return {
+    ...state,
+    reload: () => setTick((t) => t + 1),
+    setData: (data) => setState((s) => ({
+      ...s,
+      data: typeof data === "function" ? data(s.data) : data,
+    })),
+  };
 }

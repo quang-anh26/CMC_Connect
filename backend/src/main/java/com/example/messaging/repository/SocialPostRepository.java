@@ -17,6 +17,7 @@ public interface SocialPostRepository extends JpaRepository<SocialPost, Long> {
             "LOWER(p.author.username) LIKE LOWER(CONCAT('%', :keyword, '%'))) AND " +
             "(p.author.userId = :viewerId OR p.privacy = 'PUBLIC' OR " +
             "(p.privacy = 'FRIENDS' AND p.author.userId IN :friendIds)) AND " +
+            "NOT EXISTS (SELECT h.id FROM HiddenPostAuthor h WHERE h.viewer.userId = :viewerId AND h.author.userId = p.author.userId) AND " +
             "(:videos = false OR p.mediaType = 'VIDEO') AND " +
             "(:savedOnly = false OR EXISTS (SELECT s.savedItemId FROM SavedItem s WHERE s.contentType = 'VIDEO' AND s.contentId = p.postId AND s.user.userId = :viewerId)) AND " +
             "(:followingOnly = false OR EXISTS (SELECT f.id FROM VideoFollow f WHERE f.creator.userId = p.author.userId AND f.follower.userId = :viewerId)) " +
@@ -27,6 +28,7 @@ public interface SocialPostRepository extends JpaRepository<SocialPost, Long> {
                     "LOWER(p.author.username) LIKE LOWER(CONCAT('%', :keyword, '%'))) AND " +
                     "(p.author.userId = :viewerId OR p.privacy = 'PUBLIC' OR " +
                     "(p.privacy = 'FRIENDS' AND p.author.userId IN :friendIds)) AND " +
+                    "NOT EXISTS (SELECT h.id FROM HiddenPostAuthor h WHERE h.viewer.userId = :viewerId AND h.author.userId = p.author.userId) AND " +
                     "(:videos = false OR p.mediaType = 'VIDEO') AND " +
                     "(:savedOnly = false OR EXISTS (SELECT s.savedItemId FROM SavedItem s WHERE s.contentType = 'VIDEO' AND s.contentId = p.postId AND s.user.userId = :viewerId)) AND " +
                     "(:followingOnly = false OR EXISTS (SELECT f.id FROM VideoFollow f WHERE f.creator.userId = p.author.userId AND f.follower.userId = :viewerId)) AND " +

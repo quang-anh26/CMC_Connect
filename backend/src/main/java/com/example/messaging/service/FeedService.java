@@ -4,13 +4,17 @@ import com.example.messaging.dto.feed.CreateCommentRequest;
 import com.example.messaging.dto.feed.CreatePostRequest;
 import com.example.messaging.dto.feed.FeedCommentResponse;
 import com.example.messaging.dto.feed.FeedPostResponse;
+import com.example.messaging.dto.feed.PostReactionSummary;
 import com.example.messaging.dto.feed.SharedPostResponse;
 import com.example.messaging.dto.feed.SharePostRequest;
+import com.example.messaging.dto.feed.UpdatePostRequest;
+import com.example.messaging.entity.HiddenPostAuthor;
 import com.example.messaging.entity.SocialPost;
 import com.example.messaging.entity.SocialPostComment;
 import com.example.messaging.entity.SocialPostReaction;
 import com.example.messaging.entity.User;
 import com.example.messaging.exception.ApiException;
+import com.example.messaging.repository.HiddenPostAuthorRepository;
 import com.example.messaging.repository.SocialPostCommentRepository;
 import com.example.messaging.repository.SocialPostReactionRepository;
 import com.example.messaging.repository.SocialPostRepository;
@@ -40,6 +44,7 @@ public class FeedService {
     private static final Pattern LINK_PATTERN = Pattern.compile("https?://[^\\s<>()]+", Pattern.CASE_INSENSITIVE);
 
     private final SocialPostRepository postRepository;
+    private final HiddenPostAuthorRepository hiddenPostAuthorRepository;
     private final SocialPostReactionRepository reactionRepository;
     private final SocialPostCommentRepository commentRepository;
     private final UserService userService;
@@ -50,8 +55,10 @@ public class FeedService {
 
     @Transactional(readOnly = true)
     public List<FeedPostResponse> list(Long viewerId) {
+        Set<Long> hiddenAuthorIds = Set.copyOf(hiddenPostAuthorRepository.findHiddenAuthorIdsByViewerId(viewerId));
         return postRepository.findAll().stream()
             .filter(post -> canView(post, viewerId))
+                .filter(post -> !hiddenAuthorIds.contains(post.getAuthor().getUserId()))
                 .sorted(java.util.Comparator.comparing(
                         SocialPost::getCreatedAt,
                         java.util.Comparator.nullsLast(java.util.Comparator.reverseOrder())))
@@ -111,6 +118,32 @@ public class FeedService {
                 .build());
         notifyFriendsAboutPost(post, authorId);
         return toResponse(post, authorId);
+    }
+
+    @Transactional
+    public FeedPostResponse updatePost(Long postId, Long authorId, UpdatePostRequest request) {
+        SocialPost post = getPost(postId);
+        if (!post.getAuthor().getUserId().equals(authorId)) {
+            throw ApiException.forbidden("Chỉ tác giả mới có thể chỉnh sửa bài viết");
+        }
+        String content = request.getContent() == null ? "" : request.getContent().trim();
+        if (content.isBlank() && post.getImageUrl() == null && post.getSharedPost() == null) {
+            throw ApiException.badRequest("Bài viết cần có nội dung hoặc ảnh/video");
+        }
+        post.setContent(content);
+        return toResponse(postRepository.save(post), authorId);
+    }
+
+    @Transactional
+    public void hideAuthor(Long viewerId, Long authorId) {
+        if (viewerId.equals(authorId)) {
+            throw ApiException.badRequest("Bạn không thể ẩn bài viết của chính mình");
+        }
+        User viewer = userService.getByIdOrThrow(viewerId);
+        User author = userService.getByIdOrThrow(authorId);
+        if (!hiddenPostAuthorRepository.existsByViewerUserIdAndAuthorUserId(viewerId, authorId)) {
+            hiddenPostAuthorRepository.save(HiddenPostAuthor.builder().viewer(viewer).author(author).build());
+        }
     }
 
     @Transactional
@@ -247,6 +280,17 @@ public class FeedService {
     public FeedPostResponse toResponse(SocialPost post, Long viewerId) {
         SocialPostReaction viewerReaction = reactionRepository
             .findByPostPostIdAndUserUserId(post.getPostId(), viewerId).orElse(null);
+        List<SocialPostReaction> reactions = reactionRepository.findByPostPostIdOrderByCreatedAtAsc(post.getPostId());
+        java.util.Map<String, Long> reactionCounts = reactions.stream().collect(Collectors.groupingBy(
+                reaction -> {
+                    return reaction.getReactionType() == null ? "LIKE" : reaction.getReactionType();
+                },
+                java.util.LinkedHashMap::new,
+                Collectors.counting()));
+        List<PostReactionSummary> reactionSummary = reactionCounts.entrySet().stream()
+                .map(entry -> PostReactionSummary.builder().reactionType(entry.getKey())
+                        .count(entry.getValue()).build())
+                .collect(Collectors.toList());
         List<FeedCommentResponse> comments = commentRepository.findByPostPostIdOrderByCreatedAtAsc(post.getPostId())
                 .stream().map(comment -> FeedCommentResponse.builder()
                         .commentId(comment.getCommentId())
@@ -273,6 +317,7 @@ public class FeedService {
                 .likedByViewer(viewerReaction != null)
                 .viewerReaction(viewerReaction == null ? null :
                     (viewerReaction.getReactionType() == null ? "LIKE" : viewerReaction.getReactionType()))
+                .reactionSummary(reactionSummary)
                 .comments(comments)
                 .shareCount(postRepository.countBySharedPostPostId(
                         post.getSharedPost() == null ? post.getPostId() : post.getSharedPost().getPostId()))
