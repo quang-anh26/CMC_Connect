@@ -15,7 +15,9 @@ export function SocketProvider({ children }) {
   const { user } = useAuth()
   const clientRef = useRef(null)
   const [connected, setConnected] = useState(false)
-  const [callSignal, setCallSignal] = useState(null)
+  // Hàng đợi tín hiệu cuộc gọi: trước đây chỉ lưu 1 tín hiệu nên khi offer/candidate
+  // đến liên tiếp thì cái sau ghi đè cái trước -> mất ICE candidate -> không nghe/nói được.
+  const [callSignalQueue, setCallSignalQueue] = useState([])
   const [callRequest, setCallRequest] = useState(null)
 
   useEffect(() => {
@@ -28,7 +30,10 @@ export function SocketProvider({ children }) {
       reconnectDelay: 3000,
       onConnect: () => {
         setConnected(true)
-        client.subscribe('/user/queue/call', (message) => setCallSignal(JSON.parse(message.body)))
+        client.subscribe('/user/queue/call', (message) => {
+          const signal = JSON.parse(message.body)
+          setCallSignalQueue((queue) => [...queue, signal])
+        })
         client.subscribe('/user/queue/errors', (message) => {
           const error = JSON.parse(message.body)
           window.dispatchEvent(new CustomEvent('cmctalk-server-error', {
@@ -48,14 +53,14 @@ export function SocketProvider({ children }) {
       },
       onDisconnect: () => {
         setConnected(false)
-        setCallSignal(null)
+        setCallSignalQueue([])
       },
       onStompError: () => setConnected(false),
       // Mất kết nối đột ngột (vd. backend khởi động lại): báo "chưa kết nối" để khi nối lại,
       // các màn hình sẽ đăng ký (subscribe) lại — nếu không sẽ không nhận được tin nhắn mới.
       onWebSocketClose: () => {
         setConnected(false)
-        setCallSignal(null)
+        setCallSignalQueue([])
       },
     })
     client.activate()
@@ -65,12 +70,12 @@ export function SocketProvider({ children }) {
       client.deactivate()
       clientRef.current = null
       setConnected(false)
-      setCallSignal(null)
+      setCallSignalQueue([])
     }
   }, [user])
 
   const subscribe = useCallback((destination, callback) => {
-    if (!clientRef.current || !connected) return () => {}
+    if (!clientRef.current || !connected) return () => { }
     const sub = clientRef.current.subscribe(destination, (message) => {
       callback(JSON.parse(message.body))
     })
@@ -87,8 +92,8 @@ export function SocketProvider({ children }) {
       connected,
       subscribe,
       publish,
-      callSignal,
-      clearCallSignal: () => setCallSignal(null),
+      callSignal: callSignalQueue[0] || null,
+      clearCallSignal: () => setCallSignalQueue((queue) => queue.slice(1)),
       callRequest,
       startCall: (conversationInfo, callType) => setCallRequest({ ...conversationInfo, requestedCallType: callType }),
       clearCallRequest: () => setCallRequest(null),

@@ -5,7 +5,19 @@ import { messageApi } from '../api/messageApi'
 import { getApiErrorMessage } from '../utils/apiError'
 import { useSocket } from '../context/SocketContext'
 
-const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }
+// STUN chỉ đủ khi 2 máy cùng mạng / NAT dễ. Khác mạng (4G, wifi công ty...) cần TURN.
+// Thêm vào frontend/.env: VITE_TURN_URL=turn:ip-hoac-domain:3478  VITE_TURN_USER=...  VITE_TURN_PASS=...
+const iceServers = [
+  { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] },
+]
+if (import.meta.env.VITE_TURN_URL) {
+  iceServers.push({
+    urls: import.meta.env.VITE_TURN_URL.split(','),
+    username: import.meta.env.VITE_TURN_USER,
+    credential: import.meta.env.VITE_TURN_PASS,
+  })
+}
+const rtcConfig = { iceServers }
 
 function formatDuration(seconds) {
   const minutes = Math.floor(seconds / 60)
@@ -44,6 +56,14 @@ export default function CallOverlay({ conversationInfo, conversations = [], visi
   const callConversationRef = useRef(conversationInfo || null)
   const isInitiatorRef = useRef(false)
   const callLogSavedRef = useRef(false)
+  const publishRef = useRef(publish)
+  const connectedRef = useRef(connected)
+  const signalChainRef = useRef(Promise.resolve())
+
+  useEffect(() => {
+    publishRef.current = publish
+    connectedRef.current = connected
+  }, [publish, connected])
 
   const activeConversation = conversationInfo || callConversation
   const callerUsername = typeof caller === 'string' ? caller : caller?.username
@@ -159,8 +179,14 @@ export default function CallOverlay({ conversationInfo, conversations = [], visi
       }
     }
     peer.onicecandidate = (event) => {
-      if (event.candidate && connected) {
-        publish('/app/call.signal', { toUsername: remoteUsername, type: 'candidate', candidate: event.candidate })
+      if (event.candidate && connectedRef.current) {
+        publishRef.current('/app/call.signal', { toUsername: remoteUsername, type: 'candidate', candidate: event.candidate })
+      }
+    }
+    peer.oniceconnectionstatechange = () => {
+      if (peer.iceConnectionState === 'failed') {
+        setError('Không thiết lập được đường truyền âm thanh (có thể cần máy chủ TURN).')
+        try { peer.restartIce() } catch { /* ignore */ }
       }
     }
     peer.onconnectionstatechange = () => {
@@ -185,6 +211,14 @@ export default function CallOverlay({ conversationInfo, conversations = [], visi
       return 'Camera hoặc micro đang được ứng dụng khác sử dụng.'
     }
     return `${action}: ${err?.message || 'lỗi WebRTC'}.`
+  }
+
+  const flushPendingCandidates = async (peer) => {
+    const pending = pendingCandidatesRef.current
+    pendingCandidatesRef.current = []
+    for (const candidate of pending) {
+      try { await peer.addIceCandidate(candidate) } catch { /* bỏ qua candidate lỗi */ }
+    }
   }
 
   const startCall = async (type) => {
@@ -238,14 +272,13 @@ export default function CallOverlay({ conversationInfo, conversations = [], visi
       if (typeof RTCPeerConnection === 'undefined') throw new Error('Trình duyệt không hỗ trợ WebRTC.')
       callTypeRef.current = callType
       isInitiatorRef.current = false
-      pendingCandidatesRef.current = []
+      // KHÔNG xoá pendingCandidatesRef ở đây: các candidate đến trước khi bấm "Nghe máy" đang nằm trong đó.
       const stream = await navigator.mediaDevices.getUserMedia({ video: callType === 'video', audio: true })
       localStreamRef.current = stream
       const peer = createPeer(caller.username)
       stream.getTracks().forEach((track) => peer.addTrack(track, stream))
       await peer.setRemoteDescription(new RTCSessionDescription(caller.offer))
-      for (const candidate of pendingCandidatesRef.current) await peer.addIceCandidate(candidate)
-      pendingCandidatesRef.current = []
+      await flushPendingCandidates(peer)
       const answer = await peer.createAnswer()
       await peer.setLocalDescription(answer)
       if (!sendSignal({ type: 'answer', answer })) {
@@ -265,7 +298,8 @@ export default function CallOverlay({ conversationInfo, conversations = [], visi
     if (!callSignal) return undefined
     const signal = callSignal
     clearCallSignal()
-    ;(async () => {
+    // Xử lý tuần tự từng tín hiệu để candidate không chạy trước khi setRemoteDescription xong.
+    signalChainRef.current = signalChainRef.current.then(async () => {
       try {
         if (signal.type === 'offer') {
           if (!signal.offer || !signal.fromUsername) throw new Error('Thiếu dữ liệu cuộc gọi đến')
@@ -274,18 +308,23 @@ export default function CallOverlay({ conversationInfo, conversations = [], visi
             setCallConversation(matchingConversation)
             callConversationRef.current = matchingConversation
           }
+          pendingCandidatesRef.current = []
           callTypeRef.current = signal.callType || 'audio'
           setCaller({ username: signal.fromUsername, offer: signal.offer })
           setCallType(signal.callType || 'audio')
           setCallState('incoming')
         } else if (signal.type === 'answer' && peerRef.current && signal.answer) {
           await peerRef.current.setRemoteDescription(new RTCSessionDescription(signal.answer))
+          await flushPendingCandidates(peerRef.current)
           connectedAtRef.current = Date.now()
           setCallState('connected')
         } else if (signal.type === 'candidate' && signal.candidate) {
           const candidate = new RTCIceCandidate(signal.candidate)
-          if (peerRef.current?.remoteDescription) await peerRef.current.addIceCandidate(candidate)
-          else pendingCandidatesRef.current.push(candidate)
+          if (peerRef.current?.remoteDescription) {
+            try { await peerRef.current.addIceCandidate(candidate) } catch { /* bỏ qua */ }
+          } else {
+            pendingCandidatesRef.current.push(candidate)
+          }
         } else if (signal.type === 'end' || signal.type === 'reject') {
           const saveLog = isInitiatorRef.current ? saveCallLog() : null
           cleanup()
@@ -295,7 +334,7 @@ export default function CallOverlay({ conversationInfo, conversations = [], visi
       } catch {
         setError('Kết nối cuộc gọi bị gián đoạn.')
       }
-    })()
+    })
     return undefined
   }, [callSignal])
 
