@@ -74,6 +74,8 @@ export default function MessagesPage() {
     navigate(`/messages/${id}`)
   }
 
+  const callConversations = [...state.list, ...state.requests, ...archived, ...(selected ? [selected] : [])]
+
   return (
     <div className={`messages-layout ${conversationId && info ? "with-info" : ""} ${conversationId ? "has-chat" : ""}`}>
       <ConversationList
@@ -124,7 +126,12 @@ export default function MessagesPage() {
           <img src={mediaUrl(lightbox)} alt="Ảnh phóng to" onClick={(e) => e.stopPropagation()} />
         </div>
       )}
-      <CallOverlay conversationInfo={callRequest} visible={Boolean(callRequest)} onClose={clearCallRequest} />
+      <CallOverlay
+        conversationInfo={callRequest}
+        conversations={callConversations}
+        visible={Boolean(callRequest)}
+        onClose={clearCallRequest}
+      />
     </div>
   )
 }
