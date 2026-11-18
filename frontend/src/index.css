@@ -146,6 +146,12 @@
 .brand-name b {
   color: var(--blue);
 }
+.topbar-brand-logo {
+  display: block;
+  width: 62px;
+  height: 62px;
+  object-fit: contain;
+}
 .global-search,
 .message-search,
 .inline-search,
@@ -2968,6 +2974,10 @@
   .brand-mark {
     width: 32px;
     height: 32px;
+  }
+  .topbar-brand-logo {
+    width: 46px;
+    height: 46px;
   }
   .global-search {
     height: 38px;

@@ -3,6 +3,7 @@ import { Outlet, useLocation, useNavigate } from "react-router-dom"
 import { Icon } from "./Icon"
 import { Avatar, ToastProvider } from "./ui"
 import { useAuth } from "../context/AuthContext"
+import cmcUniversityLogo from "../assets/cmc-university-logo.png"
 import { conversationApi } from "../api/conversationApi"
 import { notificationApi } from "../api/notificationApi"
 import { userApi } from "../api/userApi"
@@ -147,13 +148,8 @@ function Header({ route, me, counts, dark, toggleTheme, openSettings }) {
   return (
     <header className="topbar">
       <div className="topbar-inner">
-        <button className="brand" onClick={() => navigate("/feed")} aria-label="CMC Talk - Trang chủ">
-          <span className="brand-mark">
-            <span>C</span>
-          </span>
-          <span className="brand-name">
-            CMC <b>Talk</b>
-          </span>
+        <button className="brand" onClick={() => navigate("/feed")} aria-label="CMC University - Trang chủ">
+          <img className="topbar-brand-logo" src={cmcUniversityLogo} alt="CMC University" draggable="false" />
         </button>
         <GlobalSearch />
         <nav className="top-links" aria-label="Điều hướng nhanh">

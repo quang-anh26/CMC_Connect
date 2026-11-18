@@ -1,6 +1,8 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
-import { GroupIcon, MessengerLogo } from './Icons'
+import { GroupIcon } from './Icons'
+import cmcUniversityLogo from '../assets/cmc-university-logo.png'
+import cmcCloudLogo from '../assets/cmc-cloud-logo.png'
 import {
   CheckIcon,
   MailIcon,
@@ -34,7 +36,7 @@ function Illustration() {
         <span />
         <span />
       </div>
-      <div className="ap-core"><MessengerLogo size={168} /></div>
+      <div className="ap-core"><img src={cmcCloudLogo} alt="" draggable="false" /></div>
       <div className="ap-float f1"><UserIcon size={30} /></div>
       <div className="ap-float f2"><MessageIcon size={30} /></div>
       <div className="ap-float f3"><VideoIcon size={30} /></div>
@@ -61,11 +63,7 @@ export default function AuthLayout({ badge, title, subtitle, hero, activeStep = 
     <div className="ap-page">
       <header className="ap-topbar">
         <Link to="/login" className="ap-brand" aria-label="CMC Talk">
-          <MessengerLogo size={48} />
-          <span className="ap-brand-text">
-            <strong>CMC Talk</strong>
-            <small>Kết nối - Trò chuyện - Chia sẻ</small>
-          </span>
+          <img className="ap-brand-mark" src={cmcUniversityLogo} alt="CMC University" draggable="false" />
         </Link>
       </header>
 

@@ -52,8 +52,8 @@
   text-decoration: none;
 }
 
-.ap-brand-text strong { display: block; font-size: var(--font-size-xl); font-weight: 800; line-height: 1.1; letter-spacing: -0.3px; }
-.ap-brand-text small { display: block; margin-top: 2px; font-size: 13px; color: var(--ap-muted); }
+.ap-brand { gap: 12px; }
+.ap-brand-mark { flex: none; display: block; width: 76px; height: 76px; object-fit: contain; }
 
 /* ---- Bố cục chính ---- */
 .ap-main {
@@ -139,12 +139,16 @@
   position: absolute;
   left: 50%;
   top: 4px;
-  margin-left: -84px;
-  width: 168px;
+  margin-left: -110px;
+  width: 220px;
   height: 168px;
+  display: grid;
+  place-items: center;
   filter: drop-shadow(0 0 34px rgba(60, 160, 255, 0.95));
   animation: ap-bob 7s ease-in-out infinite;
 }
+
+.ap-core img { display: block; width: 100%; height: auto; user-select: none; pointer-events: none; }
 
 .ap-float {
   position: absolute;
@@ -557,8 +561,8 @@ button.ap-account:focus-visible { outline: 3px solid rgba(134, 204, 255, 0.8); o
   .ap-page { padding: 18px var(--space-4) 28px; }
   .ap-main { grid-template-columns: 1fr; gap: 18px; }
   .ap-topbar { margin-bottom: 4px; }
-  .ap-brand-text strong { font-size: clamp(26px, 7vw, 34px); }
-  .ap-brand-text small { font-size: 12px; }
+  .ap-brand { gap: 10px; }
+  .ap-brand-mark { width: 60px; height: 60px; }
   .ap-hero h1 { font-size: clamp(30px, 10vw, 52px); line-height: 1.05; }
   .ap-card { width: 100%; max-width: 100%; padding: 24px var(--space-4) var(--space-5); border-radius: var(--radius-2xl); }
   .ap-card-head { gap: 12px; margin-bottom: 20px; }
@@ -594,7 +598,7 @@ button.ap-account:focus-visible { outline: 3px solid rgba(134, 204, 255, 0.8); o
     linear-gradient(160deg, #f4f8ff 0%, #e0eeff 58%, #edf4ff 100%);
 }
 [data-theme="light"] .ap-page::before { background-image: radial-gradient(rgba(40, 110, 220, 0.16) 1px, transparent 1px); }
-[data-theme="light"] .ap-brand { color: #12294d; }
+[data-theme="light"] .ap-brand { color: #192638; }
 [data-theme="light"] .ap-hero h1 em { background: linear-gradient(90deg, #1d6bff, #0a8fe8); -webkit-background-clip: text; background-clip: text; }
 [data-theme="light"] .ap-platform span { border-color: rgba(40, 130, 240, 0.55); background: linear-gradient(135deg, rgba(120, 180, 255, 0.35), rgba(255, 255, 255, 0.75)); box-shadow: 0 0 36px rgba(40, 130, 255, 0.25), inset 0 0 24px rgba(60, 150, 255, 0.12); }
 [data-theme="light"] .ap-platform span:nth-child(2) { border-color: rgba(40, 140, 240, 0.65); background: rgba(190, 220, 255, 0.55); }
