@@ -1,30 +1,92 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { Avatar } from './ui'
+import { Icon } from './Icon'
+import { messageApi } from '../api/messageApi'
+import { getApiErrorMessage } from '../utils/apiError'
 import { useSocket } from '../context/SocketContext'
 
 const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }
 
-export default function CallOverlay({ conversationInfo, visible, onClose }) {
+function formatDuration(seconds) {
+  const minutes = Math.floor(seconds / 60)
+  const remainder = seconds % 60
+  const hours = Math.floor(minutes / 60)
+  const displayMinutes = minutes % 60
+  return hours
+    ? `${String(hours).padStart(2, '0')}:${String(displayMinutes).padStart(2, '0')}:${String(remainder).padStart(2, '0')}`
+    : `${String(displayMinutes).padStart(2, '0')}:${String(remainder).padStart(2, '0')}`
+}
+
+function reportCallLogError(error) {
+  window.dispatchEvent(new CustomEvent('cmctalk-server-error', {
+    detail: getApiErrorMessage(error, 'Không thể lưu nhật ký cuộc gọi vào đoạn chat.'),
+  }))
+}
+
+export default function CallOverlay({ conversationInfo, conversations = [], visible, onClose }) {
   const { publish, connected, callSignal, clearCallSignal } = useSocket()
   const [callState, setCallState] = useState('idle')
   const [callType, setCallType] = useState('audio')
   const [caller, setCaller] = useState(null)
+  const [callConversation, setCallConversation] = useState(conversationInfo || null)
   const [remoteStream, setRemoteStream] = useState(null)
+  const [elapsedSeconds, setElapsedSeconds] = useState(0)
+  const [audioBlocked, setAudioBlocked] = useState(false)
   const [error, setError] = useState('')
   const peerRef = useRef(null)
   const localStreamRef = useRef(null)
   const pendingCandidatesRef = useRef([])
   const localVideoRef = useRef(null)
   const remoteVideoRef = useRef(null)
+  const remoteAudioRef = useRef(null)
+  const connectedAtRef = useRef(null)
+  const callTypeRef = useRef('audio')
+  const callConversationRef = useRef(conversationInfo || null)
+  const isInitiatorRef = useRef(false)
+  const callLogSavedRef = useRef(false)
 
+  const activeConversation = conversationInfo || callConversation
   const callerUsername = typeof caller === 'string' ? caller : caller?.username
-  const targetUsername = conversationInfo?.otherUserUsername || callerUsername || callSignal?.fromUsername
-  const targetName = conversationInfo?.name || callerUsername || 'Người dùng'
+  const targetUsername = activeConversation?.otherUserUsername || callerUsername || callSignal?.fromUsername
+  const targetName = activeConversation?.name || callerUsername || 'Người dùng'
 
   useEffect(() => {
-    if (localVideoRef.current && localStreamRef.current) localVideoRef.current.srcObject = localStreamRef.current
-    if (remoteVideoRef.current && remoteStream) remoteVideoRef.current.srcObject = remoteStream
-  }, [remoteStream, callState])
+    if (!conversationInfo) return
+    setCallConversation(conversationInfo)
+    callConversationRef.current = conversationInfo
+  }, [conversationInfo])
+
+  useEffect(() => {
+    if (callConversation || !callerUsername) return
+    const matchingConversation = conversations.find((item) => item.otherUserUsername === callerUsername)
+    if (!matchingConversation) return
+    setCallConversation(matchingConversation)
+    callConversationRef.current = matchingConversation
+  }, [callConversation, callerUsername, conversations])
+
+  useEffect(() => {
+    if (localVideoRef.current && localStreamRef.current) {
+      localVideoRef.current.srcObject = localStreamRef.current
+    }
+    if (callType === 'video' && remoteVideoRef.current && remoteStream) {
+      remoteVideoRef.current.srcObject = remoteStream
+    }
+    if (callType === 'audio' && remoteAudioRef.current && remoteStream) {
+      const audio = remoteAudioRef.current
+      audio.srcObject = remoteStream
+      audio.play().then(() => setAudioBlocked(false)).catch(() => setAudioBlocked(true))
+    }
+  }, [remoteStream, callState, callType])
+
+  useEffect(() => {
+    if (callState !== 'connected' || !connectedAtRef.current) return undefined
+    const updateDuration = () => {
+      setElapsedSeconds(Math.floor((Date.now() - connectedAtRef.current) / 1000))
+    }
+    updateDuration()
+    const timer = window.setInterval(updateDuration, 1000)
+    return () => window.clearInterval(timer)
+  }, [callState])
 
   const sendSignal = (payload) => {
     if (!connected || !targetUsername) return false
@@ -38,34 +100,71 @@ export default function CallOverlay({ conversationInfo, visible, onClose }) {
     pendingCandidatesRef.current = []
     localStreamRef.current?.getTracks().forEach((track) => track.stop())
     localStreamRef.current = null
+    connectedAtRef.current = null
+    isInitiatorRef.current = false
     setRemoteStream(null)
+    setElapsedSeconds(0)
+    setAudioBlocked(false)
     setCaller(null)
+    setCallConversation(null)
+    callConversationRef.current = null
     setCallState('idle')
     setError('')
   }
 
+  const saveCallLog = async () => {
+    if (!isInitiatorRef.current || callLogSavedRef.current) return
+    callLogSavedRef.current = true
+    const conversationId = callConversationRef.current?.conversationId
+    if (!conversationId) {
+      reportCallLogError(new Error('Không tìm thấy đoạn chat để lưu nhật ký cuộc gọi.'))
+      return
+    }
+
+    const connectedAt = connectedAtRef.current
+    const durationSeconds = connectedAt ? Math.floor((Date.now() - connectedAt) / 1000) : 0
+    const content = `CALL_LOG:${JSON.stringify({
+      status: connectedAt ? 'COMPLETED' : 'MISSED',
+      callType: callTypeRef.current,
+      durationSeconds,
+    })}`
+    try {
+      await messageApi.send({
+        conversationId: Number(conversationId),
+        content,
+        messageType: 'SYSTEM',
+      })
+    } catch (err) {
+      reportCallLogError(err)
+    }
+  }
+
   const finish = () => {
+    const saveLog = saveCallLog()
     sendSignal({ type: 'end' })
     cleanup()
     onClose?.()
+    return saveLog
   }
 
   const createPeer = (remoteUsername) => {
     const peer = new RTCPeerConnection(rtcConfig)
     const stream = new MediaStream()
     peer.ontrack = (event) => {
-      event.streams[0]?.getTracks().forEach((track) => stream.addTrack(track))
-      setRemoteStream(stream)
+      if (event.streams[0]) {
+        setRemoteStream(event.streams[0])
+      } else {
+        stream.addTrack(event.track)
+        setRemoteStream(stream)
+      }
     }
     peer.onicecandidate = (event) => {
-      if (event.candidate) {
-        if (connected) {
-          publish('/app/call.signal', { toUsername: remoteUsername, type: 'candidate', candidate: event.candidate })
-        }
+      if (event.candidate && connected) {
+        publish('/app/call.signal', { toUsername: remoteUsername, type: 'candidate', candidate: event.candidate })
       }
     }
     peer.onconnectionstatechange = () => {
-      if (['failed', 'disconnected', 'closed'].includes(peer.connectionState)) {
+      if (['failed', 'disconnected'].includes(peer.connectionState)) {
         setError(`Kết nối cuộc gọi ${peer.connectionState === 'failed' ? 'thất bại' : 'bị ngắt'}.`)
       }
     }
@@ -93,6 +192,11 @@ export default function CallOverlay({ conversationInfo, visible, onClose }) {
     try {
       setError('')
       setCallType(type)
+      callTypeRef.current = type
+      callConversationRef.current = activeConversation
+      isInitiatorRef.current = true
+      callLogSavedRef.current = false
+      connectedAtRef.current = null
       pendingCandidatesRef.current = []
       if (!connected) throw new Error('Máy chủ cuộc gọi chưa kết nối. Vui lòng thử lại.')
       if (typeof RTCPeerConnection === 'undefined') throw new Error('Trình duyệt không hỗ trợ WebRTC.')
@@ -132,6 +236,8 @@ export default function CallOverlay({ conversationInfo, visible, onClose }) {
       if (!connected) throw new Error('Máy chủ cuộc gọi chưa kết nối. Vui lòng thử lại.')
       if (!caller?.username || !caller?.offer) throw new Error('Thông tin cuộc gọi đến không hợp lệ.')
       if (typeof RTCPeerConnection === 'undefined') throw new Error('Trình duyệt không hỗ trợ WebRTC.')
+      callTypeRef.current = callType
+      isInitiatorRef.current = false
       pendingCandidatesRef.current = []
       const stream = await navigator.mediaDevices.getUserMedia({ video: callType === 'video', audio: true })
       localStreamRef.current = stream
@@ -145,6 +251,7 @@ export default function CallOverlay({ conversationInfo, visible, onClose }) {
       if (!sendSignal({ type: 'answer', answer })) {
         throw new Error('Không gửi được tín hiệu nhận cuộc gọi. Hãy kiểm tra kết nối mạng rồi thử lại.')
       }
+      connectedAtRef.current = Date.now()
       setCallState('connected')
     } catch (err) {
       cleanup()
@@ -162,18 +269,28 @@ export default function CallOverlay({ conversationInfo, visible, onClose }) {
       try {
         if (signal.type === 'offer') {
           if (!signal.offer || !signal.fromUsername) throw new Error('Thiếu dữ liệu cuộc gọi đến')
+          const matchingConversation = conversations.find((item) => item.otherUserUsername === signal.fromUsername)
+          if (matchingConversation) {
+            setCallConversation(matchingConversation)
+            callConversationRef.current = matchingConversation
+          }
+          callTypeRef.current = signal.callType || 'audio'
           setCaller({ username: signal.fromUsername, offer: signal.offer })
           setCallType(signal.callType || 'audio')
           setCallState('incoming')
         } else if (signal.type === 'answer' && peerRef.current && signal.answer) {
           await peerRef.current.setRemoteDescription(new RTCSessionDescription(signal.answer))
+          connectedAtRef.current = Date.now()
           setCallState('connected')
         } else if (signal.type === 'candidate' && signal.candidate) {
           const candidate = new RTCIceCandidate(signal.candidate)
           if (peerRef.current?.remoteDescription) await peerRef.current.addIceCandidate(candidate)
           else pendingCandidatesRef.current.push(candidate)
         } else if (signal.type === 'end' || signal.type === 'reject') {
+          const saveLog = isInitiatorRef.current ? saveCallLog() : null
           cleanup()
+          if (saveLog) await saveLog
+          onClose?.()
         }
       } catch {
         setError('Kết nối cuộc gọi bị gián đoạn.')
@@ -184,22 +301,75 @@ export default function CallOverlay({ conversationInfo, visible, onClose }) {
 
   useEffect(() => cleanup, [])
 
-  if (callState === 'idle' && !error && !visible) {
-    return null
-  }
+  if (callState === 'idle' && !error && !visible) return null
+
+  const statusText = callState === 'incoming'
+    ? 'Cuộc gọi đến'
+    : callState === 'connected'
+      ? 'Đang trò chuyện'
+      : callState === 'calling'
+        ? 'Đang đổ chuông...'
+        : 'Đang chuẩn bị cuộc gọi...'
 
   return (
-    <div className="call-overlay">
+    <div className={`call-overlay ${callType === 'video' ? 'is-video' : 'is-audio'}`}>
       <div className="call-card">
-        <div className="call-card-title">
-          <Avatar src={conversationInfo?.avatar} name={targetName} size="lg" />
-          <div><strong>{callState === 'incoming' ? `${targetName} đang gọi` : targetName}</strong><span>{callState === 'connected' ? 'Đã kết nối' : callState === 'calling' ? 'Đang gọi...' : 'Cuộc gọi đến'}</span></div>
+        <header className="call-topbar">
+          <div>
+            <strong>{callState === 'incoming' ? `${targetName} đang gọi` : targetName}</strong>
+            <span>{statusText}</span>
+          </div>
+          <span className="call-kind">{callType === 'video' ? 'Cuộc gọi video' : 'Cuộc gọi thoại'}</span>
+        </header>
+
+        {callType === 'video' ? (
+          <div className="call-video-stage">
+            <video ref={remoteVideoRef} autoPlay playsInline />
+            <video ref={localVideoRef} autoPlay muted playsInline />
+          </div>
+        ) : (
+          <div className="call-audio-stage">
+            <Avatar src={activeConversation?.avatar} name={targetName} size="lg" />
+            <strong>{targetName}</strong>
+            <audio ref={remoteAudioRef} autoPlay playsInline />
+            {audioBlocked && (
+              <button type="button" className="call-audio-enable" onClick={() => {
+                remoteAudioRef.current?.play().then(() => setAudioBlocked(false)).catch(() => {
+                  setError('Không thể phát âm thanh cuộc gọi. Hãy kiểm tra âm lượng và quyền trình duyệt.')
+                })
+              }}>
+                Bật âm thanh
+              </button>
+            )}
+          </div>
+        )}
+
+        <div className="call-live-status">
+          <span className={callState === 'connected' ? 'is-live' : ''}>{callState === 'connected' ? 'Đã kết nối' : statusText}</span>
+          {callState === 'connected' && <strong>{formatDuration(elapsedSeconds)}</strong>}
         </div>
-        {callType === 'video' && <div className="call-video-stage"><video ref={remoteVideoRef} autoPlay playsInline /><video ref={localVideoRef} autoPlay muted playsInline /></div>}
         {error && <div className="call-error">{error}</div>}
+
         <div className="call-actions">
-          {callState === 'incoming' && <><button type="button" className="call-accept" onClick={acceptCall}>Nhận</button><button type="button" className="call-reject" onClick={() => { sendSignal({ type: 'reject' }); cleanup() }}>Từ chối</button></>}
-          {callState !== 'incoming' && <button type="button" className="call-reject" onClick={finish}>Kết thúc</button>}
+          {callState === 'incoming' ? (
+            <>
+              <button type="button" className="call-accept" aria-label="Nghe máy" title="Nghe máy" onClick={acceptCall}>
+                <Icon name="phone" size={22} />
+                <span>Nghe máy</span>
+              </button>
+              <button type="button" className="call-reject" aria-label="Từ chối cuộc gọi" title="Từ chối cuộc gọi" onClick={() => {
+                sendSignal({ type: 'reject' })
+                cleanup()
+              }}>
+                <Icon name="phone" size={22} />
+                <span>Từ chối</span>
+              </button>
+            </>
+          ) : (
+            <button type="button" className="call-hangup" aria-label="Kết thúc cuộc gọi" title="Kết thúc cuộc gọi" onClick={finish}>
+              <span className="call-phone-icon"><Icon name="phone" size={25} /></span>
+            </button>
+          )}
         </div>
       </div>
     </div>

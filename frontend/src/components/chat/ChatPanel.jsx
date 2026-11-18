@@ -20,6 +20,33 @@ function replyPreview(message, messages) {
   return preview
 }
 
+function systemMessageLabel(message, isMine, conversation) {
+  const prefix = "CALL_LOG:"
+  if (!message.content?.startsWith(prefix)) return message.content
+  try {
+    const call = JSON.parse(message.content.slice(prefix.length))
+    const typeLabel = call.callType === "video" ? "cuộc gọi video" : "cuộc gọi thoại"
+    if (call.status === "MISSED") {
+      return isMine
+        ? `Bạn đã gọi ${typeLabel} nhưng không được trả lời`
+        : `Bạn đã bỏ lỡ ${typeLabel} từ ${message.senderDisplayName || conversation?.name || "người dùng"}`
+    }
+    if (call.status === "COMPLETED" && Number.isFinite(call.durationSeconds)) {
+      const totalMinutes = Math.floor(call.durationSeconds / 60)
+      const seconds = call.durationSeconds % 60
+      const hours = Math.floor(totalMinutes / 60)
+      const minutes = totalMinutes % 60
+      const duration = hours
+        ? `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`
+        : `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`
+      return `Cuộc gọi ${call.callType === "video" ? "video" : "thoại"} · ${duration}`
+    }
+  } catch {
+    return message.content
+  }
+  return message.content
+}
+
 export default function ChatPanel({ conversationId, conversation, onConversationChange, infoOpen, onToggleInfo, onBack, onOpenImage, messagesRef, onMessages }) {
   const { user } = useAuth()
   const { subscribe, publish, connected, startCall } = useSocket()
@@ -294,6 +321,11 @@ export default function ChatPanel({ conversationId, conversation, onConversation
     }
   }
 
+  const cancelRecording = () => {
+    sendOnStopRef.current = false
+    recorderRef.current?.stop()
+  }
+
   const react = async (messageId, emoji) => {
     try {
       const { data } = await messageApi.react(messageId, Number(conversationId), emoji)
@@ -397,9 +429,10 @@ export default function ChatPanel({ conversationId, conversation, onConversation
         {!loading && messages.length === 0 && <div className="chat-day">Chưa có tin nhắn nào. Hãy gửi lời chào đầu tiên! 👋</div>}
         {rows.map(({ m, showDay }) => {
           if (m.messageType === "SYSTEM") {
+            const isMine = String(m.senderId) === String(myId)
             return (
               <div key={m.messageId} className="chat-day system-row">
-                {m.content}
+                {systemMessageLabel(m, isMine, conversation)}
               </div>
             )
           }
@@ -559,6 +592,11 @@ export default function ChatPanel({ conversationId, conversation, onConversation
             <Icon name="mic" />
           </button>
           {recording && <span className="recording-label"><i />Đang ghi âm</span>}
+          {recording && (
+            <button type="button" className="recording-cancel" aria-label="Hủy ghi âm" title="Hủy ghi âm" onClick={cancelRecording}>
+              <Icon name="close" size={16} />
+            </button>
+          )}
           <input
             value={text}
             onChange={(e) => onType(e.target.value)}
