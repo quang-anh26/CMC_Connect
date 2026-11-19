@@ -1,20 +1,17 @@
 import React, { useCallback, useEffect, useRef, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { EmptyState } from "../components/ui"
-import CallOverlay from "../components/CallOverlay"
 import ChatPanel from "../components/chat/ChatPanel"
 import ContactInfo from "../components/chat/ContactInfo"
 import ConversationList from "../components/chat/ConversationList"
 import NewChatModal from "../components/chat/NewChatModal"
 import { Icon } from "../components/Icon"
 import { conversationApi } from "../api/conversationApi"
-import { useSocket } from "../context/SocketContext"
 import { mediaUrl } from "../utils/format"
 
 export default function MessagesPage() {
   const { conversationId } = useParams()
   const navigate = useNavigate()
-  const { callRequest, clearCallRequest } = useSocket()
   const [info, setInfo] = useState(true)
   const [creating, setCreating] = useState(false)
   const [lightbox, setLightbox] = useState(null)
@@ -67,8 +64,6 @@ export default function MessagesPage() {
     navigate(`/messages/${id}`)
   }
 
-  const callConversations = [...state.list, ...state.requests, ...archived, ...(selected ? [selected] : [])]
-
   return (
     <div className={`messages-layout ${conversationId && info ? "with-info" : ""} ${conversationId ? "has-chat" : ""}`}>
       <ConversationList
@@ -119,12 +114,6 @@ export default function MessagesPage() {
           <img src={mediaUrl(lightbox)} alt="Ảnh phóng to" onClick={(e) => e.stopPropagation()} />
         </div>
       )}
-      <CallOverlay
-        conversationInfo={callRequest}
-        conversations={callConversations}
-        visible={Boolean(callRequest)}
-        onClose={clearCallRequest}
-      />
     </div>
   )
 }
@@ -132,8 +121,8 @@ export default function MessagesPage() {
 // Giữ lại các thay đổi cục bộ mới hơn dữ liệu danh sách (vd. vừa đổi biệt danh/hình nền).
 function patchedKeys(current, fresh) {
   const keep = {}
-  ;["topic", "backgroundImage", "otherUserNickname", "currentUserNickname", "blockedByCurrentUser"].forEach((k) => {
-    if (current[k] !== undefined && fresh[k] === undefined) keep[k] = current[k]
-  })
+    ;["topic", "backgroundImage", "otherUserNickname", "currentUserNickname", "blockedByCurrentUser"].forEach((k) => {
+      if (current[k] !== undefined && fresh[k] === undefined) keep[k] = current[k]
+    })
   return keep
 }

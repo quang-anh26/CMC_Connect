@@ -1,263 +1,542 @@
-import React, { useEffect, useState } from "react"
-import { useNavigate, useParams } from "react-router-dom"
+import React, { useEffect, useMemo, useState } from "react"
+import { useParams, useNavigate } from "react-router-dom"
 import { Icon } from "../components/Icon"
 import { Avatar, Button, EmptyState, ErrorBlock, Loading, Modal, useAsync, useToast } from "../components/ui"
-import { eventApi } from "../api/eventApi"
+import {
+  bookmarkForumTopic,
+  createForumTopic,
+  createForumTopicWithAttachment,
+  deleteForumTopic,
+  downloadForumAttachment,
+  getForumTaxonomy,
+  getForumTopic,
+  getForumTopics,
+  replyForumTopic,
+  updateForumTopic,
+  uploadForumAttachment,
+  reportForumTopic,
+} from "../api/forumApi"
 import { useAuth } from "../context/AuthContext"
 import { getApiErrorMessage } from "../utils/apiError"
-import { eventTimeRange, mediaUrl, monthShort } from "../utils/format"
+import { formatBytes, timeAgo } from "../utils/format"
 import "../styles/extras.css"
 
-// Cập nhật giao diện mỗi 30 giây để nhãn "Bắt đầu sau ... phút" / "Đang diễn ra" luôn đúng
-function useTick(ms = 30000) {
-  const [, setTick] = useState(0)
-  useEffect(() => {
-    const timer = window.setInterval(() => setTick((n) => n + 1), ms)
-    return () => window.clearInterval(timer)
-  }, [ms])
+// Định dạng tệp mà máy chủ cho phép (khớp ForumFileController) và giới hạn dung lượng 50 MB
+const ALLOWED_EXTENSIONS = ["pdf", "doc", "docx", "ppt", "pptx", "xls", "xlsx", "zip", "mp4"]
+const FILE_ACCEPT = ALLOWED_EXTENSIONS.map((ext) => `.${ext}`).join(",")
+const MAX_FILE_BYTES = 50 * 1024 * 1024
+const extensionOf = (name = "") => (name.includes(".") ? name.split(".").pop().toLowerCase() : "")
+
+const TYPE_LABEL = {
+  QUESTION: "Câu hỏi",
+  DISCUSSION: "Thảo luận",
+  PROJECT: "Dự án",
+  EXPERIENCE: "Kinh nghiệm",
+  KNOWLEDGE: "Kiến thức",
+  RESOURCE: "Chia sẻ tài liệu",
 }
-
-function eventStatus(event) {
-  const start = new Date(event.startsAt).getTime()
-  const now = Date.now()
-  if (now >= start + 3 * 3600 * 1000) return { key: "ended", label: "Đã kết thúc" }
-  if (now >= start) return { key: "live", label: "Đang diễn ra" }
-  const minutes = Math.max(1, Math.ceil((start - now) / 60000))
-  if (minutes <= 60) return { key: "soon", label: `Bắt đầu sau ${minutes} phút` }
-  if (minutes <= 24 * 60) return { key: "today", label: `Còn ${Math.floor(minutes / 60)} giờ nữa` }
-  return null
+const RESOURCE_KIND = {
+  CURRICULUM: "Chương trình học",
+  STUDY_MATERIAL: "Tài liệu học tập",
+  EXAM: "Đề thi",
+  LECTURE: "Bài giảng",
+  REFERENCE: "Tài liệu tham khảo",
 }
+const TABS = [
+  ["newest", "Mới nhất"],
+  ["unanswered", "Chưa trả lời"],
+  ["DISCUSSION", "Thảo luận"],
+  ["RESOURCE", "Tài liệu"],
+]
 
-function StatusBadge({ event }) {
-  const status = eventStatus(event)
-  if (!status) return null
-  return <em className={`ev-badge ev-${status.key}`}>{status.key === "live" && <i />}{status.label}</em>
-}
+const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => ((Math.random() * 16) | 0).toString(16)))
 
-const FILTERS = [["ALL", "Tất cả"], ["UPCOMING", "Sắp diễn ra"], ["JOINED", "Đã tham gia"], ["MINE", "Do tôi tổ chức"]]
-const PRIVACY = { PUBLIC: "Công khai", FRIENDS: "Bạn bè", PRIVATE: "Chỉ mình tôi" }
-
-function Cover({ event }) {
-  return event.imageUrl ? <img src={mediaUrl(event.imageUrl)} alt={event.title} /> : <div className="cover-fallback"><Icon name="calendar" size={36} /></div>
-}
-
-function EventForm({ initial, onClose, onSaved }) {
+function TopicDetail({ topicId, meId, onClose, onChanged }) {
   const toast = useToast()
-  const start = initial?.startsAt ? new Date(initial.startsAt) : null
-  const pad = (n) => String(n).padStart(2, "0")
-  const [form, setForm] = useState({
-    title: initial?.title || "",
-    date: start ? `${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}` : "",
-    time: start ? `${pad(start.getHours())}:${pad(start.getMinutes())}` : "",
-    location: initial?.location || "",
-    description: initial?.description || "",
-    privacy: initial?.privacy || "PUBLIC",
-    imageUrl: initial?.imageUrl || "",
-  })
+  const { data: topic, loading, error, setData } = useAsync(() => getForumTopic(topicId), [topicId])
+  const [reply, setReply] = useState("")
   const [busy, setBusy] = useState(false)
-  const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }))
-  const valid = form.title.trim() && form.date && form.time && form.location.trim()
+  const [bookmarked, setBookmarked] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState({ title: "", content: "" })
 
-  const upload = async (e) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+  const startEdit = () => {
+    setDraft({ title: topic.title, content: topic.content })
+    setEditing(true)
+  }
+  const saveEdit = async () => {
+    if (!draft.title.trim() || !draft.content.trim()) return
+    setBusy(true)
     try {
-      const { data } = await eventApi.uploadImage(file)
-      setForm((f) => ({ ...f, imageUrl: data.url }))
+      const updated = await updateForumTopic(topicId, {
+        title: draft.title.trim(),
+        content: draft.content.trim(),
+        type: topic.type,
+        resourceKind: topic.resourceKind || null,
+        source: topic.source || null,
+        categoryId: topic.categoryId || null,
+        courseId: topic.courseId || null,
+        facultyId: topic.facultyId || null,
+        majorId: topic.majorId || null,
+      })
+      setData({ ...topic, ...updated, replies: topic.replies })
+      setEditing(false)
+      toast("Đã cập nhật chủ đề.")
+      onChanged()
     } catch (err) {
-      toast(getApiErrorMessage(err, "Không thể tải ảnh lên."), "error")
+      toast(getApiErrorMessage(err, "Không thể cập nhật chủ đề."), "error")
+    } finally {
+      setBusy(false)
     }
   }
 
+  const sendReply = async (event) => {
+    event.preventDefault()
+    if (!reply.trim()) return
+    setBusy(true)
+    try {
+      const created = await replyForumTopic(topicId, reply.trim())
+      setData({ ...topic, replies: [...(topic.replies || []), created], replyCount: (topic.replyCount || 0) + 1 })
+      setReply("")
+      onChanged()
+    } catch (err) {
+      toast(getApiErrorMessage(err, "Không thể gửi trả lời."), "error")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const bookmark = async () => {
+    try {
+      await bookmarkForumTopic(topicId, !bookmarked)
+      setBookmarked(!bookmarked)
+      toast(!bookmarked ? "Đã lưu chủ đề." : "Đã bỏ lưu chủ đề.")
+    } catch (err) {
+      toast(getApiErrorMessage(err, "Không thể lưu chủ đề."), "error")
+    }
+  }
+
+  const report = async () => {
+    const reason = window.prompt("Lý do báo cáo chủ đề này:")
+    if (!reason?.trim()) return
+    try {
+      await reportForumTopic(topicId, reason.trim())
+      toast("Đã gửi báo cáo tới quản trị viên.")
+    } catch (err) {
+      toast(getApiErrorMessage(err, "Không thể gửi báo cáo."), "error")
+    }
+  }
+
+  const remove = async () => {
+    if (!window.confirm("Xóa chủ đề này?")) return
+    try {
+      await deleteForumTopic(topicId)
+      toast("Đã xóa chủ đề.")
+      onChanged()
+      onClose()
+    } catch (err) {
+      toast(getApiErrorMessage(err, "Không thể xóa chủ đề."), "error")
+    }
+  }
+
+  const download = async (attachment) => {
+    try {
+      const blob = await downloadForumAttachment(attachment.id)
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = attachment.name
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      toast(getApiErrorMessage(err, "Không thể tải tệp."), "error")
+    }
+  }
+
+  return (
+    <Modal title={topic?.title || "Chủ đề"} close={onClose} wide>
+      <div className="topic-detail">
+        {loading && <Loading />}
+        {error && <ErrorBlock message={error} />}
+        {topic && (
+          <>
+            <div className="topic-detail-tags">
+              <span>{TYPE_LABEL[topic.type] || topic.type}</span>
+              {topic.faculty && <span>{topic.faculty}</span>}
+              {topic.course && <span>{topic.course}</span>}
+              {topic.resourceKind && <span>{RESOURCE_KIND[topic.resourceKind]}</span>}
+            </div>
+            <div className="topic-detail-author">
+              <Avatar name={topic.authorName} src={topic.authorAvatar} size="sm" />
+              <span>
+                <strong>{topic.authorName}</strong> · {timeAgo(topic.createdAt)} · {topic.viewCount} lượt xem
+              </span>
+            </div>
+            {editing ? (
+              <div className="form-grid" style={{ marginTop: 10 }}>
+                <label className="full">Tiêu đề<input value={draft.title} maxLength={180} onChange={(e) => setDraft({ ...draft, title: e.target.value })} /></label>
+                <label className="full">Nội dung<textarea rows={6} value={draft.content} maxLength={30000} onChange={(e) => setDraft({ ...draft, content: e.target.value })} /></label>
+                <div className="full" style={{ display: "flex", gap: 8 }}>
+                  <Button disabled={busy} onClick={saveEdit}>Lưu chỉnh sửa</Button>
+                  <Button variant="secondary" onClick={() => setEditing(false)}>Hủy</Button>
+                </div>
+              </div>
+            ) : (
+              <p className="topic-detail-body">{topic.content}</p>
+            )}
+            {topic.source && <p className="topic-detail-source">Nguồn: {topic.source}</p>}
+            {(topic.attachments || []).map((a) => (
+              <button type="button" key={a.id} className="attachment-row" onClick={() => download(a)}>
+                <Icon name="file" />
+                <span>
+                  <strong>{a.name}</strong>
+                  <small>{a.extension} · {formatBytes(a.size)}</small>
+                </span>
+                <Icon name="download" size={18} />
+              </button>
+            ))}
+            <div className="topic-detail-actions">
+              <Button variant="secondary" icon="bookmark" onClick={bookmark}>{bookmarked ? "Đã lưu" : "Lưu chủ đề"}</Button>
+              <Button variant="secondary" onClick={report}>Báo cáo</Button>
+              {String(topic.authorId) === String(meId) && !editing && <Button variant="secondary" icon="edit" onClick={startEdit}>Sửa</Button>}
+              {String(topic.authorId) === String(meId) && <Button variant="danger" icon="trash" onClick={remove}>Xóa</Button>}
+            </div>
+            <h3 style={{ marginTop: 18 }}>{(topic.replies || []).length} trả lời</h3>
+            <div className="reply-list">
+              {(topic.replies || []).map((r) => (
+                <div className="comment-preview comment-item" key={r.id}>
+                  <Avatar name={r.author} src={r.authorAvatar} size="sm" />
+                  <div>
+                    <strong>{r.author}</strong>
+                    <p>{r.content}</p>
+                    <span>{timeAgo(r.createdAt)}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <form className="comment-form" onSubmit={sendReply}>
+              <input value={reply} onChange={(e) => setReply(e.target.value)} placeholder="Viết câu trả lời của bạn..." maxLength={10000} />
+              <button className="button button-primary" disabled={busy || !reply.trim()}>Gửi</button>
+            </form>
+          </>
+        )}
+      </div>
+    </Modal>
+  )
+}
+
+function NewTopicModal({ taxonomy, onClose, onCreated, defaultType = "QUESTION" }) {
+  const toast = useToast()
+  const [form, setForm] = useState({ title: "", content: "", type: defaultType, facultyId: "", majorId: "", courseId: "", categoryId: "", resourceKind: "STUDY_MATERIAL", source: "" })
+  const [file, setFile] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const [submissionKey] = useState(uuid)
+  const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value, ...(key === "facultyId" ? { majorId: "" } : {}) }))
+  const majors = (taxonomy?.majors || []).filter((m) => String(m.facultyId) === String(form.facultyId))
+  const isResource = form.type === "RESOURCE"
+
+  const pickFile = (e) => {
+    const picked = e.target.files?.[0] || null
+    e.target.value = ""
+    if (!picked) return
+    if (!ALLOWED_EXTENSIONS.includes(extensionOf(picked.name))) {
+      toast("Chỉ hỗ trợ PDF, Word, PowerPoint, Excel, ZIP hoặc MP4.", "error")
+      return
+    }
+    if (picked.size > MAX_FILE_BYTES) {
+      toast("Tệp quá lớn, tối đa 50 MB.", "error")
+      return
+    }
+    setFile(picked)
+  }
+
   const submit = async () => {
+    if (!form.title.trim() || !form.content.trim()) return
+    if (isResource && !file) {
+      toast("Bài chia sẻ tài liệu cần kèm một tệp.", "error")
+      return
+    }
     setBusy(true)
     try {
       const payload = {
         title: form.title.trim(),
-        imageUrl: form.imageUrl || null,
-        startsAt: `${form.date}T${form.time}:00`,
-        location: form.location.trim(),
-        description: form.description.trim(),
-        privacy: form.privacy,
+        content: form.content.trim(),
+        type: form.type,
+        facultyId: form.facultyId || null,
+        majorId: form.majorId || null,
+        courseId: form.courseId || null,
+        categoryId: form.categoryId || null,
+        resourceKind: isResource ? form.resourceKind : null,
+        source: form.source.trim() || null,
       }
-      const { data } = initial ? await eventApi.update(initial.eventId, payload) : await eventApi.create(payload)
-      toast(initial ? "Đã cập nhật sự kiện." : "Đã tạo sự kiện.")
-      onSaved(data)
+      const created = isResource ? await createForumTopicWithAttachment(payload, file, submissionKey) : await createForumTopic(payload)
+      if (!isResource && file) {
+        // Câu hỏi / thảo luận...: đăng bài trước rồi đính kèm tệp vào bài vừa tạo
+        try {
+          await uploadForumAttachment(created.id, file)
+        } catch (uploadError) {
+          toast(`Đã đăng chủ đề nhưng chưa đính kèm được tệp: ${getApiErrorMessage(uploadError, "lỗi không xác định")}`, "error")
+          onCreated(created)
+          return
+        }
+      }
+      toast("Đã đăng chủ đề.")
+      onCreated(created)
     } catch (err) {
-      toast(getApiErrorMessage(err, "Không thể lưu sự kiện."), "error")
+      toast(getApiErrorMessage(err, "Không thể đăng chủ đề."), "error")
     } finally {
       setBusy(false)
     }
   }
 
   return (
-    <Modal title={initial ? "Chỉnh sửa sự kiện" : "Tạo sự kiện mới"} close={onClose}>
+    <Modal title="Đăng chủ đề mới" close={onClose} wide>
       <div className="form-grid">
-        <label className="full">Tên sự kiện<input value={form.title} onChange={set("title")} maxLength={120} placeholder="Ví dụ: Workshop kỹ năng thuyết trình" /></label>
-        <label>Ngày tổ chức<input type="date" value={form.date} onChange={set("date")} /></label>
-        <label>Thời gian<input type="time" value={form.time} onChange={set("time")} /></label>
-        <label className="full">Địa điểm<input value={form.location} onChange={set("location")} maxLength={180} placeholder="Nhập phòng hoặc địa điểm" /></label>
-        <label>Quyền riêng tư
-          <select value={form.privacy} onChange={set("privacy")}>
-            {Object.entries(PRIVACY).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+        <label className="full">
+          Tiêu đề
+          <input value={form.title} onChange={set("title")} maxLength={180} placeholder="Viết tiêu đề rõ ràng, cụ thể" />
+        </label>
+        <label>
+          Loại chủ đề
+          <select value={form.type} onChange={set("type")}>
+            {Object.entries(TYPE_LABEL).map(([value, label]) => (
+              <option key={value} value={value}>{label}</option>
+            ))}
           </select>
         </label>
-        <label>Ảnh bìa<input type="file" accept="image/*" onChange={upload} /></label>
-        {form.imageUrl && <img className="full form-preview" src={mediaUrl(form.imageUrl)} alt="Ảnh bìa" />}
-        <label className="full">Mô tả<textarea rows={4} value={form.description} onChange={set("description")} maxLength={5000} placeholder="Giới thiệu ngắn về sự kiện..." /></label>
+        <label>
+          Danh mục
+          <select value={form.categoryId} onChange={set("categoryId")}>
+            <option value="">Không chọn</option>
+            {(taxonomy?.categories || []).map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Khoa
+          <select value={form.facultyId} onChange={set("facultyId")}>
+            <option value="">Không chọn</option>
+            {(taxonomy?.faculties || []).map((f) => (
+              <option key={f.id} value={f.id}>{f.name}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Chuyên ngành
+          <select value={form.majorId} onChange={set("majorId")} disabled={!form.facultyId}>
+            <option value="">Không chọn</option>
+            {majors.map((m) => (
+              <option key={m.id} value={m.id}>{m.name}</option>
+            ))}
+          </select>
+        </label>
+        <label className="full">
+          Môn học
+          <select value={form.courseId} onChange={set("courseId")}>
+            <option value="">Không chọn</option>
+            {(taxonomy?.courses || []).map((c) => (
+              <option key={c.id} value={c.id}>{c.code} · {c.name}</option>
+            ))}
+          </select>
+        </label>
+        {isResource && (
+          <>
+            <label>
+              Loại tài liệu
+              <select value={form.resourceKind} onChange={set("resourceKind")}>
+                {Object.entries(RESOURCE_KIND).map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Nguồn tài liệu
+              <input value={form.source} onChange={set("source")} maxLength={500} placeholder="Giảng viên, giáo trình..." />
+            </label>
+          </>
+        )}
+        <div className="full fo-pick">
+          <label>
+            Tệp đính kèm {isResource ? "(bắt buộc)" : "(không bắt buộc)"}
+            <span className="fo-hint"> · PDF, Word, PowerPoint, Excel, ZIP, MP4 · tối đa 50 MB</span>
+            <input type="file" accept={FILE_ACCEPT} onChange={pickFile} />
+          </label>
+          {file && (
+            <div className="fo-file">
+              <span className={`fo-file-ico ${extensionOf(file.name)}`}>{extensionOf(file.name).toUpperCase()}</span>
+              <span className="fo-file-info"><strong>{file.name}</strong><small>{formatBytes(file.size)}</small></span>
+              <button type="button" className="ghost" aria-label="Bỏ tệp" onClick={() => setFile(null)}>×</button>
+            </div>
+          )}
+        </div>
+        <label className="full">
+          Nội dung
+          <textarea rows={6} value={form.content} onChange={set("content")} maxLength={30000} placeholder="Mô tả chi tiết vấn đề hoặc nội dung chia sẻ..." />
+        </label>
       </div>
       <div className="modal-actions">
         <Button variant="secondary" onClick={onClose}>Hủy</Button>
-        <Button disabled={busy || !valid} onClick={submit}>{initial ? "Lưu thay đổi" : "Tạo sự kiện"}</Button>
+        <Button disabled={busy || !form.title.trim() || !form.content.trim()} onClick={submit}>{busy ? "Đang đăng..." : "Đăng chủ đề"}</Button>
       </div>
     </Modal>
   )
 }
 
-function EventDetail({ eventId, meId, onClose, onChanged, onEdit }) {
-  const toast = useToast()
-  useTick()
-  const { data: event, loading, error, setData } = useAsync(() => eventApi.get(eventId).then((r) => r.data), [eventId])
-  const attend = async (status) => {
-    try {
-      const { data } = await eventApi.attendance(eventId, status)
-      setData(data)
-      onChanged()
-    } catch (err) {
-      toast(getApiErrorMessage(err, "Không thể cập nhật trạng thái tham gia."), "error")
-    }
-  }
-  const cancel = async () => {
-    if (!window.confirm("Hủy sự kiện này?")) return
-    try {
-      await eventApi.cancel(eventId)
-      toast("Đã hủy sự kiện.")
-      onChanged()
-      onClose()
-    } catch (err) {
-      toast(getApiErrorMessage(err, "Không thể hủy sự kiện."), "error")
-    }
-  }
-  const started = event ? new Date(event.startsAt).getTime() <= Date.now() : false
-  return (
-    <Modal title={event?.title || "Sự kiện"} close={onClose} wide>
-      {loading && <Loading />}
-      {error && <ErrorBlock message={error} />}
-      {event && (
-        <div className="topic-detail">
-          <div className="event-detail-cover"><Cover event={event} /></div>
-          <p className="event-meta"><Icon name="clock" size={16} /> {eventTimeRange(event.startsAt)} <StatusBadge event={event} /></p>
-          <p className="event-meta"><Icon name="location" size={16} /> {event.location}</p>
-          <p className="event-meta"><Icon name="users" size={16} /> {event.goingCount} tham gia · {event.interestedCount} quan tâm · {PRIVACY[event.privacy]}</p>
-          <p className="event-meta">Tổ chức bởi <strong>{event.organizerName}</strong></p>
-          {event.description && <p className="topic-detail-body">{event.description}</p>}
-          {!started && (event.viewerStatus || String(event.organizerId) === String(meId)) && (
-            <p className="ev-hint"><Icon name="bell" size={16} /> Bạn sẽ nhận thông báo trước giờ bắt đầu 30 phút và khi sự kiện bắt đầu.</p>
-          )}
-          {started && <p className="ev-hint">Sự kiện đã bắt đầu nên không thể thay đổi trạng thái tham gia.</p>}
-          <div className="topic-detail-actions">
-            <Button variant={event.viewerStatus === "GOING" ? "primary" : "secondary"} disabled={started} onClick={() => attend("GOING")}>{event.viewerStatus === "GOING" ? "Đã tham gia" : "Tham gia"}</Button>
-            <Button variant={event.viewerStatus === "INTERESTED" ? "primary" : "secondary"} disabled={started} onClick={() => attend("INTERESTED")}>{event.viewerStatus === "INTERESTED" ? "Đang quan tâm" : "Quan tâm"}</Button>
-            {String(event.organizerId) === String(meId) && (
-              <>
-                <Button variant="secondary" icon="edit" onClick={() => onEdit(event)}>Chỉnh sửa</Button>
-                <Button variant="danger" icon="trash" onClick={cancel}>Hủy sự kiện</Button>
-              </>
-            )}
-          </div>
-          {(event.attendees || []).length > 0 && (
-            <>
-              <h3 style={{ marginTop: 16 }}>Người tham gia</h3>
-              <div className="attendee-list">
-                {event.attendees.map((a) => (
-                  <span key={a.userId}><Avatar name={a.name} src={a.avatar} size="sm" /> {a.name}</span>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-      )}
-    </Modal>
-  )
-}
-
-export default function EventsPage() {
-  const { eventId } = useParams()
+export default function ForumPage() {
+  const splat = useParams()["*"] || ""
+  const topicId = splat.match(/^topics\/(\d+)/)?.[1]
+  const routeFilter = splat.match(/^(categories|faculties|majors)\/(\d+)/)
   const navigate = useNavigate()
   const { user } = useAuth()
-  const [filter, setFilter] = useState("ALL")
-  const [form, setForm] = useState(null)
-  useTick()
-  const { data, loading, error, reload } = useAsync(() => eventApi.list(filter).then((r) => r.data || []), [filter])
-  const events = data || []
-  const featured = events.find((e) => new Date(e.startsAt) >= new Date()) || events[0]
-  const rest = events.filter((e) => e !== featured)
+  const [query, setQuery] = useState("")
+  const [debounced, setDebounced] = useState("")
+  const [tab, setTab] = useState("newest")
+  const [faculty, setFaculty] = useState(routeFilter?.[1] === "faculties" ? routeFilter[2] : "")
+  const [category, setCategory] = useState(routeFilter?.[1] === "categories" ? routeFilter[2] : "")
+  const [major, setMajor] = useState(routeFilter?.[1] === "majors" ? routeFilter[2] : "")
+  const [sort, setSort] = useState("newest")
+  const [page, setPage] = useState(0)
+  const [creating, setCreating] = useState(false)
+  const { data: taxonomy } = useAsync(() => getForumTaxonomy(), [])
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebounced(query.trim())
+      setPage(0)
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [query])
+
+  const params = useMemo(
+    () => ({
+      q: debounced,
+      type: tab === "DISCUSSION" || tab === "RESOURCE" ? tab : "",
+      facultyId: faculty || undefined,
+      categoryId: category || undefined,
+      majorId: major || undefined,
+      sort,
+      page,
+      size: 15,
+    }),
+    [debounced, tab, faculty, category, major, sort, page],
+  )
+  const { data, loading, error, reload } = useAsync(() => getForumTopics(params), [JSON.stringify(params)])
+  const items = (data?.items || []).filter((t) => tab !== "unanswered" || t.replyCount === 0)
+  const facultyName = (taxonomy?.faculties || []).find((f) => String(f.id) === String(faculty))?.name
 
   return (
-    <div className="events-page">
-      <header className="page-title-row">
+    <div className="forum-page">
+      <header className="forum-header">
         <div>
-          <h1>Sự kiện trong trường</h1>
-          <p>Khám phá hoạt động học thuật, câu lạc bộ và kết nối sinh viên.</p>
+          <span className="eyebrow">Không gian học tập</span>
+          <h1>Hỏi đáp, thảo luận và chia sẻ tài liệu</h1>
+          <p>Kết nối kiến thức giữa các khoa, tìm lời giải từ cộng đồng sinh viên CMC.</p>
         </div>
-        <Button icon="plus" onClick={() => setForm({})}>Tạo sự kiện</Button>
+        <Button icon="plus" onClick={() => setCreating(true)}>Đăng chủ đề</Button>
       </header>
-      <div className="event-filters">
-        {FILTERS.map(([key, label]) => (
-          <button key={key} className={filter === key ? "active" : ""} onClick={() => setFilter(key)}>{label}</button>
-        ))}
+      <div className="forum-toolbar panel">
+        <label>
+          <Icon name="search" />
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Tìm câu hỏi, môn học hoặc tài liệu..." />
+        </label>
+        <select className="toolbar-select" value={category} onChange={(e) => { setCategory(e.target.value); setPage(0) }}>
+          <option value="">Mọi danh mục</option>
+          {(taxonomy?.categories || []).map((c) => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+        </select>
+        <select className="toolbar-select" value={faculty} onChange={(e) => { setFaculty(e.target.value); setMajor(""); setPage(0) }}>
+          <option value="">Tất cả khoa</option>
+          {(taxonomy?.faculties || []).map((f) => (
+            <option key={f.id} value={f.id}>{f.name}</option>
+          ))}
+        </select>
+        <select className="toolbar-select" value={major} disabled={!faculty} onChange={(e) => { setMajor(e.target.value); setPage(0) }}>
+          <option value="">{faculty ? "Tất cả chuyên ngành" : "Chọn khoa trước"}</option>
+          {(taxonomy?.majors || []).filter((m) => String(m.facultyId) === String(faculty)).map((m) => (
+            <option key={m.id} value={m.id}>{m.name}</option>
+          ))}
+        </select>
+        <select className="toolbar-select" value={sort} onChange={(e) => { setSort(e.target.value); setPage(0) }}>
+          <option value="newest">Mới nhất</option>
+          <option value="popular">Xem nhiều</option>
+        </select>
       </div>
-      {loading && <Loading label="Đang tải sự kiện..." />}
-      {error && <ErrorBlock message={error} onRetry={reload} />}
-      {!loading && !error && events.length === 0 && <EmptyState title="Chưa có sự kiện" copy="Hãy tạo sự kiện đầu tiên cho cộng đồng." icon="calendar" />}
-      {featured && !loading && (
-        <div className="featured-event">
-          <Cover event={featured} />
-          <div className="featured-copy">
-            <span>Sự kiện nổi bật · {new Date(featured.startsAt).toLocaleDateString("vi-VN")} <StatusBadge event={featured} /></span>
-            <h2>{featured.title}</h2>
-            <p>{featured.description || `${eventTimeRange(featured.startsAt)} · ${featured.location}`}</p>
-            <div>
-              <Button onClick={() => navigate(`/events/${featured.eventId}`)}>Xem chi tiết</Button>
-            </div>
-          </div>
-        </div>
-      )}
-      {rest.length > 0 && (
-        <>
-          <div className="event-section-head"><h2>Tất cả sự kiện</h2><span>{events.length} sự kiện</span></div>
-          <div className="event-grid">
-            {rest.map((e) => (
-              <article className="event-card" key={e.eventId} style={{ cursor: "pointer" }} onClick={() => navigate(`/events/${e.eventId}`)}>
-                <div className="event-cover">
-                  <Cover event={e} />
-                  <span><b>{new Date(e.startsAt).getDate()}</b><small>{monthShort(e.startsAt)}</small></span>
-                </div>
-                <div className="event-card-body">
-                  <span>{PRIVACY[e.privacy]} <StatusBadge event={e} /></span>
-                  <h3>{e.title}</h3>
-                  <p><Icon name="clock" />{eventTimeRange(e.startsAt)}</p>
-                  <p><Icon name="location" />{e.location}</p>
-                  <div>
-                    <span className="avatar-stack">
-                      {(e.attendees || []).slice(0, 3).map((a) => <Avatar key={a.userId} name={a.name} src={a.avatar} size="sm" />)}
-                    </span>
-                    <small>{e.goingCount} người tham gia</small>
-                  </div>
-                </div>
-              </article>
+      <div className="forum-layout">
+        <main className="topic-section">
+          <div className="topic-tabs">
+            {TABS.map(([key, label]) => (
+              <button key={key} className={tab === key ? "active" : ""} onClick={() => { setTab(key); setPage(0) }}>{label}</button>
             ))}
           </div>
-        </>
-      )}
-      {eventId && !form && <EventDetail eventId={eventId} meId={user?.userId} onClose={() => navigate("/events")} onChanged={reload} onEdit={(ev) => setForm(ev)} />}
-      {form && (
-        <EventForm
-          initial={form.eventId ? form : null}
-          onClose={() => setForm(null)}
-          onSaved={() => {
-            setForm(null)
+          <div className="topic-list">
+            {loading && <Loading label="Đang tải chủ đề..." />}
+            {error && <ErrorBlock message={error} onRetry={reload} />}
+            {!loading && !error && items.length === 0 && (
+              <EmptyState title="Không tìm thấy chủ đề" copy="Thử dùng từ khóa khác hoặc bỏ bớt bộ lọc." />
+            )}
+            {!loading &&
+              items.map((t) => (
+                <article className="topic-row" key={t.id} style={{ cursor: "pointer" }} onClick={() => navigate(`/forum/topics/${t.id}`)}>
+                  <div className={`topic-type ${t.type === "RESOURCE" ? "resource" : ""}`}>
+                    <Icon name={t.type === "RESOURCE" ? "file" : "forum"} />
+                  </div>
+                  <div className="topic-main">
+                    <div>
+                      <span>{TYPE_LABEL[t.type] || t.type}</span>
+                      {(t.faculty || t.category) && <span>{t.faculty || t.category}</span>}
+                    </div>
+                    <h3>{t.title}</h3>
+                    <p>{t.authorName} · {timeAgo(t.createdAt)}</p>
+                  </div>
+                  <div className="topic-stats">
+                    <strong>{t.type === "RESOURCE" ? "Tệp" : t.replyCount}</strong>
+                    <span>{t.type === "RESOURCE" ? "Đính kèm" : "Trả lời"}</span>
+                  </div>
+                  <Icon name="chevron" />
+                </article>
+              ))}
+          </div>
+          {data && data.totalPages > 1 && (
+            <div className="pager">
+              <Button variant="secondary" disabled={page === 0} onClick={() => setPage(page - 1)}>Trang trước</Button>
+              <span>Trang {page + 1}/{data.totalPages}</span>
+              <Button variant="secondary" disabled={page + 1 >= data.totalPages} onClick={() => setPage(page + 1)}>Trang sau</Button>
+            </div>
+          )}
+        </main>
+        <aside className="forum-aside">
+          <section className="panel">
+            <h3>Khám phá theo khoa</h3>
+            {(taxonomy?.faculties || []).length === 0 && <p className="aside-empty">Chưa có khoa nào.</p>}
+            {(taxonomy?.faculties || []).map((f, i) => (
+              <button key={f.id} onClick={() => { setFaculty(String(f.id) === String(faculty) ? "" : String(f.id)); setPage(0) }}>
+                <span className={`faculty f${i % 4}`}>{f.name[0]}</span>
+                <span style={{ fontWeight: String(f.id) === String(faculty) ? 700 : 400 }}>{f.name}</span>
+                <Icon name="chevron" />
+              </button>
+            ))}
+            {facultyName && <p className="aside-empty" style={{ marginTop: 8 }}>Đang lọc theo: {facultyName}</p>}
+          </section>
+          <section className="rule-card">
+            <Icon name="check" />
+            <div>
+              <h3>Quy định cộng đồng</h3>
+              <p>Viết tiêu đề rõ ràng, ghi nguồn tài liệu và trao đổi tôn trọng.</p>
+            </div>
+          </section>
+        </aside>
+      </div>
+      {topicId && <TopicDetail topicId={topicId} meId={user?.userId} onClose={() => navigate("/forum")} onChanged={reload} />}
+      {creating && (
+        <NewTopicModal
+          taxonomy={taxonomy}
+          onClose={() => setCreating(false)}
+          onCreated={(created) => {
+            setCreating(false)
             reload()
+            if (created?.id) navigate(`/forum/topics/${created.id}`)
           }}
         />
       )}
