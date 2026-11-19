@@ -1,4 +1,4 @@
-import React, { useState } from "react"
+import React, { useEffect, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { Icon } from "../components/Icon"
 import { Avatar, Button, EmptyState, ErrorBlock, Loading, Modal, useAsync, useToast } from "../components/ui"
@@ -6,6 +6,33 @@ import { eventApi } from "../api/eventApi"
 import { useAuth } from "../context/AuthContext"
 import { getApiErrorMessage } from "../utils/apiError"
 import { eventTimeRange, mediaUrl, monthShort } from "../utils/format"
+import "../styles/extras.css"
+
+// Cập nhật giao diện mỗi 30 giây để nhãn "Bắt đầu sau ... phút" / "Đang diễn ra" luôn đúng
+function useTick(ms = 30000) {
+  const [, setTick] = useState(0)
+  useEffect(() => {
+    const timer = window.setInterval(() => setTick((n) => n + 1), ms)
+    return () => window.clearInterval(timer)
+  }, [ms])
+}
+
+function eventStatus(event) {
+  const start = new Date(event.startsAt).getTime()
+  const now = Date.now()
+  if (now >= start + 3 * 3600 * 1000) return { key: "ended", label: "Đã kết thúc" }
+  if (now >= start) return { key: "live", label: "Đang diễn ra" }
+  const minutes = Math.max(1, Math.ceil((start - now) / 60000))
+  if (minutes <= 60) return { key: "soon", label: `Bắt đầu sau ${minutes} phút` }
+  if (minutes <= 24 * 60) return { key: "today", label: `Còn ${Math.floor(minutes / 60)} giờ nữa` }
+  return null
+}
+
+function StatusBadge({ event }) {
+  const status = eventStatus(event)
+  if (!status) return null
+  return <em className={`ev-badge ev-${status.key}`}>{status.key === "live" && <i />}{status.label}</em>
+}
 
 const FILTERS = [["ALL", "Tất cả"], ["UPCOMING", "Sắp diễn ra"], ["JOINED", "Đã tham gia"], ["MINE", "Do tôi tổ chức"]]
 const PRIVACY = { PUBLIC: "Công khai", FRIENDS: "Bạn bè", PRIVATE: "Chỉ mình tôi" }
@@ -89,6 +116,7 @@ function EventForm({ initial, onClose, onSaved }) {
 
 function EventDetail({ eventId, meId, onClose, onChanged, onEdit }) {
   const toast = useToast()
+  useTick()
   const { data: event, loading, error, setData } = useAsync(() => eventApi.get(eventId).then((r) => r.data), [eventId])
   const attend = async (status) => {
     try {
@@ -110,6 +138,7 @@ function EventDetail({ eventId, meId, onClose, onChanged, onEdit }) {
       toast(getApiErrorMessage(err, "Không thể hủy sự kiện."), "error")
     }
   }
+  const started = event ? new Date(event.startsAt).getTime() <= Date.now() : false
   return (
     <Modal title={event?.title || "Sự kiện"} close={onClose} wide>
       {loading && <Loading />}
@@ -117,14 +146,18 @@ function EventDetail({ eventId, meId, onClose, onChanged, onEdit }) {
       {event && (
         <div className="topic-detail">
           <div className="event-detail-cover"><Cover event={event} /></div>
-          <p className="event-meta"><Icon name="clock" size={16} /> {eventTimeRange(event.startsAt)}</p>
+          <p className="event-meta"><Icon name="clock" size={16} /> {eventTimeRange(event.startsAt)} <StatusBadge event={event} /></p>
           <p className="event-meta"><Icon name="location" size={16} /> {event.location}</p>
           <p className="event-meta"><Icon name="users" size={16} /> {event.goingCount} tham gia · {event.interestedCount} quan tâm · {PRIVACY[event.privacy]}</p>
           <p className="event-meta">Tổ chức bởi <strong>{event.organizerName}</strong></p>
           {event.description && <p className="topic-detail-body">{event.description}</p>}
+          {!started && (event.viewerStatus || String(event.organizerId) === String(meId)) && (
+            <p className="ev-hint"><Icon name="bell" size={16} /> Bạn sẽ nhận thông báo trước giờ bắt đầu 30 phút và khi sự kiện bắt đầu.</p>
+          )}
+          {started && <p className="ev-hint">Sự kiện đã bắt đầu nên không thể thay đổi trạng thái tham gia.</p>}
           <div className="topic-detail-actions">
-            <Button variant={event.viewerStatus === "GOING" ? "primary" : "secondary"} onClick={() => attend("GOING")}>{event.viewerStatus === "GOING" ? "Đã tham gia" : "Tham gia"}</Button>
-            <Button variant={event.viewerStatus === "INTERESTED" ? "primary" : "secondary"} onClick={() => attend("INTERESTED")}>{event.viewerStatus === "INTERESTED" ? "Đang quan tâm" : "Quan tâm"}</Button>
+            <Button variant={event.viewerStatus === "GOING" ? "primary" : "secondary"} disabled={started} onClick={() => attend("GOING")}>{event.viewerStatus === "GOING" ? "Đã tham gia" : "Tham gia"}</Button>
+            <Button variant={event.viewerStatus === "INTERESTED" ? "primary" : "secondary"} disabled={started} onClick={() => attend("INTERESTED")}>{event.viewerStatus === "INTERESTED" ? "Đang quan tâm" : "Quan tâm"}</Button>
             {String(event.organizerId) === String(meId) && (
               <>
                 <Button variant="secondary" icon="edit" onClick={() => onEdit(event)}>Chỉnh sửa</Button>
@@ -154,6 +187,7 @@ export default function EventsPage() {
   const { user } = useAuth()
   const [filter, setFilter] = useState("ALL")
   const [form, setForm] = useState(null)
+  useTick()
   const { data, loading, error, reload } = useAsync(() => eventApi.list(filter).then((r) => r.data || []), [filter])
   const events = data || []
   const featured = events.find((e) => new Date(e.startsAt) >= new Date()) || events[0]
@@ -180,7 +214,7 @@ export default function EventsPage() {
         <div className="featured-event">
           <Cover event={featured} />
           <div className="featured-copy">
-            <span>Sự kiện nổi bật · {new Date(featured.startsAt).toLocaleDateString("vi-VN")}</span>
+            <span>Sự kiện nổi bật · {new Date(featured.startsAt).toLocaleDateString("vi-VN")} <StatusBadge event={featured} /></span>
             <h2>{featured.title}</h2>
             <p>{featured.description || `${eventTimeRange(featured.startsAt)} · ${featured.location}`}</p>
             <div>
@@ -200,7 +234,7 @@ export default function EventsPage() {
                   <span><b>{new Date(e.startsAt).getDate()}</b><small>{monthShort(e.startsAt)}</small></span>
                 </div>
                 <div className="event-card-body">
-                  <span>{PRIVACY[e.privacy]}</span>
+                  <span>{PRIVACY[e.privacy]} <StatusBadge event={e} /></span>
                   <h3>{e.title}</h3>
                   <p><Icon name="clock" />{eventTimeRange(e.startsAt)}</p>
                   <p><Icon name="location" />{e.location}</p>

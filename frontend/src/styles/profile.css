@@ -1,0 +1,157 @@
+/* Trang cá nhân kiểu Facebook — dùng tiền tố .pf để không đụng CSS cũ */
+.profile-page.pf { max-width: 1100px; margin: 0 auto; }
+
+/* ===== Đầu trang: bìa + avatar + tab ===== */
+.pf-head { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+.pf-cover { position: relative; height: 320px; background: var(--surface-2); }
+.pf-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pf-cover::after { content: ""; position: absolute; inset: auto 0 0 0; height: 90px; background: linear-gradient(to top, rgba(0,0,0,.28), transparent); pointer-events: none; }
+.pf-cover-fallback { width: 100%; height: 100%; background: linear-gradient(135deg, #1769c2 0%, #5da8ee 55%, #8fd0ff 100%); }
+.pf-cover-btn { position: absolute; right: 18px; bottom: 16px; z-index: 2; min-height: 38px; padding: 0 14px; display: flex; align-items: center; gap: 7px; border-radius: 8px; background: rgba(255,255,255,.94); color: #192638; font-size: 13px; font-weight: 600; cursor: pointer; }
+.pf-cover-btn:hover { background: #fff; }
+
+.pf-id { display: flex; align-items: flex-end; gap: 20px; padding: 0 28px 18px; }
+.pf-avatar { position: relative; flex: none; margin-top: -64px; z-index: 3; }
+.pf-avatar-btn { display: block; padding: 0; border: 0; background: none; border-radius: 50%; cursor: default; }
+.pf-avatar-btn:not(:disabled) { cursor: pointer; }
+.pf-avatar .avatar { width: 168px; height: 168px; font-size: 48px; border: 5px solid var(--surface); box-sizing: border-box; }
+.pf-avatar-btn:not(:disabled):hover .avatar { filter: brightness(.92); }
+.pf-avatar-cam { position: absolute; right: 8px; bottom: 10px; width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; background: var(--surface-2); color: var(--text); border: 2px solid var(--surface); pointer-events: none; }
+.pf-online-dot { position: absolute; right: 16px; bottom: 16px; width: 20px; height: 20px; border-radius: 50%; background: #31a24c; border: 4px solid var(--surface); }
+.pf-avatar-cam + .pf-online-dot { display: none; }
+
+.pf-info { flex: 1; min-width: 0; padding-bottom: 4px; }
+.pf-info h1 { font-size: 30px; line-height: 1.15; margin: 0; overflow-wrap: anywhere; }
+.pf-username { margin: 4px 0 0; color: var(--muted); font-size: 14px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pf-chip { padding: 2px 9px; border-radius: 999px; background: rgba(49,162,76,.14); color: #31a24c; font-size: 12px; font-weight: 600; }
+.pf-sub { margin: 4px 0 0; color: var(--muted); font-size: 14px; font-weight: 600; }
+.pf-stack { margin-top: 10px; display: flex; }
+.pf-stack button { padding: 0; border: 0; background: none; margin-left: -8px; border-radius: 50%; cursor: pointer; }
+.pf-stack button:first-child { margin-left: 0; }
+.pf-stack .avatar { width: 32px; height: 32px; font-size: 12px; border: 2px solid var(--surface); box-sizing: border-box; }
+
+.pf-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; padding-bottom: 6px; }
+.pf-menu-wrap { position: relative; }
+.pf-menu { position: absolute; top: calc(100% + 6px); right: 0; min-width: 190px; padding: 6px; z-index: 20; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,.22); }
+.pf-menu button { width: 100%; padding: 10px 12px; text-align: left; border-radius: 8px; font-size: 13px; font-weight: 600; color: var(--text); cursor: pointer; }
+.pf-menu button:hover { background: var(--surface-2); }
+
+.pf-tabs { display: flex; gap: 4px; padding: 0 20px; border-top: 1px solid var(--border); overflow-x: auto; }
+.pf-tabs button { position: relative; height: 54px; padding: 0 16px; font-size: 14px; font-weight: 600; color: var(--muted); cursor: pointer; white-space: nowrap; border-radius: 8px; }
+.pf-tabs button:hover { background: var(--surface-2); }
+.pf-tabs button.active { color: var(--blue); background: none; }
+.pf-tabs button.active::after { content: ""; position: absolute; left: 10px; right: 10px; bottom: 0; height: 3px; border-radius: 3px 3px 0 0; background: var(--blue); }
+
+/* ===== Thân trang ===== */
+.pf-body { margin-top: 16px; display: grid; grid-template-columns: 360px minmax(0, 1fr); gap: 16px; align-items: start; }
+.pf-body.single { grid-template-columns: minmax(0, 1fr); }
+.pf-aside { display: flex; flex-direction: column; gap: 16px; position: sticky; top: 84px; }
+.pf-main { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+
+.pf-card { padding: 16px; }
+.pf-card h3 { margin: 0; font-size: 20px; }
+.pf-card h3 em { font-style: normal; margin-left: 6px; color: var(--muted); font-size: 16px; font-weight: 500; }
+.pf-card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.pf-card-head > button { color: var(--blue); font-size: 14px; font-weight: 600; cursor: pointer; }
+.pf-card-head > span { color: var(--muted); font-size: 14px; }
+.pf-count { margin: -6px 0 12px; color: var(--muted); font-size: 14px; }
+.pf-bio { margin: 12px 0; font-size: 15px; line-height: 1.45; text-align: center; overflow-wrap: anywhere; }
+.pf-bio.muted, .muted { color: var(--muted); }
+
+.pf-soft-btn { width: 100%; min-height: 38px; margin-bottom: 8px; border-radius: 8px; background: var(--surface-2); color: var(--text); font-size: 14px; font-weight: 600; cursor: pointer; }
+.pf-soft-btn:hover { filter: brightness(.96); }
+.pf-soft-btn.wide { margin-top: 14px; }
+.pf-list { display: flex; flex-direction: column; gap: 14px; margin: 14px 0; }
+.pf-list span { display: flex; align-items: center; gap: 10px; font-size: 15px; color: var(--muted); line-height: 1.3; }
+.pf-list span svg { flex: none; }
+.pf-list b { color: var(--text); font-weight: 600; }
+
+.pf-mini-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; border-radius: 10px; overflow: hidden; }
+.pf-mini-grid button { padding: 0; border: 0; background: var(--surface-2); aspect-ratio: 1; cursor: pointer; }
+.pf-mini-grid img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .2s; }
+.pf-mini-grid button:hover img { transform: scale(1.05); }
+.pf-mini-grid { }
+.pf-mini-grid button { overflow: hidden; }
+
+.pf-friend-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px 8px; }
+.pf-friend-grid button { padding: 0; text-align: left; cursor: pointer; display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.pf-friend-grid .avatar { width: 100%; height: auto; aspect-ratio: 1; border-radius: 8px; font-size: 22px; }
+.pf-friend-grid span { font-size: 12px; font-weight: 600; line-height: 1.25; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+
+.pf-title-bar { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; }
+.pf-title-bar h3 { margin: 0; font-size: 18px; }
+.pf-title-bar span { color: var(--muted); font-size: 14px; }
+
+/* ===== Tab Giới thiệu ===== */
+.pf-about { display: grid; grid-template-columns: 260px minmax(0, 1fr); min-height: 340px; overflow: hidden; }
+.pf-about-nav { padding: 18px 12px; border-right: 1px solid var(--border); display: flex; flex-direction: column; gap: 2px; }
+.pf-about-nav h3 { margin: 0 8px 12px; font-size: 20px; }
+.pf-about-nav button { padding: 11px 12px; border-radius: 8px; text-align: left; font-size: 14px; font-weight: 600; color: var(--muted); cursor: pointer; }
+.pf-about-nav button:hover { background: var(--surface-2); }
+.pf-about-nav button.active { background: var(--blue-soft); color: var(--blue); }
+.pf-about-body { padding: 22px 26px; display: flex; flex-direction: column; gap: 18px; }
+.pf-about-bio small { display: block; color: var(--muted); font-size: 13px; margin-bottom: 4px; }
+.pf-about-bio p { margin: 0 0 10px; font-size: 15px; line-height: 1.5; overflow-wrap: anywhere; }
+.pf-about-bio .pf-soft-btn { width: auto; padding: 0 16px; }
+.pf-row { display: flex; align-items: center; gap: 14px; }
+.pf-row-icon { flex: none; width: 40px; height: 40px; display: grid; place-items: center; border-radius: 50%; background: var(--surface-2); color: var(--muted); }
+.pf-row small { display: block; color: var(--muted); font-size: 13px; }
+.pf-row strong { font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
+.pf-add { display: flex; align-items: center; gap: 10px; color: var(--blue); font-size: 15px; font-weight: 600; cursor: pointer; text-align: left; }
+.pf-add span { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 50%; background: var(--blue-soft); font-size: 20px; line-height: 1; }
+
+/* ===== Tab Ảnh / Bạn bè ===== */
+.pf-photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; }
+.pf-photo-grid button { padding: 0; border: 0; border-radius: 10px; overflow: hidden; aspect-ratio: 1; background: var(--surface-2); cursor: pointer; }
+.pf-photo-grid img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .2s; }
+.pf-photo-grid button:hover img { transform: scale(1.04); }
+.pf-search { display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 12px; border-radius: 999px; background: var(--surface-2); color: var(--muted); }
+.pf-search input { border: 0; outline: 0; background: transparent; color: var(--text); font-size: 14px; width: 180px; }
+.pf-friend-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.pf-friend-cards article { display: flex; align-items: center; gap: 10px; padding: 12px; border: 1px solid var(--border); border-radius: 12px; min-width: 0; }
+.pf-friend-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; text-align: left; cursor: pointer; }
+.pf-friend-main > div { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.pf-friend-main strong { font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pf-friend-main small { color: var(--muted); font-size: 12px; }
+
+/* ===== Xem ảnh phóng to ===== */
+.pf-lightbox { position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,.92); display: grid; place-items: center; }
+.pf-lightbox img { max-width: min(92vw, 1200px); max-height: 88vh; object-fit: contain; border-radius: 6px; }
+.pf-lb-close, .pf-lb-nav { position: absolute; width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; background: rgba(255,255,255,.14); color: #fff; cursor: pointer; }
+.pf-lb-close:hover, .pf-lb-nav:hover { background: rgba(255,255,255,.26); }
+.pf-lb-close { top: 18px; left: 18px; }
+.pf-lb-nav { top: 50%; transform: translateY(-50%); }
+.pf-lb-nav.prev { left: 22px; }
+.pf-lb-nav.next { right: 22px; }
+.pf-lb-count { position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%); color: #fff; font-size: 13px; background: rgba(255,255,255,.14); padding: 4px 12px; border-radius: 999px; }
+
+/* ===== Form chỉnh sửa ===== */
+.pf-form select { min-height: 44px; width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); font-size: 12px; outline: 0; }
+.pf-form select:focus { border-color: var(--blue); }
+.pf-label-row { display: flex; justify-content: space-between; align-items: center; }
+.pf-label-row em { font-style: normal; font-weight: 400; color: var(--muted); font-size: 11px; }
+
+/* ===== Responsive ===== */
+@media (max-width: 1000px) {
+  .pf-body { grid-template-columns: 1fr; }
+  .pf-aside { position: static; }
+}
+@media (max-width: 720px) {
+  .profile-page.pf { margin: -17px -13px 0; }
+  .pf-head { border-radius: 0; border-left: 0; border-right: 0; }
+  .pf-cover { height: 190px; }
+  .pf-id { flex-direction: column; align-items: center; text-align: center; gap: 10px; padding: 0 14px 14px; }
+  .pf-avatar { margin-top: -56px; }
+  .pf-avatar .avatar { width: 124px; height: 124px; font-size: 36px; }
+  .pf-username, .pf-stack { justify-content: center; }
+  .pf-info h1 { font-size: 24px; }
+  .pf-actions { width: 100%; justify-content: center; }
+  .pf-actions .button, .pf-actions .pf-menu-wrap { flex: 1; }
+  .pf-actions .pf-menu-wrap .button { width: 100%; }
+  .pf-body { padding: 0 13px; }
+  .pf-about { grid-template-columns: 1fr; }
+  .pf-about-nav { flex-direction: row; flex-wrap: wrap; border-right: 0; border-bottom: 1px solid var(--border); }
+  .pf-about-nav h3 { width: 100%; }
+  .pf-friend-cards { grid-template-columns: 1fr; }
+  .pf-search input { width: 120px; }
+}

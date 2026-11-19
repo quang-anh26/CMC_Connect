@@ -6,21 +6,28 @@ import com.example.messaging.entity.User;
 import com.example.messaging.exception.ApiException;
 import com.example.messaging.repository.AppNotificationRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.util.HashMap;
 import java.util.List;
 import java.time.LocalDateTime;
+import java.util.Map;
 import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
 public class NotificationService {
     private static final Set<String> NOTIFICATION_TYPES = Set.of(
-        "POST_CREATED", "POST_REACTION", "EVENT_CREATED", "STORY_CREATED");
+        "POST_CREATED", "POST_REACTION", "EVENT_CREATED", "STORY_CREATED",
+        "EVENT_UPDATED", "EVENT_CANCELLED", "EVENT_ATTENDANCE", "EVENT_REMINDER", "EVENT_STARTED");
 
     private final AppNotificationRepository repository;
     private final UserService userService;
+    private final SimpMessagingTemplate messagingTemplate;
 
     @Transactional
     public void create(Long recipientId, Long actorId, String type, String referenceType, Long referenceId, String message) {
@@ -40,6 +47,49 @@ public class NotificationService {
         repository.save(AppNotification.builder()
             .recipient(recipient).actor(actor).type(type)
             .referenceType(referenceType).referenceId(referenceId).message(message).read(false).build());
+        pushRealtime(recipient, type, referenceType, referenceId, message);
+    }
+
+    /**
+     * Thông báo do hệ thống tạo (không có người thực hiện), ví dụ nhắc lịch sự kiện.
+     * Mỗi (người nhận, loại, đối tượng) chỉ được tạo một lần.
+     */
+    @Transactional
+    public void createSystem(Long recipientId, String type, String referenceType, Long referenceId, String message) {
+        if (recipientId == null || type == null || !NOTIFICATION_TYPES.contains(type)) return;
+        if (repository.existsByRecipientUserIdAndTypeAndReferenceTypeAndReferenceId(
+                recipientId, type, referenceType, referenceId)) return;
+        User recipient = userService.getByIdOrThrow(recipientId);
+        repository.save(AppNotification.builder()
+            .recipient(recipient).type(type)
+            .referenceType(referenceType).referenceId(referenceId).message(message).read(false).build());
+        pushRealtime(recipient, type, referenceType, referenceId, message);
+    }
+
+    /** Đẩy thông báo tới trình duyệt qua WebSocket (sau khi giao dịch đã commit). */
+    private void pushRealtime(User recipient, String type, String referenceType, Long referenceId, String message) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("type", type);
+        payload.put("referenceType", referenceType);
+        payload.put("referenceId", referenceId);
+        payload.put("message", message);
+        Runnable send = () -> {
+            try {
+                messagingTemplate.convertAndSendToUser(recipient.getUsername(), "/queue/notifications", payload);
+            } catch (Exception ignored) {
+                // thông báo vẫn nằm trong DB, client sẽ thấy khi tải lại
+            }
+        };
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    send.run();
+                }
+            });
+        } else {
+            send.run();
+        }
     }
 
     @Transactional(readOnly = true)

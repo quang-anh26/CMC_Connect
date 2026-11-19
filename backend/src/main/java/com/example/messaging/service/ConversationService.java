@@ -289,6 +289,8 @@ public class ConversationService {
                 .otherUserId(otherUserId)
                 .otherUserUsername(otherUsername)
                 .lastMessage(buildLastMessagePreview(last, viewerUserId))
+                .lastMessageSenderId(last != null ? last.getSender().getUserId() : null)
+                .lastMessageSenderDisplayName(last != null ? last.getSender().getDisplayName() : null)
                 .lastMessageAt(last != null ? last.getCreatedAt() : null)
                 .unreadCount(unread)
                 .newFriend(newFriend)
