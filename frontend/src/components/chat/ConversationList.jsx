@@ -5,7 +5,7 @@ import { blockApi } from "../../api/blockApi"
 import { conversationApi } from "../../api/conversationApi"
 import { useSocket } from "../../context/SocketContext"
 import { getApiErrorMessage } from "../../utils/apiError"
-import { formatListTime, isMuted, isUnread } from "./chatUtils"
+import { formatListTime, isMuted, isUnread, systemMessageLabel } from "./chatUtils"
 
 const TABS = [
   ["all", "Tất cả"],
@@ -153,7 +153,13 @@ export default function ConversationList({ state, archived, activeConversation, 
                   <strong>{c.name}</strong>
                   <small className={unread ? "unread-text" : ""}>
                     {c.messageRequestPending ? "Tin nhắn đang chờ · " : ""}
-                    {c.lastMessage || "Chưa có tin nhắn"}
+                    {c.lastMessage
+                      ? systemMessageLabel(
+                          { content: c.lastMessage, senderDisplayName: c.lastMessageSenderDisplayName },
+                          String(c.lastMessageSenderId) === String(c.currentUserId),
+                          c,
+                        )
+                      : "Chưa có tin nhắn"}
                   </small>
                 </span>
                 <span className="conversation-meta">

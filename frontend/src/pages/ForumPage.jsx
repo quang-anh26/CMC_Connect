@@ -13,11 +13,19 @@ import {
   getForumTopics,
   replyForumTopic,
   updateForumTopic,
+  uploadForumAttachment,
   reportForumTopic,
 } from "../api/forumApi"
 import { useAuth } from "../context/AuthContext"
 import { getApiErrorMessage } from "../utils/apiError"
 import { formatBytes, timeAgo } from "../utils/format"
+import "../styles/extras.css"
+
+// Định dạng tệp mà máy chủ cho phép (khớp ForumFileController) và giới hạn dung lượng 50 MB
+const ALLOWED_EXTENSIONS = ["pdf", "doc", "docx", "ppt", "pptx", "xls", "xlsx", "zip", "mp4"]
+const FILE_ACCEPT = ALLOWED_EXTENSIONS.map((ext) => `.${ext}`).join(",")
+const MAX_FILE_BYTES = 50 * 1024 * 1024
+const extensionOf = (name = "") => (name.includes(".") ? name.split(".").pop().toLowerCase() : "")
 
 const TYPE_LABEL = {
   QUESTION: "Câu hỏi",
@@ -227,6 +235,21 @@ function NewTopicModal({ taxonomy, onClose, onCreated, defaultType = "QUESTION" 
   const majors = (taxonomy?.majors || []).filter((m) => String(m.facultyId) === String(form.facultyId))
   const isResource = form.type === "RESOURCE"
 
+  const pickFile = (e) => {
+    const picked = e.target.files?.[0] || null
+    e.target.value = ""
+    if (!picked) return
+    if (!ALLOWED_EXTENSIONS.includes(extensionOf(picked.name))) {
+      toast("Chỉ hỗ trợ PDF, Word, PowerPoint, Excel, ZIP hoặc MP4.", "error")
+      return
+    }
+    if (picked.size > MAX_FILE_BYTES) {
+      toast("Tệp quá lớn, tối đa 50 MB.", "error")
+      return
+    }
+    setFile(picked)
+  }
+
   const submit = async () => {
     if (!form.title.trim() || !form.content.trim()) return
     if (isResource && !file) {
@@ -247,6 +270,16 @@ function NewTopicModal({ taxonomy, onClose, onCreated, defaultType = "QUESTION" 
         source: form.source.trim() || null,
       }
       const created = isResource ? await createForumTopicWithAttachment(payload, file, submissionKey) : await createForumTopic(payload)
+      if (!isResource && file) {
+        // Câu hỏi / thảo luận...: đăng bài trước rồi đính kèm tệp vào bài vừa tạo
+        try {
+          await uploadForumAttachment(created.id, file)
+        } catch (uploadError) {
+          toast(`Đã đăng chủ đề nhưng chưa đính kèm được tệp: ${getApiErrorMessage(uploadError, "lỗi không xác định")}`, "error")
+          onCreated(created)
+          return
+        }
+      }
       toast("Đã đăng chủ đề.")
       onCreated(created)
     } catch (err) {
@@ -321,12 +354,22 @@ function NewTopicModal({ taxonomy, onClose, onCreated, defaultType = "QUESTION" 
               Nguồn tài liệu
               <input value={form.source} onChange={set("source")} maxLength={500} placeholder="Giảng viên, giáo trình..." />
             </label>
-            <label className="full">
-              Tệp đính kèm
-              <input type="file" onChange={(e) => setFile(e.target.files?.[0] || null)} />
-            </label>
           </>
         )}
+        <div className="full fo-pick">
+          <label>
+            Tệp đính kèm {isResource ? "(bắt buộc)" : "(không bắt buộc)"}
+            <span className="fo-hint"> · PDF, Word, PowerPoint, Excel, ZIP, MP4 · tối đa 50 MB</span>
+            <input type="file" accept={FILE_ACCEPT} onChange={pickFile} />
+          </label>
+          {file && (
+            <div className="fo-file">
+              <span className={`fo-file-ico ${extensionOf(file.name)}`}>{extensionOf(file.name).toUpperCase()}</span>
+              <span className="fo-file-info"><strong>{file.name}</strong><small>{formatBytes(file.size)}</small></span>
+              <button type="button" className="ghost" aria-label="Bỏ tệp" onClick={() => setFile(null)}>×</button>
+            </div>
+          )}
+        </div>
         <label className="full">
           Nội dung
           <textarea rows={6} value={form.content} onChange={set("content")} maxLength={30000} placeholder="Mô tả chi tiết vấn đề hoặc nội dung chia sẻ..." />

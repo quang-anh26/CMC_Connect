@@ -1907,6 +1907,9 @@
   display: flex;
   gap: 7px;
 }
+.request-list .button:disabled {
+  opacity: 1;
+}
 .request-list .accepted {
   color: var(--green);
   display: flex;

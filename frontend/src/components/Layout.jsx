@@ -1,7 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from "react"
 import { Outlet, useLocation, useNavigate } from "react-router-dom"
 import { Icon } from "./Icon"
-import { Avatar, ToastProvider } from "./ui"
+import { Avatar, ToastProvider, useToast } from "./ui"
+import CallOverlay from "./CallOverlay"
+import { useSocket } from "../context/SocketContext"
+import { armNotificationPermission, showDesktopNotification } from "../utils/callAlert"
 import { useAuth } from "../context/AuthContext"
 import cmcUniversityLogo from "../assets/cmc-university-logo.png"
 import { conversationApi } from "../api/conversationApi"
@@ -275,8 +278,38 @@ function MobileNav({ route, counts }) {
   )
 }
 
+const EVENT_ALERT_TYPES = {
+  EVENT_REMINDER: "Sắp tới giờ sự kiện",
+  EVENT_STARTED: "Sự kiện đã bắt đầu",
+  EVENT_UPDATED: "Sự kiện được cập nhật",
+  EVENT_CANCELLED: "Sự kiện đã bị hủy",
+}
+
+/** Thông báo toàn cục (hiện ở mọi trang): nhắc lịch sự kiện bằng toast + thông báo của trình duyệt. */
+function GlobalAlerts() {
+  const toast = useToast()
+  const navigate = useNavigate()
+  useEffect(() => armNotificationPermission(), [])
+  useEffect(() => {
+    const onPush = (event) => {
+      const data = event.detail || {}
+      const title = EVENT_ALERT_TYPES[data.type]
+      if (!title) return
+      toast(data.message || title)
+      showDesktopNotification(title, data.message || "", {
+        tag: `event-${data.referenceId}-${data.type}`,
+        onClick: () => data.referenceId && navigate(`/events/${data.referenceId}`),
+      })
+    }
+    window.addEventListener("cmctalk-notifications-updated", onPush)
+    return () => window.removeEventListener("cmctalk-notifications-updated", onPush)
+  }, [toast, navigate])
+  return null
+}
+
 export default function Layout() {
   const location = useLocation()
+  const { callRequest, clearCallRequest } = useSocket()
   const { user } = useAuth()
   const counts = useCounts()
   const [me, setMe] = useState(null)
@@ -320,6 +353,9 @@ export default function Layout() {
           </div>
         </div>
         <MobileNav route={route} counts={counts} />
+        <GlobalAlerts />
+        {/* Đặt ở Layout để cuộc gọi đến hiện ở MỌI trang, không chỉ trang Trò chuyện */}
+        <CallOverlay conversationInfo={callRequest} conversations={[]} visible={Boolean(callRequest)} onClose={clearCallRequest} />
         {settingsOpen && <SettingsModal me={me} onClose={() => setSettingsOpen(false)} onSaved={() => window.dispatchEvent(new Event("cmctalk-profile-updated"))} />}
       </div>
     </ToastProvider>

@@ -25,6 +25,8 @@ public class ConversationResponse {
     private Long otherUserId;
     private String otherUserUsername;
     private String lastMessage;
+    private Long lastMessageSenderId;
+    private String lastMessageSenderDisplayName;
     private LocalDateTime lastMessageAt;
     private long unreadCount;
     private boolean newFriend;

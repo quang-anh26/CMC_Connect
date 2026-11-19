@@ -1,0 +1,26 @@
+/* ===== Sự kiện: nhãn trạng thái ===== */
+.ev-badge { display: inline-flex; align-items: center; gap: 5px; margin-left: 6px; padding: 2px 9px; border-radius: 999px; font-style: normal; font-size: 11px; font-weight: 700; vertical-align: middle; white-space: nowrap; }
+.ev-badge i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; animation: ev-pulse 1.2s infinite; }
+.ev-live { background: rgba(239, 68, 68, .14); color: #ef4444; }
+.ev-soon { background: rgba(245, 158, 11, .16); color: #d97706; }
+.ev-today { background: rgba(23, 105, 194, .14); color: var(--blue); }
+.ev-ended { background: var(--surface-2); color: var(--muted); }
+@keyframes ev-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
+.ev-hint { display: flex; align-items: center; gap: 8px; margin: 10px 0; padding: 10px 12px; border-radius: 10px; background: var(--blue-soft); color: var(--text); font-size: 13px; }
+
+/* ===== Diễn đàn: tài liệu đính kèm ===== */
+.fo-attach { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.fo-file { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); min-width: 0; }
+.fo-file-ico { flex: none; width: 38px; height: 38px; display: grid; place-items: center; border-radius: 8px; font-size: 10px; font-weight: 800; color: #fff; background: #5c6878; letter-spacing: .3px; }
+.fo-file-ico.pdf { background: #e5483d; }
+.fo-file-ico.doc, .fo-file-ico.docx { background: #2b6cd4; }
+.fo-file-ico.xls, .fo-file-ico.xlsx { background: #1f9d5b; }
+.fo-file-ico.ppt, .fo-file-ico.pptx { background: #e07a1f; }
+.fo-file-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.fo-file-info strong { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fo-file-info small { color: var(--muted); font-size: 11px; }
+.fo-file a, .fo-file button { flex: none; padding: 6px 12px; border-radius: 8px; background: var(--blue); color: #fff; font-size: 12px; font-weight: 600; text-decoration: none; cursor: pointer; }
+.fo-file button.ghost { background: transparent; color: var(--muted); padding: 4px 8px; font-size: 18px; line-height: 1; }
+.fo-pick { display: flex; flex-direction: column; gap: 6px; }
+.fo-pick input[type="file"] { font-size: 12px; }
+.fo-hint { color: var(--muted); font-size: 11px; font-weight: 400; }

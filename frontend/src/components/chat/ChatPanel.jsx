@@ -407,10 +407,10 @@ export default function ChatPanel({ conversationId, conversation, onConversation
           </button>
         </div>
         <div>
-          <button className="icon-button" title="Gọi thoại" disabled={isGroup || cannotMessage || !conversation} onClick={() => startCall(conversation, "audio")}>
+          <button className="icon-button" title={isGroup ? "Gọi thoại nhóm" : "Gọi thoại"} disabled={cannotMessage || !conversation} onClick={() => startCall(conversation, "audio")}>
             <Icon name="phone" />
           </button>
-          <button className="icon-button" title="Gọi video" disabled={isGroup || cannotMessage || !conversation} onClick={() => startCall(conversation, "video")}>
+          <button className="icon-button" title={isGroup ? "Gọi video nhóm" : "Gọi video"} disabled={cannotMessage || !conversation} onClick={() => startCall(conversation, "video")}>
             <Icon name="video" />
           </button>
           <button className={`icon-button ${infoOpen ? "on" : ""}`} title="Thông tin cuộc trò chuyện" aria-expanded={infoOpen} onClick={onToggleInfo}>

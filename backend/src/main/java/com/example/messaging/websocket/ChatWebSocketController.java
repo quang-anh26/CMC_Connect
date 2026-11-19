@@ -7,6 +7,7 @@ import com.example.messaging.dto.chat.SeenRequest;
 import com.example.messaging.dto.chat.TypingEvent;
 import com.example.messaging.entity.User;
 import com.example.messaging.exception.ApiException;
+import com.example.messaging.repository.ConversationMemberRepository;
 import com.example.messaging.service.MessageService;
 import com.example.messaging.service.UserService;
 import lombok.RequiredArgsConstructor;
@@ -15,6 +16,7 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 
 import java.security.Principal;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -31,6 +33,7 @@ public class ChatWebSocketController {
     private final MessageService messageService;
     private final UserService userService;
     private final SimpMessagingTemplate messagingTemplate;
+    private final ConversationMemberRepository conversationMemberRepository;
 
     @MessageMapping("/chat.send")
     public void sendMessage(MessageRequest request, Principal principal) {
@@ -111,7 +114,46 @@ public class ChatWebSocketController {
         String targetUsername = String.valueOf(payload.get("toUsername"));
         if (targetUsername.isBlank() || "null".equals(targetUsername)) return;
 
+        User sender = userService.getByUsernameOrThrow(principal.getName());
         payload.put("fromUsername", principal.getName());
+        payload.put("fromDisplayName", sender.getDisplayName());
+        payload.put("fromAvatar", sender.getAvatar());
         messagingTemplate.convertAndSendToUser(targetUsername, "/queue/call", payload);
+    }
+
+    /**
+     * Tín hiệu cuộc gọi NHÓM (WebRTC mesh). Chỉ thành viên của cuộc trò chuyện mới gửi được.
+     *  - Có "toUsername": chuyển riêng cho người đó (offer / answer / candidate).
+     *  - Không có "toUsername": gửi cho mọi thành viên khác (đổ chuông, tham gia, rời, kết thúc).
+     */
+    @MessageMapping("/call.group")
+    public void groupCallSignal(Map<String, Object> payload, Principal principal) {
+        Object rawId = payload.get("conversationId");
+        if (!(rawId instanceof Number)) return;
+        Long conversationId = ((Number) rawId).longValue();
+
+        String me = principal.getName();
+        List<String> members = conversationMemberRepository.findUsernamesByConversationId(conversationId);
+        if (!members.contains(me)) return;
+
+        User sender = userService.getByUsernameOrThrow(me);
+        payload.put("fromUsername", me);
+        payload.put("fromDisplayName", sender.getDisplayName());
+        payload.put("fromAvatar", sender.getAvatar());
+        payload.put("group", true);
+
+        Object to = payload.get("toUsername");
+        if (to instanceof String) {
+            String target = (String) to;
+            if (!target.isBlank() && !target.equals(me) && members.contains(target)) {
+                messagingTemplate.convertAndSendToUser(target, "/queue/call", payload);
+            }
+            return;
+        }
+        for (String member : members) {
+            if (!member.equals(me)) {
+                messagingTemplate.convertAndSendToUser(member, "/queue/call", payload);
+            }
+        }
     }
 }

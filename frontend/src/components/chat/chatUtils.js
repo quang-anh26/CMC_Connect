@@ -1,5 +1,33 @@
 export const QUICK_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "👏", "🔥", "🎉"]
 
+export function systemMessageLabel(message, isMine, conversation) {
+  const prefix = "CALL_LOG:"
+  if (!message.content?.startsWith(prefix)) return message.content
+  try {
+    const call = JSON.parse(message.content.slice(prefix.length))
+    const typeLabel = call.callType === "video" ? "cuộc gọi video" : "cuộc gọi thoại"
+    if (call.status === "MISSED") {
+      const callTypeLabel = call.callType === "video" ? "video" : "thoại"
+      return isMine
+        ? `Bạn đã gọi ${callTypeLabel} nhưng không được trả lời`
+        : `Bạn đã bỏ lỡ ${typeLabel} từ ${message.senderDisplayName || conversation?.name || "người dùng"}`
+    }
+    if (call.status === "COMPLETED" && Number.isFinite(call.durationSeconds)) {
+      const totalMinutes = Math.floor(call.durationSeconds / 60)
+      const seconds = call.durationSeconds % 60
+      const hours = Math.floor(totalMinutes / 60)
+      const minutes = totalMinutes % 60
+      const duration = hours
+        ? `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`
+        : `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`
+      return `Cuộc gọi ${call.callType === "video" ? "video" : "thoại"} · ${duration}`
+    }
+  } catch {
+    return message.content
+  }
+  return message.content
+}
+
 export const CHAT_WALLPAPERS = [
   { id: "mountain-meadow", name: "Đồng cỏ", src: "/chat-themes/mountain-meadow.webp" },
   { id: "sunset", name: "Hoàng hôn", src: "/chat-themes/sunset.webp" },

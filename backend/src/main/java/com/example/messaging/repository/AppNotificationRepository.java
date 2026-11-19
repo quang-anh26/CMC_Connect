@@ -12,6 +12,8 @@ public interface AppNotificationRepository extends JpaRepository<AppNotification
     Optional<AppNotification> findByIdAndRecipientUserId(Long id, Long recipientId);
     Optional<AppNotification> findTop1ByRecipientUserIdAndActorUserIdAndTypeAndReferenceTypeAndReferenceIdOrderByCreatedAtDesc(
         Long recipientId, Long actorId, String type, String referenceType, Long referenceId);
+    boolean existsByRecipientUserIdAndTypeAndReferenceTypeAndReferenceId(
+        Long recipientId, String type, String referenceType, Long referenceId);
     long countByRecipientUserIdAndReadFalseAndTypeIn(Long recipientId, Set<String> types);
     List<AppNotification> findByRecipientUserIdAndReadFalseAndTypeIn(Long recipientId, Set<String> types);
 }

@@ -75,7 +75,7 @@ export function SocketProvider({ children }) {
   }, [user])
 
   const subscribe = useCallback((destination, callback) => {
-    if (!clientRef.current || !connected) return () => { }
+    if (!clientRef.current || !connected) return () => {}
     const sub = clientRef.current.subscribe(destination, (message) => {
       callback(JSON.parse(message.body))
     })

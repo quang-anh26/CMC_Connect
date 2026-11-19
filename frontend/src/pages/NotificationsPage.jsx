@@ -17,6 +17,13 @@ const iconFor = (item) => {
   return "bell"
 }
 
+// Thông báo dạng "đã tạo sự kiện..." cần có tên người thực hiện ở đầu câu; thông báo hệ thống (nhắc lịch) đã là câu đầy đủ.
+const messageText = (n) => {
+  const name = n.actorDisplayName || n.actorUsername
+  const first = (n.message || "").charAt(0)
+  return name && first && first === first.toLowerCase() && first !== first.toUpperCase() ? `${name} ${n.message}` : n.message
+}
+
 const CATEGORIES = [["all", "Tất cả"], ["unread", "Chưa đọc"], ["invites", "Lời mời"]]
 
 export default function NotificationsPage() {
@@ -137,8 +144,8 @@ export default function NotificationsPage() {
               const n = item.notification
               return (
                 <button className={item.unread ? "unread" : ""} key={item.id} disabled={busy} onClick={() => openActivity(n)}>
-                  <span className="note-avatar"><Avatar name={n.actorDisplayName || n.actorUsername} src={n.actorAvatar} /><i><Icon name={iconFor(item)} size={14} /></i></span>
-                  <span><strong>{n.message}</strong><small>{timeAgo(n.createdAt)}</small></span>
+                  <span className="note-avatar"><Avatar name={n.actorDisplayName || n.actorUsername || "Sự kiện"} src={n.actorAvatar} /><i><Icon name={iconFor(item)} size={14} /></i></span>
+                  <span><strong>{messageText(n)}</strong><small>{timeAgo(n.createdAt)}</small></span>
                   {item.unread && <em />}
                   <span className="notif-del" role="button" tabIndex={0} aria-label="Xóa thông báo" onClick={(e) => { e.stopPropagation(); removeActivity(n) }}><Icon name="close" size={16} /></span>
                 </button>
