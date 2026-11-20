@@ -195,9 +195,12 @@ export function Composer({ me, onPosted }) {
   )
 }
 
-function SharedPost({ post }) {
+function SharedPost({ post, onOpen }) {
   const navigate = useNavigate()
-  const openOriginalComments = () => navigate(`/feed?postId=${post.postId}&openComments=${post.postId}`)
+  const openOriginalComments = () => {
+    if (onOpen) return onOpen(post)
+    return navigate(`/feed?postId=${post.postId}&openComments=${post.postId}`)
+  }
   return (
     <div className="shared-post" role="link" tabIndex={0} onClick={openOriginalComments} onKeyDown={(event) => {
       if (event.key === "Enter" || event.key === " ") {
@@ -218,7 +221,7 @@ function SharedPost({ post }) {
   )
 }
 
-export function PostCard({ post, meId, onChange, onRemove, onHide, onShared, openCommentsOnMount = false, hideCard = false, onCloseComments }) {
+export function PostCard({ post, meId, onChange, onRemove, onHide, onShared, openCommentsOnMount = false, hideCard = false, onCloseComments, onOpenSharedPost }) {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const toast = useToast()
@@ -450,7 +453,7 @@ export function PostCard({ post, meId, onChange, onRemove, onHide, onShared, ope
           {(contentOverflows || contentExpanded) && <button type="button" className="post-copy-toggle" onClick={() => setContentExpanded((value) => !value)}>{contentExpanded ? "Ẩn bớt" : "Xem thêm"}</button>}
         </div>
       )}
-      {post.sharedPost ? <SharedPost post={post.sharedPost} /> : <PostMedia url={post.imageUrl} type={post.mediaType} onOpen={() => setViewerOpen(true)} />}
+      {post.sharedPost ? <SharedPost post={post.sharedPost} onOpen={onOpenSharedPost} /> : <PostMedia url={post.imageUrl} type={post.mediaType} onOpen={() => setViewerOpen(true)} />}
       <div className="post-meta">
         {(post.likeCount || 0) > 0 && (
           <span className="post-reaction-count">
@@ -516,7 +519,7 @@ export function PostCard({ post, meId, onChange, onRemove, onHide, onShared, ope
                 <div><strong>{post.authorName}</strong><span>{timeAgo(post.createdAt)} · {(PRIVACY[post.privacy] || PRIVACY.PUBLIC).label}</span></div>
               </div>
               {post.content && <p className="post-comments-copy">{post.content}</p>}
-              {post.sharedPost ? <div className="post-comments-shared"><SharedPost post={post.sharedPost} /></div> : post.imageUrl && (isVideo
+              {post.sharedPost ? <div className="post-comments-shared"><SharedPost post={post.sharedPost} onOpen={onOpenSharedPost} /></div> : post.imageUrl && (isVideo
                 ? <video className="post-comments-media" src={videoApi.resolveMediaUrl(mediaUrl(post.imageUrl))} controls playsInline preload="metadata" onPlay={() => videoApi.view(post.postId).catch(() => {})} />
                 : <img className="post-comments-media" src={mediaUrl(post.imageUrl)} alt="Ảnh bài viết" />)}
               <div className="post-viewer-stats">
