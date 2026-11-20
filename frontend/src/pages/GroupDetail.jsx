@@ -12,9 +12,15 @@ import { useAuth } from "../context/AuthContext"
 import { getApiErrorMessage } from "../utils/apiError"
 import { friendOf, mediaUrl, timeAgo } from "../utils/format"
 
-const TABS = ["Bài viết", "Thành viên", "Media", "Giới thiệu"]
+const TABS = ["Bài viết", "Thành viên", "Giới thiệu"]
 const ROLE_LABEL = { OWNER: "Chủ nhóm", ADMIN: "Admin", MODERATOR: "Moderator", MEMBER: "Thành viên" }
 const fmt = (v) => (v ? new Date(v).toLocaleString("vi-VN", { dateStyle: "medium", timeStyle: "short" }) : "")
+const formatPollDeadline = (value) => {
+  if (!value) return "dd/mm/yyyy --:--"
+  const [date, time = ""] = value.split("T")
+  const [year, month, day] = date.split("-")
+  return `${day}/${month}/${year}${time ? ` ${time}` : ""}`
+}
 const asList = (d) => (Array.isArray(d) ? d : d?.content || [])
 
 // Tệp trong nhóm cần xác thực nên tải bằng axios (kèm token) rồi hiển thị qua blob.
@@ -92,8 +98,7 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
   const [file, setFile] = useState(null)
   const [filePreview, setFilePreview] = useState("")
   const [poll, setPoll] = useState({ question: "", options: ["", ""] })
-  const [pollEndDate, setPollEndDate] = useState("")
-  const [pollEndTime, setPollEndTime] = useState("")
+  const [pollEndAt, setPollEndAt] = useState("")
   const [posting, setPosting] = useState(false)
   const [openComments, setOpenComments] = useState({})
   const commentListRefs = useRef({})
@@ -103,11 +108,13 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
   const [deletingComment, setDeletingComment] = useState(false)
   const [postToDelete, setPostToDelete] = useState(null)
   const [deletingPost, setDeletingPost] = useState(false)
+  const [reportingPost, setReportingPost] = useState(null)
+  const [reportReason, setReportReason] = useState("")
+  const [sendingReport, setSendingReport] = useState(false)
   const [editingPost, setEditingPost] = useState(null)
   const [editDraft, setEditDraft] = useState("")
   const [editPollOptions, setEditPollOptions] = useState(["", ""])
-  const [editPollEndDate, setEditPollEndDate] = useState("")
-  const [editPollEndTime, setEditPollEndTime] = useState("")
+  const [editPollEndAt, setEditPollEndAt] = useState("")
   const [editFile, setEditFile] = useState(null)
   const [editFilePreview, setEditFilePreview] = useState("")
   const [removeCurrentMedia, setRemoveCurrentMedia] = useState(false)
@@ -118,6 +125,7 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
   const [eventForm, setEventForm] = useState(null)
   const [eventMediaFile, setEventMediaFile] = useState(null)
   const [eventMediaPreview, setEventMediaPreview] = useState("")
+  const [viewingEvent, setViewingEvent] = useState(null)
   const [settings, setSettings] = useState(null)
   const fileRef = useRef(null)
   const editFileRef = useRef(null)
@@ -129,9 +137,12 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
   const canModerate = ["OWNER", "ADMIN", "MODERATOR"].includes(role)
   const canAdmin = ["OWNER", "ADMIN"].includes(role)
   const privatePreview = group?.visibility === "PRIVATE" && !isMember
-  const activeTab = privatePreview ? "Giới thiệu" : tab
+  const activeTab = privatePreview ? "Giới thiệu" : TABS.includes(tab) ? tab : "Bài viết"
   const fail = (e, fb) => toast(getApiErrorMessage(e, fb), "error")
   const openCommentsPostId = commentsOnlyPostId == null ? searchParams.get("openComments") : String(commentsOnlyPostId)
+  const showDateTimePicker = (event) => {
+    try { event.currentTarget.showPicker?.() } catch { /* trình duyệt có thể đã mở bộ chọn */ }
+  }
 
   useEffect(() => {
     if (!openCommentsPostId || loading) return
@@ -205,7 +216,7 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
       setError("")
       const canView = data.joined || data.visibility === "PUBLIC"
       const [p, m, ev] = await Promise.all([
-        canView ? groupApi.posts(groupId, { sort, mediaOnly: tab === "Media" }) : Promise.resolve({ data: [] }),
+        canView ? groupApi.posts(groupId, { sort }) : Promise.resolve({ data: [] }),
         canView ? groupApi.members(groupId) : Promise.resolve({ data: [] }),
         canView ? groupApi.events(groupId) : Promise.resolve({ data: [] }),
       ])
@@ -224,7 +235,7 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
     } finally {
       setLoading(false)
     }
-  }, [groupId, sort, tab])
+  }, [groupId, sort])
 
   useEffect(() => { loadGroup() }, [loadGroup])
   useEffect(() => { if (canModerate) loadModeration() }, [canModerate, loadModeration])
@@ -280,9 +291,9 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
     if (!poll.question.trim() || options.length < 2) return toast("Bình chọn cần câu hỏi và ít nhất 2 lựa chọn.", "error")
     setPosting(true)
     try {
-      await groupApi.createPoll(groupId, { question: poll.question.trim(), options, endsAt: pollEndDate ? `${pollEndDate}T${pollEndTime || "00:00"}` : null })
+      await groupApi.createPoll(groupId, { question: poll.question.trim(), options, endsAt: pollEndAt || null })
       setPoll({ question: "", options: ["", ""] }); setComposerMode("POST")
-      setPollEndDate(""); setPollEndTime("")
+      setPollEndAt("")
       toast("Đã tạo bình chọn.")
       loadGroup()
     } catch (e) { fail(e, "Không thể tạo bình chọn.") } finally { setPosting(false) }
@@ -332,8 +343,7 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
     setEditDraft(post.content || "")
     setEditPollOptions(post.poll?.options?.map((option) => option.label) || ["", ""])
     const existingPollEnd = post.poll?.endsAt || ""
-    setEditPollEndDate(existingPollEnd.slice(0, 10))
-    setEditPollEndTime(existingPollEnd.slice(11, 16))
+    setEditPollEndAt(existingPollEnd.slice(0, 16))
     setEditFile(null)
     setEditFilePreview("")
     setRemoveCurrentMedia(false)
@@ -352,7 +362,7 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
         const { data } = await groupApi.updatePoll(groupId, editingPost.postId, {
           question: content,
           options,
-          endsAt: editPollEndDate ? `${editPollEndDate}T${editPollEndTime || "00:00"}` : null,
+          endsAt: editPollEndAt || null,
         })
         setPosts((list) => list.map((post) => post.postId === editingPost.postId ? data : post))
         setEditingPost(null)
@@ -393,13 +403,30 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
   }
   const pin = async (post) => {
     setMenu(null)
-    try { await groupApi.pin(groupId, post.postId); loadGroup() } catch (e) { fail(e, "Không thể ghim bài viết.") }
+    try { await groupApi.pin(groupId, post.postId); loadGroup() } catch (e) { fail(e, post.poll ? "Không thể ghim bình chọn." : "Không thể ghim bài viết.") }
   }
-  const reportPost = async (post) => {
+  const reportPost = (post) => {
     setMenu(null)
-    const reason = window.prompt("Lý do báo cáo bài viết này:")
-    if (!reason?.trim()) return
-    try { await groupApi.report(groupId, { targetType: "POST", targetId: post.postId, reason: reason.trim() }); toast("Đã gửi báo cáo.") } catch (e) { fail(e, "Không thể gửi báo cáo.") }
+    setReportReason("")
+    setReportingPost(post)
+  }
+  const closeReport = () => {
+    if (sendingReport) return
+    setReportingPost(null)
+    setReportReason("")
+  }
+  const submitReport = async (event) => {
+    event.preventDefault()
+    if (!reportingPost || !reportReason.trim() || sendingReport) return
+    const post = reportingPost
+    setSendingReport(true)
+    try {
+      await groupApi.report(groupId, { targetType: "POST", targetId: post.postId, reason: reportReason.trim() })
+      toast(post.poll ? "Đã gửi báo cáo bình chọn." : "Đã gửi báo cáo bài viết.")
+      setReportingPost(null)
+      setReportReason("")
+    } catch (e) { fail(e, post.poll ? "Không thể gửi báo cáo bình chọn." : "Không thể gửi báo cáo bài viết.") }
+    finally { setSendingReport(false) }
   }
   const toggleSave = async (post) => {
     setMenu(null)
@@ -539,10 +566,14 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
                 <div className="mod-row" key={r.id}><div><strong>{r.name || r.userName || r.displayName}</strong><small>{timeAgo(r.createdAt)}</small></div><Button onClick={() => decide(() => groupApi.decideJoin(groupId, r.id, true), "Đã duyệt thành viên.", "Không thể duyệt.")}>Duyệt</Button><Button variant="secondary" onClick={() => decide(() => groupApi.decideJoin(groupId, r.id, false), "Đã từ chối yêu cầu.", "Không thể từ chối.")}>Từ chối</Button></div>
               ))}
             </div>
-            <div><h3>Bài viết chờ duyệt ({mod.posts.length})</h3>
-              {mod.posts.length === 0 && <p className="aside-empty">Không có bài viết chờ duyệt.</p>}
+            <div><h3>Nội dung chờ duyệt ({mod.posts.length})</h3>
+              {mod.posts.length === 0 && <p className="aside-empty">Không có nội dung chờ duyệt.</p>}
               {mod.posts.map((p) => (
-                <div className="mod-row" key={p.postId}><div><strong>{p.authorName}</strong><small>{(p.content || "Bài viết có tệp đính kèm").slice(0, 80)}</small></div><Button onClick={() => decide(() => groupApi.reviewPost(groupId, p.postId, true), "Đã duyệt bài viết.", "Không thể duyệt.")}>Duyệt</Button><Button variant="secondary" onClick={() => decide(() => groupApi.reviewPost(groupId, p.postId, false), "Đã từ chối bài viết.", "Không thể từ chối.")}>Từ chối</Button></div>
+                <div className="mod-row" key={p.postId}>
+                  <div><strong>{p.authorName}</strong><small>{p.poll ? "Bình chọn" : "Bài viết"} · {(p.content || (p.poll ? "Bình chọn" : "Bài viết có tệp đính kèm")).slice(0, 80)}</small></div>
+                  <Button onClick={() => decide(() => groupApi.reviewPost(groupId, p.postId, true), p.poll ? "Đã duyệt bình chọn." : "Đã duyệt bài viết.", p.poll ? "Không thể duyệt bình chọn." : "Không thể duyệt bài viết.")}>{p.poll ? "Duyệt bình chọn" : "Duyệt bài viết"}</Button>
+                  <Button variant="secondary" onClick={() => decide(() => groupApi.reviewPost(groupId, p.postId, false), p.poll ? "Đã từ chối bình chọn." : "Đã từ chối bài viết.", p.poll ? "Không thể từ chối bình chọn." : "Không thể từ chối bài viết.")}>{p.poll ? "Từ chối bình chọn" : "Từ chối bài viết"}</Button>
+                </div>
               ))}
             </div>
             <div><h3>Báo cáo ({mod.reports.length})</h3>
@@ -610,7 +641,10 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
                   <strong>{ev.title}</strong>
                   <small>{fmt(ev.startsAt)}{ev.location ? ` · ${ev.location}` : ""}</small>
                   <small>{ev.participantCount} người tham gia · bởi {ev.creatorName}</small>
-                  {isMember && <Button variant={ev.participating ? "primary" : "secondary"} onClick={() => participate(ev.eventId)}>{ev.participating ? "Đã tham gia" : "Tham gia"}</Button>}
+                  <div className="group-event-actions">
+                    <Button variant="secondary" onClick={() => setViewingEvent(ev)}>Xem thông tin</Button>
+                    {isMember && <Button variant={ev.participating ? "primary" : "secondary"} onClick={() => participate(ev.eventId)}>{ev.participating ? "Đã tham gia" : "Tham gia"}</Button>}
+                  </div>
                 </div>
               ))}
             </section>
@@ -690,11 +724,12 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
                       ))}
                       <div className="full group-poll-compose-controls">
                         {poll.options.length < 6 && <Button variant="secondary" onClick={() => setPoll((current) => ({ ...current, options: [...current.options, ""] }))}>Thêm lựa chọn</Button>}
-                        <label className="group-poll-compose-end">Kết thúc:
+                        <label className="group-poll-compose-end">
                           <span className="group-poll-deadline">
-                            <input aria-label="Ngày kết thúc" type="date" lang="vi" value={pollEndDate} onChange={(e) => setPollEndDate(e.target.value)} />
-                            <span aria-hidden="true">·</span>
-                            <input aria-label="Giờ kết thúc" type="time" lang="en-US" value={pollEndTime} onChange={(e) => setPollEndTime(e.target.value)} />
+                            <span className="group-poll-deadline-label">Kết thúc</span>
+                            <span className={`group-poll-deadline-value${pollEndAt ? " is-set" : ""}`}>{formatPollDeadline(pollEndAt)}</span>
+                            <Icon name="calendar" size={16} />
+                            <input className="group-poll-deadline-picker" aria-label="Thời gian kết thúc" type="datetime-local" lang="vi" value={pollEndAt} onChange={(e) => setPollEndAt(e.target.value)} onClick={showDateTimePicker} />
                           </span>
                         </label>
                         <Button type="submit" disabled={posting}>{posting ? "Đang tạo..." : "Tạo bình chọn"}</Button>
@@ -725,14 +760,14 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
                 </form>
               )}
               <div className="group-post-toolbar">
-                <h3>{activeTab === "Media" ? "Ảnh và tệp" : "Bài viết"}</h3>
+                <h3>Bài viết</h3>
                 {activeTab === "Bài viết" && (
                   <div style={{ display: "flex", gap: 8 }}>
                     <select className="toolbar-select" value={sort} onChange={(e) => setSort(e.target.value)}><option value="NEWEST">Mới nhất</option><option value="OLDEST">Cũ nhất</option><option value="POPULAR">Nổi bật</option></select>
                   </div>
                 )}
               </div>
-              {posts.length === 0 && <EmptyState title={activeTab === "Media" ? "Chưa có tệp được chia sẻ" : "Chưa có bài viết"} copy={isMember ? "Hãy bắt đầu cuộc trò chuyện đầu tiên trong nhóm." : "Tham gia nhóm để xem và đăng bài."} icon="forum" />}
+              {posts.length === 0 && <EmptyState title="Chưa có bài viết" copy={isMember ? "Hãy bắt đầu cuộc trò chuyện đầu tiên trong nhóm." : "Tham gia nhóm để xem và đăng bài."} icon="forum" />}
               {orderedPosts.map((p) => {
                 const picked = POST_REACTIONS.find((r) => r.type === p.viewerReaction)
                 const comments = p.comments || []
@@ -743,13 +778,13 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
                       <span style={{ cursor: "pointer" }} onClick={() => navigate(`/profile/${p.authorId}`)}><Avatar name={p.authorName} src={p.authorAvatar} /></span>
                       <div><strong>{p.authorName}</strong><span>{fmt(p.createdAt)}</span></div>
                       <div className="menu-wrap" style={{ marginLeft: "auto", position: "relative" }}>
-                        <button className="icon-button" aria-label="Tùy chọn bài viết" onClick={() => setMenu(menu === `p${p.postId}` ? null : `p${p.postId}`)}><Icon name="more" /></button>
+                        <button className="icon-button" aria-label={`Tùy chọn ${p.poll ? "bình chọn" : "bài viết"}`} onClick={() => setMenu(menu === `p${p.postId}` ? null : `p${p.postId}`)}><Icon name="more" /></button>
                         {menu === `p${p.postId}` && (
                           <div className="pop-menu post-menu saved-item-menu">
                             <button onClick={() => toggleSave(p)}><Icon name="bookmark" size={16} />{saved[p.postId] ? (p.poll ? "Bỏ lưu bình chọn" : "Bỏ lưu bài viết") : (p.poll ? "Lưu bình chọn" : "Lưu bài viết")}</button>
                             {authored(p) && <button onClick={() => editPost(p)}><Icon name="edit" size={16} />{p.poll ? "Sửa bình chọn" : "Sửa bài viết"}</button>}
                             {canModerate && <button onClick={() => pin(p)}><Icon name="pin" size={16} />{p.pinned ? (p.poll ? "Bỏ ghim bình chọn" : "Bỏ ghim bài viết") : (p.poll ? "Ghim bình chọn" : "Ghim bài viết")}</button>}
-                            {!authored(p) && isMember && <button onClick={() => reportPost(p)}>Báo cáo bài viết</button>}
+                            {!authored(p) && isMember && <button onClick={() => reportPost(p)}><Icon name="flag" size={16} />{p.poll ? "Báo cáo bình chọn" : "Báo cáo bài viết"}</button>}
                             {(authored(p) || canModerate) && <button className="danger" onClick={() => { setMenu(null); setPostToDelete(p) }}><Icon name="trash" size={16} />{p.poll ? "Xóa bình chọn" : "Xóa bài viết"}</button>}
                           </div>
                         )}
@@ -771,12 +806,12 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
                               <Avatar name={p.authorName} src={p.authorAvatar} />
                               <div><strong>{p.authorName}</strong><span>{fmt(p.createdAt)} · {group.name}</span></div>
                               <div className="menu-wrap group-comments-post-menu">
-                                <button type="button" className="icon-button" aria-label="Tùy chọn bài viết" onClick={() => setMenu(menu === `cp${p.postId}` ? null : `cp${p.postId}`)}><Icon name="more" /></button>
+                                <button type="button" className="icon-button" aria-label={`Tùy chọn ${p.poll ? "bình chọn" : "bài viết"}`} onClick={() => setMenu(menu === `cp${p.postId}` ? null : `cp${p.postId}`)}><Icon name="more" /></button>
                                 {menu === `cp${p.postId}` && <div className="pop-menu post-menu">
                                   <button onClick={() => toggleSave(p)}><Icon name="bookmark" size={16} />{saved[p.postId] ? (p.poll ? "Bỏ lưu bình chọn" : "Bỏ lưu bài viết") : (p.poll ? "Lưu bình chọn" : "Lưu bài viết")}</button>
                                   {authored(p) && <button onClick={() => editPost(p)}><Icon name="edit" size={16} />{p.poll ? "Sửa bình chọn" : "Sửa bài viết"}</button>}
                                   {canModerate && <button onClick={() => pin(p)}><Icon name="pin" size={16} />{p.pinned ? (p.poll ? "Bỏ ghim bình chọn" : "Bỏ ghim bài viết") : (p.poll ? "Ghim bình chọn" : "Ghim bài viết")}</button>}
-                                  {!authored(p) && isMember && <button onClick={() => reportPost(p)}>Báo cáo bài viết</button>}
+                                  {!authored(p) && isMember && <button onClick={() => reportPost(p)}><Icon name="flag" size={16} />{p.poll ? "Báo cáo bình chọn" : "Báo cáo bài viết"}</button>}
                                   {(authored(p) || canModerate) && <button className="danger" onClick={() => { setMenu(null); setPostToDelete(p) }}><Icon name="trash" size={16} />{p.poll ? "Xóa bình chọn" : "Xóa bài viết"}</button>}
                                 </div>}
                               </div>
@@ -839,6 +874,20 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
         , document.body
       )}
 
+      {reportingPost && (
+        <Modal title={`Báo cáo ${reportingPost.poll ? "bình chọn" : "bài viết"}`} close={closeReport} portal preservePage>
+          <form onSubmit={submitReport}>
+            <div className="form-grid">
+              <label className="full">Lý do báo cáo<textarea autoFocus rows={4} maxLength={500} value={reportReason} onChange={(event) => setReportReason(event.target.value)} placeholder="Hãy mô tả lý do bạn báo cáo nội dung này." /></label>
+            </div>
+            <div className="modal-actions">
+              <Button variant="secondary" disabled={sendingReport} onClick={closeReport}>Hủy</Button>
+              <Button type="submit" disabled={sendingReport || !reportReason.trim()}>{sendingReport ? "Đang gửi..." : "Gửi báo cáo"}</Button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
       {editingPost && (
         <Modal title={editingPost.poll ? "Sửa bình chọn" : "Sửa bài viết"} portal preservePage close={() => { if (!savingEdit) { setEditingPost(null); setEditFile(null); setEditFilePreview(""); setRemoveCurrentMedia(false) } }}>
           <form onSubmit={saveEditedPost}>
@@ -854,11 +903,12 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
                   ))}
                   <div className="full group-poll-edit-controls">
                     {editPollOptions.length < 10 && <Button type="button" variant="secondary" onClick={() => setEditPollOptions((current) => [...current, ""])}>Thêm lựa chọn</Button>}
-                    <label className="group-poll-end-field">Kết thúc:
+                    <label className="group-poll-end-field">
                       <span className="group-poll-deadline">
-                        <input aria-label="Ngày kết thúc" type="date" lang="vi" value={editPollEndDate} onChange={(event) => setEditPollEndDate(event.target.value)} />
-                        <span aria-hidden="true">·</span>
-                        <input aria-label="Giờ kết thúc" type="time" lang="en-US" value={editPollEndTime} onChange={(event) => setEditPollEndTime(event.target.value)} />
+                        <span className="group-poll-deadline-label">Kết thúc</span>
+                        <span className={`group-poll-deadline-value${editPollEndAt ? " is-set" : ""}`}>{formatPollDeadline(editPollEndAt)}</span>
+                        <Icon name="calendar" size={16} />
+                        <input className="group-poll-deadline-picker" aria-label="Thời gian kết thúc" type="datetime-local" lang="vi" value={editPollEndAt} onChange={(event) => setEditPollEndAt(event.target.value)} onClick={showDateTimePicker} />
                       </span>
                     </label>
                   </div>
@@ -912,6 +962,42 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
               <div style={{ display: "flex", gap: 8 }}><Button variant="secondary" onClick={() => setSettingsOpen(false)}>Hủy</Button><Button type="submit">Lưu thay đổi</Button></div>
             </div>
           </form>
+        </Modal>
+      )}
+
+      {viewingEvent && (
+        <Modal title="Thông tin sự kiện" close={() => setViewingEvent(null)} wide portal preservePage>
+          <div className="group-event-info">
+            {viewingEvent.mediaUrl && <div className={`group-event-info-media${viewingEvent.mediaType === "VIDEO" ? " video" : ""}`}><GroupPostMedia post={{ mediaUrl: viewingEvent.mediaUrl, mediaType: viewingEvent.mediaType }} /></div>}
+            <div className="group-event-info-content">
+              <div className="group-event-info-heading">
+                <span>SỰ KIỆN NHÓM</span>
+                <h2>{viewingEvent.title}</h2>
+              </div>
+              <section className="group-event-description">
+                <h3>Mô tả</h3>
+                <p className={viewingEvent.description ? "" : "empty"}>{viewingEvent.description || "Sự kiện chưa có mô tả."}</p>
+              </section>
+              <div className="group-event-info-grid">
+                <div className="group-event-detail-card">
+                  <span className="group-event-detail-icon"><Icon name="calendar" size={18} /></span>
+                  <div><small>Thời gian bắt đầu</small><strong>{fmt(viewingEvent.startsAt)}</strong>{viewingEvent.endsAt && <span>Kết thúc {fmt(viewingEvent.endsAt)}</span>}</div>
+                </div>
+                <div className="group-event-detail-card">
+                  <span className="group-event-detail-icon"><Icon name="location" size={18} /></span>
+                  <div><small>Địa điểm</small><strong>{viewingEvent.location || "Chưa cập nhật"}</strong></div>
+                </div>
+                <div className="group-event-detail-card">
+                  <span className="group-event-detail-icon"><Icon name="users" size={18} /></span>
+                  <div><small>Người tham gia</small><strong>{viewingEvent.participantCount ?? 0} người</strong></div>
+                </div>
+                <div className="group-event-detail-card">
+                  <span className="group-event-detail-icon"><Icon name="group" size={18} /></span>
+                  <div><small>Người tạo</small><strong>{viewingEvent.creatorName || "Không rõ"}</strong></div>
+                </div>
+              </div>
+            </div>
+          </div>
         </Modal>
       )}
     </div>

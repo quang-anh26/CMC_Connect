@@ -46,6 +46,12 @@ const iconPaths = {
     </>
   ),
   bookmark: <path d="M6 3h12v18l-6-4-6 4V3Z" />,
+  flag: (
+    <>
+      <path d="M5 21V4" />
+      <path d="M5 4c6-3 8 3 14 0v11c-6 3-8-3-14 0" />
+    </>
+  ),
   message: <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4v8Z" />,
   bell: (
     <>

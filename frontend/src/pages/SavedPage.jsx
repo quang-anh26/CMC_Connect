@@ -170,6 +170,14 @@ export default function SavedPage() {
     navigate(item.sourcePath || "/feed")
   }
 
+  const openSharedPost = async (post) => {
+    setActivePost({ ...post, comments: post.comments || [] })
+    try {
+      const { data } = await feedApi.get(post.postId)
+      setActivePost((current) => String(current?.postId) === String(data.postId) ? data : current)
+    } catch { /* vẫn hiển thị bản xem trước */ }
+  }
+
   const current = collections.find((c) => String(c.collectionId) === String(collection))
   return (
     <div className="saved-page">
@@ -274,6 +282,7 @@ export default function SavedPage() {
           openCommentsOnMount
           hideCard
           onCloseComments={() => setActivePost(null)}
+          onOpenSharedPost={openSharedPost}
         />
       )}
       {activeGroupPost && (
