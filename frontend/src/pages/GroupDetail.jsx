@@ -12,9 +12,24 @@ import { useAuth } from "../context/AuthContext"
 import { getApiErrorMessage } from "../utils/apiError"
 import { friendOf, mediaUrl, timeAgo } from "../utils/format"
 
-const TABS = ["Bài viết", "Thành viên", "Giới thiệu"]
-const ROLE_LABEL = { OWNER: "Chủ nhóm", ADMIN: "Admin", MODERATOR: "Moderator", MEMBER: "Thành viên" }
+const TABS = ["Bài viết", "Thành viên", "Sự kiện", "Giới thiệu"]
+const EVENT_FILTERS = [["ALL", "Tất cả"], ["UPCOMING", "Sự kiện sắp diễn ra"], ["ENDED", "Sự kiện kết thúc"]]
+const ROLE_LABEL = { OWNER: "Chủ nhóm", ADMIN: "Phó nhóm", MODERATOR: "Thành viên", MEMBER: "Thành viên" }
+const memberRolePriority = (role) => role === "OWNER" ? 0 : role === "ADMIN" ? 1 : 2
 const fmt = (v) => (v ? new Date(v).toLocaleString("vi-VN", { dateStyle: "medium", timeStyle: "short" }) : "")
+const groupEventEndTime = (event) => {
+  const endsAt = new Date(event.endsAt || event.startsAt)
+  if (!event.endsAt) endsAt.setHours(24, 0, 0, 0)
+  return endsAt.getTime()
+}
+const groupEventStatus = (event, now = Date.now()) => {
+  const startsAt = new Date(event.startsAt).getTime()
+  const endsAt = groupEventEndTime(event)
+  if (startsAt > now) return "UPCOMING"
+  if (endsAt > now) return "ONGOING"
+  return "ENDED"
+}
+const EVENT_STATUS_LABEL = { UPCOMING: "Sắp diễn ra", ONGOING: "Đang diễn ra", ENDED: "Đã kết thúc" }
 const formatPollDeadline = (value) => {
   if (!value) return "dd/mm/yyyy --:--"
   const [date, time = ""] = value.split("T")
@@ -54,6 +69,28 @@ function GroupPostMedia({ post, onOpenPost }) {
   return <a className="attachment-row" style={{ margin: "0 18px 12px", width: "auto" }} href={source} download target="_blank" rel="noreferrer"><Icon name="file" /><span><strong>Mở tệp đính kèm</strong></span><Icon name="download" size={18} /></a>
 }
 
+function ModerationPostPreview({ post, expanded = false }) {
+  if (!post) return null
+  const options = post.poll?.options || []
+  return (
+    <div className={`mod-target-post${expanded ? " expanded" : ""}`}>
+      <div className="mod-target-post-heading">
+        <strong>{post.poll ? "Bình chọn" : "Bài viết"} · {post.authorName || "Không rõ người đăng"}</strong>
+        {post.createdAt && <small>{fmt(post.createdAt)}</small>}
+      </div>
+      {post.content && <p className="mod-target-post-copy">{post.content}</p>}
+      {post.poll && (
+        <div className="mod-target-poll-options">
+          {options.map((option, index) => <span key={option.optionId || option.label || option || index}>{index + 1}. {typeof option === "string" ? option : option.label}</span>)}
+          {post.poll.endsAt && <small>Kết thúc {fmt(post.poll.endsAt)}</small>}
+        </div>
+      )}
+      {post.mediaUrl && <div className="mod-target-post-media"><GroupPostMedia post={post} /></div>}
+      {!post.content && !post.poll && !post.mediaUrl && <p className="mod-target-post-copy empty">Bài viết không có nội dung xem trước.</p>}
+    </div>
+  )
+}
+
 function PollCard({ post, canVote, onVote }) {
   const options = post.poll?.options || []
   const total = options.reduce((t, o) => t + o.votes, 0)
@@ -90,6 +127,8 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
   const [invitedFriendIds, setInvitedFriendIds] = useState(() => new Set())
   const [saved, setSaved] = useState({})
   const [tab, setTab] = useState("Bài viết")
+  const [eventFilter, setEventFilter] = useState("ALL")
+  const [eventNow, setEventNow] = useState(() => Date.now())
   const [sort, setSort] = useState("NEWEST")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -120,8 +159,19 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
   const [removeCurrentMedia, setRemoveCurrentMedia] = useState(false)
   const [savingEdit, setSavingEdit] = useState(false)
   const [menu, setMenu] = useState(null)
+  const [memberMenuPosition, setMemberMenuPosition] = useState(null)
+  const [memberActionTarget, setMemberActionTarget] = useState(null)
+  const [memberActionReason, setMemberActionReason] = useState("")
+  const [savingMemberAction, setSavingMemberAction] = useState(false)
+  const [groupActionConfirm, setGroupActionConfirm] = useState(null)
+  const [savingGroupAction, setSavingGroupAction] = useState(false)
   const [showAdmin, setShowAdmin] = useState(false)
   const [mod, setMod] = useState({ requests: [], posts: [], reports: [], bans: [] })
+  const [moderationTarget, setModerationTarget] = useState(null)
+  const [loadingReportId, setLoadingReportId] = useState(null)
+  const [roleTarget, setRoleTarget] = useState(null)
+  const [memberRoleValue, setMemberRoleValue] = useState("MEMBER")
+  const [savingMemberRole, setSavingMemberRole] = useState(false)
   const [eventForm, setEventForm] = useState(null)
   const [eventMediaFile, setEventMediaFile] = useState(null)
   const [eventMediaPreview, setEventMediaPreview] = useState("")
@@ -134,8 +184,9 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
 
   const role = group?.role
   const isMember = Boolean(group?.joined)
-  const canModerate = ["OWNER", "ADMIN", "MODERATOR"].includes(role)
+  const canModerate = ["OWNER", "ADMIN"].includes(role)
   const canAdmin = ["OWNER", "ADMIN"].includes(role)
+  const canManageRoles = role === "OWNER"
   const privatePreview = group?.visibility === "PRIVATE" && !isMember
   const activeTab = privatePreview ? "Giới thiệu" : TABS.includes(tab) ? tab : "Bài viết"
   const fail = (e, fb) => toast(getApiErrorMessage(e, fb), "error")
@@ -163,10 +214,46 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
   }
 
   useEffect(() => {
-    const close = (e) => !e.target.closest?.(".menu-wrap") && setMenu(null)
+    const close = (e) => {
+      if (!e.target.closest?.(".menu-wrap")) {
+        setMenu(null)
+        setMemberMenuPosition(null)
+      }
+    }
     window.addEventListener("click", close)
     return () => window.removeEventListener("click", close)
   }, [])
+  useEffect(() => {
+    if (!menu?.startsWith("m") || !memberMenuPosition) return undefined
+    const close = () => { setMenu(null); setMemberMenuPosition(null) }
+    window.addEventListener("scroll", close, true)
+    window.addEventListener("resize", close)
+    return () => {
+      window.removeEventListener("scroll", close, true)
+      window.removeEventListener("resize", close)
+    }
+  }, [menu, memberMenuPosition])
+  useEffect(() => {
+    if (!groupActionConfirm || savingGroupAction) return undefined
+    const closeOnEscape = (event) => {
+      if (event.key !== "Escape") return
+      event.stopImmediatePropagation()
+      setGroupActionConfirm(null)
+    }
+    window.addEventListener("keydown", closeOnEscape, true)
+    return () => window.removeEventListener("keydown", closeOnEscape, true)
+  }, [groupActionConfirm, savingGroupAction])
+  useEffect(() => {
+    if (groupActionConfirm !== "leave") return undefined
+    const previousHtmlOverflow = document.documentElement.style.overflow
+    const previousBodyOverflow = document.body.style.overflow
+    document.documentElement.style.overflow = "hidden"
+    document.body.style.overflow = "hidden"
+    return () => {
+      document.documentElement.style.overflow = previousHtmlOverflow
+      document.body.style.overflow = previousBodyOverflow
+    }
+  }, [groupActionConfirm])
   useEffect(() => {
     if (!commentToDelete && !postToDelete) return undefined
     const closeConfirm = (event) => {
@@ -238,6 +325,14 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
   }, [groupId, sort])
 
   useEffect(() => { loadGroup() }, [loadGroup])
+  useEffect(() => {
+    const transitions = events.flatMap((event) => [new Date(event.startsAt).getTime(), groupEventEndTime(event)]
+      .filter((time) => Number.isFinite(time) && time > eventNow))
+    if (!transitions.length) return undefined
+    const nextTransition = Math.min(...transitions)
+    const timer = setTimeout(() => setEventNow(Date.now()), Math.min(nextTransition - eventNow + 50, 2147483000))
+    return () => clearTimeout(timer)
+  }, [events, eventNow])
   useEffect(() => { if (canModerate) loadModeration() }, [canModerate, loadModeration])
   useEffect(() => {
     if (!friendPickerOpen) return undefined
@@ -255,9 +350,8 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
   const joinOrLeave = async () => {
     try {
       if (isMember) {
-        if (!window.confirm("Rời khỏi nhóm này?")) return
-        await groupApi.leave(groupId)
-        toast("Đã rời nhóm.")
+        setGroupActionConfirm("leave")
+        return
       } else {
         const { data } = await groupApi.join(groupId)
         toast(data?.status === "JOINED" ? "Đã tham gia nhóm." : "Đã gửi yêu cầu tham gia, vui lòng chờ duyệt.")
@@ -433,30 +527,109 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
     try { const { data } = await savedApi.toggle("GROUP_POST", post.postId); setSaved((s) => ({ ...s, [post.postId]: Boolean(data.saved) })); toast(data.saved ? (post.poll ? "Đã lưu bình chọn." : "Đã lưu bài viết.") : (post.poll ? "Đã bỏ lưu bình chọn." : "Đã bỏ lưu bài viết.")) } catch (e) { fail(e, post.poll ? "Không thể lưu bình chọn." : "Không thể lưu bài viết.") }
   }
 
-  const manageMember = async (member, action) => {
+  const manageMember = (member, action) => {
     setMenu(null)
-    try {
-      if (action === "warn") {
-        const reason = window.prompt(`Nội dung cảnh cáo ${member.name}:`)
-        if (!reason?.trim()) return
-        await groupApi.warnMember(groupId, member.userId, reason.trim()); toast("Đã gửi cảnh cáo đến thành viên."); return
-      }
-      if (action === "role") {
-        const next = window.prompt("Chọn vai trò: ADMIN, MODERATOR hoặc MEMBER", member.role)
-        if (!next) return
-        await groupApi.changeRole(groupId, member.userId, next.trim().toUpperCase()); toast("Đã cập nhật vai trò."); loadGroup(); return
-      }
-      const reason = action === "ban" ? window.prompt(`Lý do cấm ${member.name}:`) : ""
-      if (action === "ban" && reason == null) return
-      if (!window.confirm(action === "ban" ? `Cấm ${member.name} khỏi nhóm?` : `Xóa ${member.name} khỏi nhóm?`)) return
-      if (action === "ban") await groupApi.banMember(groupId, member.userId, reason)
-      else await groupApi.removeMember(groupId, member.userId)
-      toast(action === "ban" ? "Đã cấm thành viên." : "Đã xóa thành viên.")
-      loadGroup(); loadModeration()
-    } catch (e) { fail(e, "Không thể thực hiện thao tác.") }
+    setMemberMenuPosition(null)
+    if (action === "role") {
+      setMemberRoleValue(member.role === "ADMIN" ? "ADMIN" : "MEMBER")
+      setRoleTarget(member)
+      return
+    }
+    setMemberActionReason("")
+    setMemberActionTarget({ member, action })
   }
 
-  const decide = async (fn, ok, fb) => { try { await fn(); toast(ok); await loadModeration(); await loadGroup() } catch (e) { fail(e, fb) } }
+  const toggleMemberMenu = (event, member) => {
+    const memberMenu = `m${member.userId}`
+    if (menu === memberMenu) {
+      setMenu(null)
+      setMemberMenuPosition(null)
+      return
+    }
+    const rect = event.currentTarget.getBoundingClientRect()
+    const menuWidth = 170
+    const menuHeight = role === "OWNER" ? 112 : 78
+    const leftOfButton = rect.left - menuWidth - 8
+    const left = leftOfButton >= 8 ? leftOfButton : Math.max(8, Math.min(rect.right + 8, window.innerWidth - menuWidth - 8))
+    const top = Math.max(8, Math.min(rect.top, window.innerHeight - menuHeight - 8))
+    setMemberMenuPosition({ top, left })
+    setMenu(memberMenu)
+  }
+
+  const submitMemberAction = async (event) => {
+    event.preventDefault()
+    if (!memberActionTarget || savingMemberAction) return
+    const { member, action } = memberActionTarget
+    setSavingMemberAction(true)
+    try {
+      if (action === "block") await groupApi.banMember(groupId, member.userId, memberActionReason.trim())
+      else await groupApi.removeMember(groupId, member.userId)
+      toast(action === "block" ? "Đã chặn thành viên khỏi nhóm." : "Đã xóa thành viên khỏi nhóm.")
+      setMemberActionTarget(null)
+      setMemberActionReason("")
+      await Promise.all([loadGroup(), loadModeration()])
+    } catch (e) {
+      fail(e, action === "block" ? "Không thể chặn thành viên khỏi nhóm." : "Không thể xóa thành viên khỏi nhóm.")
+    } finally {
+      setSavingMemberAction(false)
+    }
+  }
+
+  const saveMemberRole = async (event) => {
+    event.preventDefault()
+    if (!roleTarget || savingMemberRole) return
+    setSavingMemberRole(true)
+    try {
+      await groupApi.changeRole(groupId, roleTarget.userId, memberRoleValue)
+      toast("Đã cập nhật vai trò thành viên.")
+      setRoleTarget(null)
+      await loadGroup()
+    } catch (e) {
+      fail(e, "Không thể cập nhật vai trò thành viên.")
+    } finally {
+      setSavingMemberRole(false)
+    }
+  }
+
+  const decide = async (fn, ok, fb, afterSuccess) => { try { await fn(); toast(ok); await loadModeration(); await loadGroup(); afterSuccess?.() } catch (e) { fail(e, fb) } }
+
+  const findReportPost = (report, source = posts) => {
+    if (report.targetPost) return report.targetPost
+    if (report.targetType === "POST") return source.find((post) => String(post.postId) === String(report.targetId)) || null
+    if (report.targetType === "COMMENT") {
+      return source.find((post) => post.comments?.some((comment) => String(comment.commentId) === String(report.targetId))) || null
+    }
+    return null
+  }
+  const findReportComment = (report, source = posts) => report.targetComment || source
+    .flatMap((post) => post.comments || [])
+    .find((comment) => String(comment.commentId) === String(report.targetId)) || null
+
+  const openReport = async (report) => {
+    setLoadingReportId(String(report.id))
+    let source = posts
+    let targetPost = findReportPost(report, source)
+    if (!targetPost && report.targetExists !== false) {
+      try {
+        const { data } = await groupApi.posts(groupId, { sort: "NEWEST" })
+        source = asList(data)
+        setPosts(source)
+        targetPost = findReportPost(report, source)
+      } catch { /* Nội dung có thể đã bị xóa hoặc không tải được. */ }
+    }
+    const targetComment = findReportComment(report, source)
+    setModerationTarget({
+      kind: "REPORT",
+      item: {
+        ...report,
+        targetPost,
+        targetComment,
+        previewUnavailable: !targetPost && report.targetExists !== false,
+        targetExists: report.targetExists ?? Boolean(targetPost || targetComment),
+      },
+    })
+    setLoadingReportId(null)
+  }
 
   const inviteFriend = async (friend) => {
     if (invitingFriendId || invitedFriendIds.has(String(friend.id))) return
@@ -492,6 +665,7 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
     finally { setPosting(false) }
   }
   const participate = async (eventId) => { try { await groupApi.participateEvent(groupId, eventId); loadGroup() } catch (e) { fail(e, "Không thể cập nhật tham gia sự kiện.") } }
+  const openAllEvents = () => { setEventFilter("ALL"); setTab("Sự kiện") }
 
   const saveSettings = async (e) => {
     e.preventDefault()
@@ -508,11 +682,28 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
       setSettings((s) => ({ ...s, [field]: data.url }))
     } catch (err) { fail(err, err.message || "Không thể tải ảnh lên.") }
   }
-  const deleteGroup = async () => {
-    if (!window.confirm("Xóa nhóm này? Hành động này không thể hoàn tác.")) return
-    try { await groupApi.remove(groupId); toast("Đã xóa nhóm."); navigate("/groups") } catch (e) { fail(e, "Không thể xóa nhóm.") }
+  const deleteGroup = () => setGroupActionConfirm("delete")
+  const submitGroupAction = async () => {
+    if (!groupActionConfirm || savingGroupAction) return
+    setSavingGroupAction(true)
+    try {
+      if (groupActionConfirm === "delete") {
+        await groupApi.remove(groupId)
+        toast("Đã xóa nhóm.")
+        navigate("/groups")
+      } else {
+        await groupApi.leave(groupId)
+        toast("Đã rời nhóm.")
+        setGroupActionConfirm(null)
+        await loadGroup()
+      }
+    } catch (e) {
+      fail(e, groupActionConfirm === "delete" ? "Không thể xóa nhóm." : "Không thể rời nhóm.")
+    } finally {
+      setSavingGroupAction(false)
+    }
   }
-  const unban = (m) => decide(() => groupApi.unbanMember(groupId, m.userId), "Đã bỏ cấm thành viên.", "Không thể bỏ cấm thành viên.")
+  const unban = (m) => decide(() => groupApi.unbanMember(groupId, m.userId), "Đã gỡ chặn thành viên.", "Không thể gỡ chặn thành viên.")
 
   if (loading) return <Loading />
   if (!group) return (
@@ -526,12 +717,50 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
   const orderedPosts = sort === "POPULAR"
     ? [...posts].sort((a, b) => (Number(b.reactionCount) || 0) - (Number(a.reactionCount) || 0) || new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
     : posts
+  const orderedMembers = [...members].sort((a, b) => memberRolePriority(a.role) - memberRolePriority(b.role) || new Date(a.joinedAt || 0) - new Date(b.joinedAt || 0))
+  const now = eventNow
+  const upcomingEvents = events.filter((event) => groupEventStatus(event, now) === "UPCOMING")
+    .sort((a, b) => new Date(a.startsAt) - new Date(b.startsAt))
+  const activeEvents = events.filter((event) => groupEventStatus(event, now) === "ONGOING")
+    .sort((a, b) => groupEventEndTime(a) - groupEventEndTime(b))
+  const endedEvents = events.filter((event) => groupEventStatus(event, now) === "ENDED")
+    .sort((a, b) => new Date(b.startsAt) - new Date(a.startsAt))
+  const allEvents = [...events].sort((a, b) => new Date(b.startsAt) - new Date(a.startsAt))
+  const featuredEvent = activeEvents[0] || upcomingEvents[0] || null
+  const featuredEventStatus = featuredEvent ? groupEventStatus(featuredEvent, now) : null
+  const filteredEvents = eventFilter === "UPCOMING" ? upcomingEvents : eventFilter === "ENDED" ? endedEvents : allEvents
+  const sidebarEvent = upcomingEvents[0] || null
   const normalizedFriendQuery = friendSearch.trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
   const matchingFriends = friends.filter((friend) => {
     const name = (friend.name || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
     const username = (friend.username || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
     return !normalizedFriendQuery || name.includes(normalizedFriendQuery) || username.includes(normalizedFriendQuery)
   })
+  const renderGroupEventCard = (event, featured = false) => {
+    const status = groupEventStatus(event, now)
+    return (
+      <article className={`group-event-list-item${event.mediaUrl ? " has-media" : ""}${featured ? " featured" : ""}`} key={event.eventId}>
+        {event.mediaUrl && <div className={`group-event-list-media${event.mediaType === "VIDEO" ? " video" : ""}`}><GroupPostMedia post={{ mediaUrl: event.mediaUrl, mediaType: event.mediaType }} /></div>}
+        <div className="group-event-list-content">
+          <div className="group-event-list-heading">
+            <h3>{event.title}</h3>
+            <span className={`group-event-status ${status.toLowerCase()}`}>{EVENT_STATUS_LABEL[status]}</span>
+          </div>
+          <p>{event.description || "Sự kiện chưa có mô tả."}</p>
+          <div className="group-event-list-meta">
+            <span><Icon name="calendar" size={15} />{fmt(event.startsAt)}{event.endsAt ? ` – ${fmt(event.endsAt)}` : ""}</span>
+            {event.location && <span><Icon name="location" size={15} />{event.location}</span>}
+            <span><Icon name="users" size={15} />{event.participantCount ?? 0} người tham gia</span>
+            <span><Icon name="group" size={15} />{event.creatorName || "Không rõ người tạo"}</span>
+          </div>
+          <div className="group-event-actions">
+            <Button variant="secondary" onClick={() => setViewingEvent(event)}>Xem thông tin</Button>
+            {isMember && status !== "ENDED" && <Button variant={event.participating ? "primary" : "secondary"} onClick={() => participate(event.eventId)}>{event.participating ? "Đã tham gia" : "Tham gia"}</Button>}
+          </div>
+        </div>
+      </article>
+    )
+  }
   return (
     <div className="directory-page group-detail">
       <button className="back-link-inline" onClick={() => navigate("/groups")}>← Tất cả nhóm</button>
@@ -566,27 +795,46 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
                 <div className="mod-row" key={r.id}><div><strong>{r.name || r.userName || r.displayName}</strong><small>{timeAgo(r.createdAt)}</small></div><Button onClick={() => decide(() => groupApi.decideJoin(groupId, r.id, true), "Đã duyệt thành viên.", "Không thể duyệt.")}>Duyệt</Button><Button variant="secondary" onClick={() => decide(() => groupApi.decideJoin(groupId, r.id, false), "Đã từ chối yêu cầu.", "Không thể từ chối.")}>Từ chối</Button></div>
               ))}
             </div>
-            <div><h3>Nội dung chờ duyệt ({mod.posts.length})</h3>
-              {mod.posts.length === 0 && <p className="aside-empty">Không có nội dung chờ duyệt.</p>}
-              {mod.posts.map((p) => (
-                <div className="mod-row" key={p.postId}>
-                  <div><strong>{p.authorName}</strong><small>{p.poll ? "Bình chọn" : "Bài viết"} · {(p.content || (p.poll ? "Bình chọn" : "Bài viết có tệp đính kèm")).slice(0, 80)}</small></div>
-                  <Button onClick={() => decide(() => groupApi.reviewPost(groupId, p.postId, true), p.poll ? "Đã duyệt bình chọn." : "Đã duyệt bài viết.", p.poll ? "Không thể duyệt bình chọn." : "Không thể duyệt bài viết.")}>{p.poll ? "Duyệt bình chọn" : "Duyệt bài viết"}</Button>
-                  <Button variant="secondary" onClick={() => decide(() => groupApi.reviewPost(groupId, p.postId, false), p.poll ? "Đã từ chối bình chọn." : "Đã từ chối bài viết.", p.poll ? "Không thể từ chối bình chọn." : "Không thể từ chối bài viết.")}>{p.poll ? "Từ chối bình chọn" : "Từ chối bài viết"}</Button>
-                </div>
+            <div><h3>Thành viên bị chặn ({mod.bans.length})</h3>
+              {mod.bans.length === 0 && <p className="aside-empty">Danh sách trống.</p>}
+              {mod.bans.map((m) => (
+                <div className="mod-row" key={m.userId}><div><strong>{m.name}</strong><small>{m.reason || "Không có lý do được ghi lại."}</small></div><Button variant="secondary" onClick={() => unban(m)}>Gỡ chặn</Button></div>
               ))}
             </div>
             <div><h3>Báo cáo ({mod.reports.length})</h3>
               {mod.reports.length === 0 && <p className="aside-empty">Không có báo cáo mới.</p>}
-              {mod.reports.map((r) => (
-                <div className="mod-row" key={r.id}><div><strong>{r.reporter}</strong><small>{r.reason}</small></div><Button variant="danger" onClick={() => decide(() => groupApi.decideReport(groupId, r.id, true), "Đã gỡ nội dung.", "Không thể xử lý báo cáo.")}>Gỡ nội dung</Button><Button variant="secondary" onClick={() => decide(() => groupApi.decideReport(groupId, r.id, false), "Đã đóng báo cáo.", "Không thể đóng báo cáo.")}>Bỏ qua</Button></div>
-              ))}
+              <div className="mod-review-list">
+                {mod.reports.map((r) => {
+                  const targetPost = findReportPost(r)
+                  const targetComment = findReportComment(r)
+                  return (
+                    <article className="mod-review-card" key={r.id}>
+                      <div className="mod-report-heading">
+                        <strong>{r.targetType === "COMMENT" ? "Báo cáo bình luận" : `Báo cáo ${targetPost?.poll ? "bình chọn" : "bài viết"}`}</strong>
+                        <small>{timeAgo(r.createdAt)}</small>
+                      </div>
+                      <p className="mod-review-snippet"><strong>{r.reporter}</strong> báo cáo · {r.reason}</p>
+                      <p className="mod-review-snippet">{targetComment?.content || targetPost?.content || (r.targetExists === false ? "Nội dung không còn tồn tại." : "Chưa tải được nội dung báo cáo.")}</p>
+                      <Button variant="secondary" disabled={loadingReportId === String(r.id)} onClick={() => openReport(r)}>{loadingReportId === String(r.id) ? "Đang tải nội dung..." : "Xem nội dung"}</Button>
+                    </article>
+                  )
+                })}
+              </div>
             </div>
-            <div><h3>Thành viên bị cấm ({mod.bans.length})</h3>
-              {mod.bans.length === 0 && <p className="aside-empty">Danh sách trống.</p>}
-              {mod.bans.map((m) => (
-                <div className="mod-row" key={m.userId}><div><strong>{m.name}</strong><small>{m.reason}</small></div><Button variant="secondary" onClick={() => unban(m)}>Bỏ cấm</Button></div>
-              ))}
+            <div><h3>Nội dung chờ duyệt ({mod.posts.length})</h3>
+              {mod.posts.length === 0 && <p className="aside-empty">Không có nội dung chờ duyệt.</p>}
+              <div className="mod-review-list">
+                {mod.posts.map((p) => (
+                  <article className="mod-review-card" key={p.postId}>
+                    <div className="mod-report-heading">
+                      <strong>{p.poll ? "Bình chọn" : "Bài viết"} · {p.authorName}</strong>
+                      {p.createdAt && <small>{timeAgo(p.createdAt)}</small>}
+                    </div>
+                    <p className="mod-review-snippet">{p.content || (p.mediaUrl ? "Bài viết có tệp đính kèm." : "Nội dung chưa có văn bản.")}</p>
+                    <Button variant="secondary" onClick={() => setModerationTarget({ kind: "PENDING", item: p })}>Xem nội dung</Button>
+                  </article>
+                ))}
+              </div>
             </div>
           </div>
         </section>
@@ -633,20 +881,20 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
           )}
           {!privatePreview && (
             <section className="panel group-side-panel">
-              <h3>Sự kiện nhóm</h3>
-              {events.length === 0 && <p className="aside-empty">Chưa có sự kiện nào.</p>}
-              {events.map((ev) => (
-                <div className="group-event-item" key={ev.eventId}>
-                  {ev.mediaUrl && <div className="group-event-item-media"><GroupPostMedia post={{ mediaUrl: ev.mediaUrl, mediaType: ev.mediaType }} /></div>}
-                  <strong>{ev.title}</strong>
-                  <small>{fmt(ev.startsAt)}{ev.location ? ` · ${ev.location}` : ""}</small>
-                  <small>{ev.participantCount} người tham gia · bởi {ev.creatorName}</small>
+              <div className="section-heading group-events-sidebar-heading"><h3>Sự kiện nhóm</h3><button type="button" onClick={openAllEvents}>Xem tất cả</button></div>
+              {!sidebarEvent && <p className="aside-empty">Chưa có sự kiện sắp diễn ra.</p>}
+              {sidebarEvent && (
+                <div className="group-event-item" key={sidebarEvent.eventId}>
+                  {sidebarEvent.mediaUrl && <div className="group-event-item-media"><GroupPostMedia post={{ mediaUrl: sidebarEvent.mediaUrl, mediaType: sidebarEvent.mediaType }} /></div>}
+                  <strong>{sidebarEvent.title}</strong>
+                  <small>{fmt(sidebarEvent.startsAt)}{sidebarEvent.location ? ` · ${sidebarEvent.location}` : ""}</small>
+                  <small>{sidebarEvent.participantCount} người tham gia · bởi {sidebarEvent.creatorName}</small>
                   <div className="group-event-actions">
-                    <Button variant="secondary" onClick={() => setViewingEvent(ev)}>Xem thông tin</Button>
-                    {isMember && <Button variant={ev.participating ? "primary" : "secondary"} onClick={() => participate(ev.eventId)}>{ev.participating ? "Đã tham gia" : "Tham gia"}</Button>}
+                    <Button variant="secondary" onClick={() => setViewingEvent(sidebarEvent)}>Xem thông tin</Button>
+                    {isMember && <Button variant={sidebarEvent.participating ? "primary" : "secondary"} onClick={() => participate(sidebarEvent.eventId)}>{sidebarEvent.participating ? "Đã tham gia" : "Tham gia"}</Button>}
                   </div>
                 </div>
-              ))}
+              )}
             </section>
           )}
         </aside>
@@ -655,25 +903,29 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
           {activeTab === "Thành viên" ? (
             <section className="panel group-members">
               <div className="section-heading"><h3>Thành viên</h3><span className="online-label">{members.length}</span></div>
-              {members.map((m) => (
+              <div className="group-members-list">
+              {orderedMembers.map((m) => (
                 <div className="member-row" key={m.userId}>
                   <span style={{ cursor: "pointer" }} onClick={() => navigate(`/profile/${m.userId}`)}><Avatar name={m.name} src={m.avatar} /></span>
-                  <div><strong>{m.name}</strong><small>{ROLE_LABEL[m.role] || m.role}</small></div>
-                  {canModerate && String(m.userId) !== String(user?.userId) && m.role !== "OWNER" && (
-                    <div className="menu-wrap" style={{ position: "relative", marginLeft: "auto" }}>
-                      <button className="icon-button" aria-label={`Tùy chọn ${m.name}`} onClick={() => setMenu(menu === `m${m.userId}` ? null : `m${m.userId}`)}><Icon name="more" /></button>
-                      {menu === `m${m.userId}` && (
-                        <div className="pop-menu post-menu">
-                          {canAdmin && <button onClick={() => manageMember(m, "role")}>Đổi vai trò</button>}
-                          <button onClick={() => manageMember(m, "warn")}>Cảnh cáo</button>
-                          <button className="danger" onClick={() => manageMember(m, "ban")}>Cấm khỏi nhóm</button>
-                          <button className="danger" onClick={() => manageMember(m, "remove")}>Xóa khỏi nhóm</button>
-                        </div>
+                  <div><strong>{m.name}</strong><small>{ROLE_LABEL[m.role] || "Thành viên"}</small></div>
+                  {canModerate && String(m.userId) !== String(user?.userId) && m.role !== "OWNER" && (canManageRoles || m.role !== "ADMIN") && (
+                    <>
+                      <div className="menu-wrap" style={{ position: "relative", marginLeft: "auto" }}>
+                        <button className="icon-button" aria-label={`Tùy chọn ${m.name}`} onClick={(event) => toggleMemberMenu(event, m)}><Icon name="more" /></button>
+                      </div>
+                      {menu === `m${m.userId}` && memberMenuPosition && createPortal(
+                        <div className="pop-menu post-menu group-member-pop-menu" style={{ top: memberMenuPosition.top, left: memberMenuPosition.left }}>
+                          {canManageRoles && <button onClick={() => manageMember(m, "role")}><Icon name="edit" size={15} />Đổi vai trò</button>}
+                          <button className="danger" onClick={() => manageMember(m, "block")}><Icon name="lock" size={15} />Chặn thành viên</button>
+                          <button className="danger" onClick={() => manageMember(m, "remove")}><Icon name="trash" size={15} />Xóa khỏi nhóm</button>
+                        </div>,
+                        document.body
                       )}
-                    </div>
+                    </>
                   )}
                 </div>
               ))}
+              </div>
             </section>
           ) : activeTab === "Giới thiệu" ? (
             <section className="panel group-about">
@@ -686,6 +938,38 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
                 <div><dt>Chủ nhóm</dt><dd>{group.ownerName}</dd></div>
                 <div><dt>Duyệt bài viết</dt><dd>{group.postApprovalRequired ? "Có" : "Không"}</dd></div>
               </dl>
+            </section>
+          ) : activeTab === "Sự kiện" ? (
+            <section className="panel group-events-page">
+              <div className="group-events-page-heading">
+                <h2>Sự kiện nhóm</h2>
+                <p>Xem các sự kiện sắp diễn ra và những sự kiện đã kết thúc.</p>
+              </div>
+              <section className="group-event-featured">
+                <div className="group-event-featured-heading">
+                  <h3>Sự kiện hoạt động</h3>
+                  <p>{featuredEventStatus === "ONGOING" ? "Sự kiện đang diễn ra trong nhóm." : featuredEvent ? "Sự kiện sắp tới gần nhất trong nhóm." : "Hiện không có sự kiện đang diễn ra hoặc sắp diễn ra."}</p>
+                </div>
+                {featuredEvent ? renderGroupEventCard(featuredEvent, true) : <p className="group-event-featured-empty">Sự kiện mới sẽ xuất hiện tại đây.</p>}
+              </section>
+              <div className="event-filters group-event-filter-tabs" role="tablist" aria-label="Lọc sự kiện nhóm">
+                {EVENT_FILTERS.map(([value, label]) => (
+                  <button key={value} type="button" role="tab" aria-selected={eventFilter === value} className={eventFilter === value ? "active" : ""} onClick={() => setEventFilter(value)}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {filteredEvents.length === 0 ? (
+                <EmptyState
+                  title={eventFilter === "ALL" ? "Chưa có sự kiện nào" : eventFilter === "UPCOMING" ? "Không có sự kiện sắp diễn ra" : "Chưa có sự kiện kết thúc"}
+                  copy={eventFilter === "ALL" ? "Sự kiện được tạo trong nhóm sẽ xuất hiện tại đây." : "Hãy chọn mục Tất cả để xem toàn bộ sự kiện trong nhóm."}
+                  icon="calendar"
+                />
+              ) : (
+                <div className="group-event-list">
+                  {filteredEvents.map((event) => renderGroupEventCard(event))}
+                </div>
+              )}
             </section>
           ) : (
             <>
@@ -963,6 +1247,150 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
             </div>
           </form>
         </Modal>
+      )}
+
+      {roleTarget && (
+        <Modal title={`Đổi vai trò của ${roleTarget.name}`} close={() => { if (!savingMemberRole) setRoleTarget(null) }}>
+          <form onSubmit={saveMemberRole}>
+            <p className="aside-empty">Chủ nhóm có thể đặt thành viên làm phó nhóm hoặc đưa về vai trò thành viên.</p>
+            <div className="form-grid">
+              <label className="full">Vai trò
+                <select value={memberRoleValue} onChange={(event) => setMemberRoleValue(event.target.value)}>
+                  <option value="ADMIN">Phó nhóm</option>
+                  <option value="MEMBER">Thành viên</option>
+                </select>
+              </label>
+            </div>
+            <div className="modal-actions">
+              <Button type="button" variant="secondary" disabled={savingMemberRole} onClick={() => setRoleTarget(null)}>Hủy</Button>
+              <Button type="submit" disabled={savingMemberRole}>{savingMemberRole ? "Đang lưu..." : "Lưu vai trò"}</Button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {memberActionTarget && (
+        <Modal
+          title={memberActionTarget.action === "block" ? "Chặn thành viên" : "Xóa thành viên khỏi nhóm"}
+          close={() => { if (!savingMemberAction) { setMemberActionTarget(null); setMemberActionReason("") } }}
+          className="group-member-action-modal"
+        >
+          <form onSubmit={submitMemberAction}>
+            <div className={`group-member-action-summary ${memberActionTarget.action}`}>
+              <span className="group-member-action-icon"><Icon name={memberActionTarget.action === "block" ? "lock" : "trash"} size={19} /></span>
+              <div>
+                <strong>{memberActionTarget.member.name}</strong>
+                <p>{memberActionTarget.action === "block"
+                  ? "Tài khoản này sẽ không tìm thấy hoặc truy cập được nhóm. Chủ nhóm và phó nhóm có thể gỡ chặn sau."
+                  : "Thành viên sẽ rời khỏi nhóm và có thể tham gia lại nếu nhóm cho phép."}</p>
+              </div>
+            </div>
+            {memberActionTarget.action === "block" && (
+              <label className="group-member-action-reason">
+                <span className="group-member-action-label"><strong>Lý do chặn</strong><small>(không bắt buộc)</small></span>
+                <textarea rows={3} maxLength={500} value={memberActionReason} onChange={(event) => setMemberActionReason(event.target.value)} placeholder="Nhập lý do để lưu trong danh sách bị chặn..." />
+              </label>
+            )}
+            <div className="modal-actions">
+              <Button type="button" variant="secondary" disabled={savingMemberAction} onClick={() => { setMemberActionTarget(null); setMemberActionReason("") }}>Hủy</Button>
+              <Button type="submit" variant="danger" disabled={savingMemberAction}>
+                {savingMemberAction ? "Đang xử lý..." : memberActionTarget.action === "block" ? "Chặn thành viên" : "Xóa khỏi nhóm"}
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {moderationTarget && (
+        <Modal
+          title={moderationTarget.kind === "PENDING"
+            ? `Xem ${moderationTarget.item.poll ? "bình chọn" : "bài viết"} chờ duyệt`
+            : "Kiểm tra nội dung bị báo cáo"}
+          close={() => setModerationTarget(null)}
+          wide
+          className="group-admin-review-modal"
+          portal
+          preservePage
+        >
+          <div className="group-admin-review-detail">
+            {moderationTarget.kind === "PENDING" ? (
+              <ModerationPostPreview post={moderationTarget.item} expanded />
+            ) : (
+              <>
+                <section className="group-admin-report-context">
+                  <div><strong>{moderationTarget.item.reporter} đã báo cáo nội dung</strong><small>{fmt(moderationTarget.item.createdAt)}</small></div>
+                  <p><strong>Lý do báo cáo:</strong> {moderationTarget.item.reason || "Không có lý do."}</p>
+                </section>
+                {moderationTarget.item.targetPost && <ModerationPostPreview post={moderationTarget.item.targetPost} expanded />}
+                {moderationTarget.item.targetComment && (
+                  <div className="mod-target-comment">
+                    <strong>Bình luận của {moderationTarget.item.targetComment.authorName || "Không rõ người bình luận"}</strong>
+                    {moderationTarget.item.targetComment.createdAt && <small>{fmt(moderationTarget.item.targetComment.createdAt)}</small>}
+                    <p>{moderationTarget.item.targetComment.content || "Bình luận không có nội dung."}</p>
+                  </div>
+                )}
+                {moderationTarget.item.previewUnavailable && <p className="mod-target-missing">Không tải được bài viết gốc nên chưa thể xem đầy đủ nội dung. Hãy đóng hộp thoại và thử mở lại.</p>}
+                {moderationTarget.item.targetExists === false && <p className="mod-target-missing">Nội dung đã bị xóa hoặc không còn tồn tại. Bạn vẫn có thể bỏ qua báo cáo này.</p>}
+              </>
+            )}
+          </div>
+          <div className="modal-actions">
+            <Button variant="secondary" onClick={() => setModerationTarget(null)}>Đóng</Button>
+            {moderationTarget.kind === "PENDING" ? (
+              <>
+                <Button variant="danger" onClick={() => decide(
+                  () => groupApi.reviewPost(groupId, moderationTarget.item.postId, false),
+                  "Đã từ chối nội dung.", "Không thể từ chối nội dung.", () => setModerationTarget(null)
+                )}>Từ chối {moderationTarget.item.poll ? "bình chọn" : "bài viết"}</Button>
+                <Button onClick={() => decide(
+                  () => groupApi.reviewPost(groupId, moderationTarget.item.postId, true),
+                  "Đã duyệt nội dung.", "Không thể duyệt nội dung.", () => setModerationTarget(null)
+                )}>Duyệt {moderationTarget.item.poll ? "bình chọn" : "bài viết"}</Button>
+              </>
+            ) : (
+              <>
+                <Button variant="secondary" onClick={() => decide(
+                  () => groupApi.decideReport(groupId, moderationTarget.item.id, false),
+                  "Đã bỏ qua báo cáo.", "Không thể xử lý báo cáo.", () => setModerationTarget(null)
+                )}>Bỏ qua báo cáo</Button>
+                <Button variant="danger" disabled={moderationTarget.item.targetExists === false || moderationTarget.item.previewUnavailable} onClick={() => decide(
+                  () => groupApi.decideReport(groupId, moderationTarget.item.id, true),
+                  "Đã gỡ nội dung bị báo cáo.", "Không thể gỡ nội dung.", () => setModerationTarget(null)
+                )}>Gỡ {moderationTarget.item.targetType === "COMMENT" ? "bình luận" : moderationTarget.item.targetPost?.poll ? "bình chọn" : "bài viết"}</Button>
+              </>
+            )}
+          </div>
+        </Modal>
+      )}
+
+      {groupActionConfirm && createPortal(
+        <div
+          className={`group-confirm-layer ${groupActionConfirm}`}
+          onMouseDown={(event) => event.target === event.currentTarget && !savingGroupAction && setGroupActionConfirm(null)}
+        >
+          <section className="group-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="group-action-confirm-title">
+            <header>
+              <h2 id="group-action-confirm-title">{groupActionConfirm === "delete" ? "Xóa nhóm" : "Rời khỏi nhóm"}</h2>
+              <button type="button" aria-label="Đóng" disabled={savingGroupAction} onClick={() => setGroupActionConfirm(null)}><Icon name="close" /></button>
+            </header>
+            <div className={`group-member-action-summary group-confirm-summary ${groupActionConfirm === "delete" ? "remove" : "leave"}`}>
+              <span className="group-member-action-icon"><Icon name={groupActionConfirm === "delete" ? "trash" : "group"} size={19} /></span>
+              <div>
+                <strong>{group.name}</strong>
+                <p>{groupActionConfirm === "delete"
+                  ? "Toàn bộ bài viết, bình chọn, sự kiện và thành viên của nhóm sẽ bị xóa. Hành động này không thể hoàn tác."
+                  : "Bạn sẽ rời khỏi nhóm. Bạn có thể tham gia lại sau nếu nhóm cho phép."}</p>
+              </div>
+            </div>
+            <div className="modal-actions">
+              <Button type="button" variant="secondary" disabled={savingGroupAction} onClick={() => setGroupActionConfirm(null)}>Hủy</Button>
+              <Button type="button" variant="danger" disabled={savingGroupAction} onClick={submitGroupAction}>
+                {savingGroupAction ? "Đang xử lý..." : groupActionConfirm === "delete" ? "Xóa nhóm" : "Rời nhóm"}
+              </Button>
+            </div>
+          </section>
+        </div>,
+        document.body
       )}
 
       {viewingEvent && (

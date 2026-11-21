@@ -39,13 +39,6 @@ export default function GroupsPage() {
       navigate(`/groups/${data.groupId}`)
     } catch (err) { toast(getApiErrorMessage(err, "Không thể tạo nhóm."), "error") } finally { setBusy(false) }
   }
-  const join = async (g) => {
-    try {
-      const { data } = await groupApi.join(g.groupId)
-      if (data?.status === "JOINED") navigate(`/groups/${g.groupId}`)
-      else { toast("Đã gửi yêu cầu tham gia nhóm."); groups.reload() }
-    } catch (err) { toast(getApiErrorMessage(err, "Không thể tham gia nhóm."), "error") }
-  }
   const respond = async (n, approved) => {
     try { await groupApi.respondInvite(n.referenceId, approved); toast(approved ? "Đã tham gia nhóm." : "Đã từ chối lời mời."); invites.reload(); groups.reload() } catch (err) { toast(getApiErrorMessage(err, "Không thể xử lý lời mời."), "error") }
   }
@@ -91,7 +84,9 @@ export default function GroupsPage() {
               <article key={g.groupId}>
                 <GroupIcon group={g} i={i} />
                 <div><h3>{g.name}</h3><p>{VIS[g.visibility]} · {g.memberCount} thành viên</p><span>{g.category || "Cộng đồng"}</span></div>
-                {g.joined ? <Button variant="secondary" onClick={() => navigate(`/groups/${g.groupId}`)}>Xem nhóm</Button> : <Button variant="secondary" onClick={() => join(g)}>Tham gia</Button>}
+                <Button variant="secondary" onClick={() => navigate(`/groups/${g.groupId}`)}>
+                  {tab === "discover" ? "Xem thông tin" : g.joined ? "Xem nhóm" : "Xem thông tin"}
+                </Button>
               </article>
             ))}
           </div>

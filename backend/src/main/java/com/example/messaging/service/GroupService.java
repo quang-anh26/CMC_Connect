@@ -18,7 +18,7 @@ import java.util.*;
 public class GroupService {
     private static final Set<String> VISIBILITIES = Set.of("PUBLIC", "PRIVATE");
     private static final Set<String> REACTIONS = Set.of("LIKE", "LOVE", "HAHA", "WOW", "ANGRY");
-    private static final Set<String> ROLES = Set.of("ADMIN", "MODERATOR", "MEMBER");
+    private static final Set<String> ROLES = Set.of("ADMIN", "MEMBER");
 
     private final SocialGroupRepository groupRepository;
     private final GroupMemberRepository memberRepository;
@@ -50,7 +50,10 @@ public class GroupService {
             groups = query.isEmpty() ? groupRepository.findAllByOrderByCreatedAtDesc()
                     : groupRepository.findAllByNameContainingIgnoreCaseOrderByCreatedAtDesc(query);
         }
-        return groups.stream().map(group -> groupSummary(group, userId)).toList();
+        Set<Long> blockedGroupIds = banRepository.findAllByUserUserId(userId).stream()
+                .map(ban -> ban.getGroup().getGroupId()).collect(java.util.stream.Collectors.toSet());
+        return groups.stream().filter(group -> !blockedGroupIds.contains(group.getGroupId()))
+                .map(group -> groupSummary(group, userId)).toList();
     }
 
     @Transactional
@@ -169,7 +172,7 @@ public class GroupService {
     public Map<String, Object> joinGroup(Long groupId, Long userId) {
         SocialGroup group = getGroupOrThrow(groupId);
         if (banRepository.findByGroupGroupIdAndUserUserId(groupId, userId).isPresent()) {
-            throw ApiException.forbidden("Bạn đã bị cấm khỏi nhóm này");
+            throw ApiException.forbidden("Bạn đã bị chặn khỏi nhóm này");
         }
         if (memberRepository.existsByGroupGroupIdAndUserUserId(groupId, userId)) {
             throw ApiException.conflict("Bạn đã là thành viên của nhóm");
@@ -473,7 +476,7 @@ public class GroupService {
                 .filter(item -> item.getGroup().getGroupId().equals(groupId) && "PENDING".equals(item.getStatus()))
                 .orElseThrow(() -> ApiException.notFound("Không tìm thấy yêu cầu tham gia"));
         if (approved && banRepository.findByGroupGroupIdAndUserUserId(groupId, request.getUser().getUserId()).isPresent()) {
-            throw ApiException.conflict("Thành viên này đang bị cấm khỏi nhóm");
+            throw ApiException.conflict("Thành viên này đang bị chặn khỏi nhóm");
         }
         request.setStatus(approved ? "APPROVED" : "REJECTED");
         if (approved) addMember(request.getGroup(), request.getUser(), "MEMBER");
@@ -504,14 +507,13 @@ public class GroupService {
 
     @Transactional
     public void changeRole(Long groupId, Long targetUserId, Long requesterId, String requestedRole) {
-        GroupMember actor = requireModerator(groupId, requesterId);
+        GroupMember actor = requireMember(groupId, requesterId);
+        if (!"OWNER".equals(actor.getRole())) throw ApiException.forbidden("Chỉ chủ nhóm mới có thể thay đổi vai trò");
         GroupMember target = memberRepository.findByGroupGroupIdAndUserUserId(groupId, targetUserId)
                 .orElseThrow(() -> ApiException.notFound("Không tìm thấy thành viên"));
         String role = requestedRole.trim().toUpperCase(Locale.ROOT);
         if (!ROLES.contains(role)) throw ApiException.badRequest("Vai trò không hợp lệ");
         if (roleRank(actor.getRole()) <= roleRank(target.getRole())) throw ApiException.forbidden("Bạn không thể thay đổi vai trò này");
-        if (actor.getRole().equals("MODERATOR") && !"MEMBER".equals(role)) throw ApiException.forbidden("Moderator chỉ được giữ hoặc hạ thành viên về Member");
-        if (actor.getRole().equals("ADMIN") && !Set.of("MEMBER", "MODERATOR").contains(role)) throw ApiException.forbidden("Admin chỉ được phân quyền Moderator hoặc Member");
         target.setRole(role);
         memberRepository.save(target);
         notifyGroup(getGroupOrThrow(groupId), targetUserId, "ROLE_CHANGED", null, "Vai trò của bạn trong nhóm đã được cập nhật");
@@ -523,11 +525,12 @@ public class GroupService {
         GroupMember target = memberRepository.findByGroupGroupIdAndUserUserId(groupId, targetUserId)
                 .orElseThrow(() -> ApiException.notFound("Không tìm thấy thành viên"));
         if (roleRank(actor.getRole()) <= roleRank(target.getRole())) throw ApiException.forbidden("Bạn không thể xử lý thành viên có vai trò ngang hoặc cao hơn");
+        boolean alreadyBlocked = ban && banRepository.findByGroupGroupIdAndUserUserId(groupId, targetUserId).isPresent();
         memberRepository.delete(target);
-        if (ban) banRepository.save(GroupBan.builder().group(getGroupOrThrow(groupId)).user(target.getUser())
+        if (ban && !alreadyBlocked) banRepository.save(GroupBan.builder().group(getGroupOrThrow(groupId)).user(target.getUser())
                 .bannedBy(userService.getByIdOrThrow(requesterId)).reason(clean(reason)).build());
         notifyGroup(getGroupOrThrow(groupId), targetUserId, ban ? "BANNED" : "REMOVED", null,
-                ban ? "Bạn đã bị cấm khỏi nhóm" : "Bạn đã bị xóa khỏi nhóm");
+                ban ? "Bạn đã bị chặn khỏi nhóm" : "Bạn đã bị xóa khỏi nhóm");
     }
 
     @Transactional
@@ -557,8 +560,49 @@ public class GroupService {
             Map<String, Object> item = new LinkedHashMap<>();
             item.put("id", report.getId()); item.put("targetType", report.getTargetType()); item.put("targetId", report.getTargetId());
             item.put("reason", report.getReason()); item.put("reporter", displayName(report.getReporter())); item.put("createdAt", report.getCreatedAt());
+            if ("POST".equals(report.getTargetType())) {
+                GroupPost post = postRepository.findByPostIdAndGroupGroupId(report.getTargetId(), groupId).orElse(null);
+                item.put("targetExists", post != null);
+                item.put("targetPost", post == null ? null : moderationPostPreview(post));
+            } else if ("COMMENT".equals(report.getTargetType())) {
+                GroupComment comment = commentRepository.findById(report.getTargetId())
+                        .filter(candidate -> candidate.getPost().getGroup().getGroupId().equals(groupId)).orElse(null);
+                item.put("targetExists", comment != null);
+                if (comment != null) {
+                    Map<String, Object> targetComment = new LinkedHashMap<>();
+                    targetComment.put("authorName", displayName(comment.getAuthor()));
+                    targetComment.put("content", comment.getContent());
+                    targetComment.put("createdAt", comment.getCreatedAt());
+                    item.put("targetComment", targetComment);
+                    item.put("targetPost", moderationPostPreview(comment.getPost()));
+                }
+            } else {
+                item.put("targetExists", false);
+            }
             return item;
         }).toList();
+    }
+
+    private Map<String, Object> moderationPostPreview(GroupPost post) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("postId", post.getPostId());
+        result.put("authorName", displayName(post.getAuthor()));
+        result.put("content", post.getContent());
+        result.put("createdAt", post.getCreatedAt());
+        String mediaUrl = post.getMediaUrl();
+        if (mediaUrl != null && "PRIVATE".equals(post.getGroup().getVisibility())) {
+            mediaUrl = "/api/groups/" + post.getGroup().getGroupId() + "/posts/" + post.getPostId() + "/media";
+        }
+        result.put("mediaUrl", mediaUrl);
+        result.put("mediaType", post.getMediaType());
+        pollRepository.findByPostPostId(post.getPostId()).ifPresent(poll -> {
+            Map<String, Object> pollPreview = new LinkedHashMap<>();
+            pollPreview.put("endsAt", poll.getEndsAt());
+            pollPreview.put("options", pollOptionRepository.findByPollIdOrderByIdAsc(poll.getId()).stream()
+                    .map(option -> option.getLabel()).toList());
+            result.put("poll", pollPreview);
+        });
+        return result;
     }
 
     @Transactional
@@ -582,7 +626,7 @@ public class GroupService {
         boolean friends = friendRequestRepository.findRelationship(inviterId, inviteeId).stream()
             .anyMatch(request -> "ACCEPTED".equals(request.getStatus().name()));
         if (!friends) throw ApiException.forbidden("Bạn chỉ có thể mời bạn bè đã kết nối");
-        if (banRepository.findByGroupGroupIdAndUserUserId(groupId, inviteeId).isPresent()) throw ApiException.conflict("Người này đã bị cấm khỏi nhóm");
+        if (banRepository.findByGroupGroupIdAndUserUserId(groupId, inviteeId).isPresent()) throw ApiException.conflict("Người này đã bị chặn khỏi nhóm");
         Optional<GroupInvite> existingInvite = inviteRepository.findByGroupGroupIdAndInviteeUserId(groupId, inviteeId);
         if (existingInvite.isPresent() && "PENDING".equals(existingInvite.get().getStatus())) {
             throw ApiException.conflict("Lời mời đang chờ phản hồi");
@@ -601,7 +645,7 @@ public class GroupService {
                 .orElseThrow(() -> ApiException.notFound("Không tìm thấy lời mời"));
         if (!"PENDING".equals(invite.getStatus())) throw ApiException.conflict("Lời mời đã được xử lý");
         if (accept && banRepository.findByGroupGroupIdAndUserUserId(invite.getGroup().getGroupId(), userId).isPresent()) {
-            throw ApiException.conflict("Bạn đang bị cấm khỏi nhóm này");
+            throw ApiException.conflict("Bạn đang bị chặn khỏi nhóm này");
         }
         invite.setStatus(accept ? "ACCEPTED" : "DECLINED");
         if (accept) addMember(invite.getGroup(), invite.getInvitee(), "MEMBER");
@@ -694,13 +738,12 @@ public class GroupService {
         return member;
     }
 
-    private boolean isModeratorRole(String role) { return Set.of("OWNER", "ADMIN", "MODERATOR").contains(role); }
+    private boolean isModeratorRole(String role) { return Set.of("OWNER", "ADMIN").contains(role); }
 
     private int roleRank(String role) {
         return switch (role) {
             case "OWNER" -> 3;
             case "ADMIN" -> 2;
-            case "MODERATOR" -> 1;
             default -> 0;
         };
     }
