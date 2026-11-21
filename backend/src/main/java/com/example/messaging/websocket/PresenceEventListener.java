@@ -27,6 +27,7 @@ public class PresenceEventListener {
     private final UserService userService;
     private final PresenceService presenceService;
     private final SimpMessagingTemplate messagingTemplate;
+    private final CallRegistry callRegistry;
     private final Map<String, Set<String>> sessionsByUsername = new ConcurrentHashMap<>();
 
     @PostConstruct
@@ -58,6 +59,8 @@ public class PresenceEventListener {
                 if (sessions.isEmpty()) {
                     sessionsByUsername.remove(username, sessions);
                     withUser(username);
+                    // Mất hết kết nối -> thoát khỏi mọi cuộc gọi đang tham gia (bên kia sẽ tự tắt)
+                    callRegistry.onUserDisconnected(username);
                 }
             }
         }
