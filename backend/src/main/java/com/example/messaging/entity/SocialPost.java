@@ -37,6 +37,10 @@ public class SocialPost {
     @Column(name = "media_type", length = 10)
     private String mediaType;
 
+    /** Danh sách nhiều ảnh/video của bài viết (JSON: [{"url":"...","type":"IMAGE|VIDEO"}]). Null = bài chỉ có 1 media cũ. */
+    @Column(name = "media_items", columnDefinition = "TEXT")
+    private String mediaItems;
+
     @Column(nullable = false, length = 20)
     @Builder.Default
     private String privacy = "PUBLIC";

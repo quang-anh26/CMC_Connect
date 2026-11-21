@@ -16,6 +16,7 @@ public class FeedPostResponse {
     String content;
     String imageUrl;
     String mediaType;
+    List<PostMediaItem> mediaItems;
     String privacy;
     long viewCount;
     LocalDateTime createdAt;

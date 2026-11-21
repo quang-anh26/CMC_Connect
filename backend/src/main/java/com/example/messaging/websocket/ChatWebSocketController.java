@@ -16,6 +16,7 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 
 import java.security.Principal;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -34,6 +35,7 @@ public class ChatWebSocketController {
     private final UserService userService;
     private final SimpMessagingTemplate messagingTemplate;
     private final ConversationMemberRepository conversationMemberRepository;
+    private final CallRegistry callRegistry;
 
     @MessageMapping("/chat.send")
     public void sendMessage(MessageRequest request, Principal principal) {
@@ -118,6 +120,14 @@ public class ChatWebSocketController {
         payload.put("fromUsername", principal.getName());
         payload.put("fromDisplayName", sender.getDisplayName());
         payload.put("fromAvatar", sender.getAvatar());
+
+        // Ghi nhận ai đang gọi ai để khi một bên mất kết nối thì báo cho bên còn lại
+        String type = String.valueOf(payload.get("type"));
+        if ("offer".equals(type)) {
+            callRegistry.registerPrivate(principal.getName(), targetUsername);
+        } else if ("end".equals(type) || "reject".equals(type)) {
+            callRegistry.unregisterPrivate(principal.getName(), targetUsername);
+        }
         messagingTemplate.convertAndSendToUser(targetUsername, "/queue/call", payload);
     }
 
@@ -149,6 +159,39 @@ public class ChatWebSocketController {
                 messagingTemplate.convertAndSendToUser(target, "/queue/call", payload);
             }
             return;
+        }
+
+        // Các tín hiệu gửi cho cả nhóm: server theo dõi cuộc gọi đang diễn ra
+        String type = String.valueOf(payload.get("type"));
+        if ("group-ring".equals(type)) {
+            String callType = String.valueOf(payload.getOrDefault("callType", "audio"));
+            String activeType = callRegistry.ring(conversationId, me, callType);
+            if (activeType != null) {
+                // Nhóm đang có cuộc gọi -> báo cho người bấm gọi để họ THAM GIA thay vì tạo cuộc gọi mới
+                Map<String, Object> active = new LinkedHashMap<>();
+                active.put("type", "group-active");
+                active.put("group", true);
+                active.put("conversationId", conversationId);
+                active.put("callType", activeType);
+                messagingTemplate.convertAndSendToUser(me, "/queue/call", active);
+                return;
+            }
+        } else if ("group-join".equals(type)) {
+            if (!callRegistry.join(conversationId, me)) {
+                // Cuộc gọi đã kết thúc rồi
+                Map<String, Object> closed = new LinkedHashMap<>();
+                closed.put("type", "group-closed");
+                closed.put("group", true);
+                closed.put("conversationId", conversationId);
+                messagingTemplate.convertAndSendToUser(me, "/queue/call", closed);
+                return;
+            }
+        } else if ("group-leave".equals(type) || "group-end".equals(type)) {
+            if (callRegistry.leave(conversationId, me)) {
+                // Hết người hoặc chỉ còn 1 người -> tự ngắt cuộc gọi cho tất cả
+                callRegistry.broadcastClosed(conversationId, me);
+                return;
+            }
         }
         for (String member : members) {
             if (!member.equals(me)) {
