@@ -48,9 +48,6 @@ public class SocialGroup {
     @Builder.Default
     private boolean postApprovalRequired = false;
 
-    @Column(name = "spam_keywords", length = 2000)
-    private String spamKeywords;
-
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 

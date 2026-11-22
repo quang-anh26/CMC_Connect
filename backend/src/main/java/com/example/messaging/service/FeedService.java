@@ -16,6 +16,7 @@ import com.example.messaging.entity.User;
 import com.example.messaging.exception.ApiException;
 import com.example.messaging.repository.HiddenPostAuthorRepository;
 import com.example.messaging.repository.SocialPostCommentRepository;
+import com.example.messaging.repository.SocialPostCommentReactionRepository;
 import com.example.messaging.repository.SocialPostReactionRepository;
 import com.example.messaging.repository.SocialPostRepository;
 import com.example.messaging.repository.FriendRequestRepository;
@@ -47,6 +48,7 @@ public class FeedService {
     private final HiddenPostAuthorRepository hiddenPostAuthorRepository;
     private final SocialPostReactionRepository reactionRepository;
     private final SocialPostCommentRepository commentRepository;
+    private final SocialPostCommentReactionRepository commentReactionRepository;
     private final UserService userService;
     private final FriendRequestRepository friendRequestRepository;
     private final VideoMediaTokenService videoMediaTokenService;
@@ -207,6 +209,27 @@ public class FeedService {
         String message = parentComment == null ? "đã bình luận về bài viết của bạn." : "đã trả lời bình luận của bạn.";
         notificationService.create(recipient.getUserId(), authorId, notificationType, "POST", postId, message);
         return toResponse(post, authorId);
+    }
+
+    @Transactional
+    public FeedPostResponse deleteComment(Long postId, Long commentId, Long requesterId) {
+        SocialPost post = getReadablePost(postId, requesterId);
+        SocialPostComment comment = commentRepository.findByCommentIdAndPostPostId(commentId, postId)
+                .orElseThrow(() -> ApiException.notFound("Không tìm thấy bình luận"));
+        boolean isCommentAuthor = comment.getAuthor().getUserId().equals(requesterId);
+        boolean isPostAuthor = post.getAuthor().getUserId().equals(requesterId);
+        if (!isCommentAuthor && !isPostAuthor) {
+            throw ApiException.forbidden("Bạn không thể xóa bình luận này");
+        }
+        deleteCommentTree(comment);
+        commentRepository.flush();
+        return toResponse(post, requesterId);
+    }
+
+    private void deleteCommentTree(SocialPostComment comment) {
+        commentRepository.findByParentCommentCommentId(comment.getCommentId()).forEach(this::deleteCommentTree);
+        commentReactionRepository.deleteAllByCommentId(comment.getCommentId());
+        commentRepository.delete(comment);
     }
 
     @Transactional

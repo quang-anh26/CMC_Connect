@@ -13,7 +13,6 @@ BEGIN
         category NVARCHAR(80) NULL,
         visibility VARCHAR(20) NOT NULL DEFAULT 'PUBLIC',
         post_approval_required BIT NOT NULL DEFAULT 0,
-        spam_keywords NVARCHAR(2000) NULL,
         created_at DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
         updated_at DATETIME2 NULL,
         CONSTRAINT FK_groups_owner FOREIGN KEY (owner_id) REFERENCES dbo.USERS(user_id)

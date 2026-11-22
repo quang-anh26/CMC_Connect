@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Icon } from "../components/Icon"
 import { Avatar, Button, EmptyState, ErrorBlock, Loading, Modal, useAsync, useToast } from "../components/ui"
-import { POST_REACTIONS, PostCard } from "../components/Posts"
+import { POST_REACTIONS, PostCard, PostCommentSection } from "../components/Posts"
 import { videoApi } from "../api/videoApi"
 import { feedApi } from "../api/feedApi"
 import { useAuth } from "../context/AuthContext"
@@ -98,7 +98,6 @@ export default function VideoPage() {
   const [menu, setMenu] = useState(null)
   const [open, setOpen] = useState(null)
   const [selectedVideoId, setSelectedVideoId] = useState(null)
-  const [draft, setDraft] = useState("")
   useEffect(() => { const t = setTimeout(() => { setDebounced(query.trim()); setPage(0) }, 300); return () => clearTimeout(t) }, [query])
   useEffect(() => {
     const close = () => setMenu(null)
@@ -124,10 +123,6 @@ export default function VideoPage() {
   const react = async (c, type) => { try { const { data: v } = await feedApi.react(c.video.postId, type); patch(c.video.postId, (x) => ({ ...x, video: v })) } catch (e) { fail(e, "Không thể thả cảm xúc.") } }
   const save = async (c) => { try { const { data: r } = await videoApi.toggleSave(c.video.postId); patch(c.video.postId, (x) => ({ ...x, savedByViewer: r.saved ?? !x.savedByViewer })); toast(r.saved ? "Đã lưu video." : "Đã bỏ lưu video.") } catch (e) { fail(e, "Không thể lưu video.") } }
   const follow = async (c) => { try { const { data: r } = await videoApi.toggleFollow(c.video.postId); patch(c.video.postId, (x) => ({ ...x, followingCreator: r.following ?? !x.followingCreator })) } catch (e) { fail(e, "Không thể theo dõi.") } }
-  const comment = async (c) => {
-    if (!draft.trim()) return
-    try { const { data: v } = await feedApi.comment(c.video.postId, draft.trim()); patch(c.video.postId, (x) => ({ ...x, video: v })); setDraft("") } catch (e) { fail(e, "Không thể gửi bình luận.") }
-  }
   const remove = async (c) => {
     if (!window.confirm("Bạn có chắc muốn xóa video này?")) return
     try { await videoApi.remove(c.video.postId); setCards((cs) => cs.filter((x) => x.video.postId !== c.video.postId)); toast("Đã xóa video.") } catch (e) { fail(e, "Không thể xóa video.") }
@@ -202,13 +197,7 @@ export default function VideoPage() {
               </div>
               {open === v.postId && (
                 <div className="comment-thread video-comments">
-                  {(v.comments || []).map((cm) => (
-                    <div className="comment-preview comment-item" key={cm.commentId}><Avatar name={cm.authorName} src={cm.authorAvatar} size="sm" /><div><strong>{cm.authorName}</strong><p>{cm.content}</p><span>{timeAgo(cm.createdAt)}</span></div></div>
-                  ))}
-                  <form className="comment-form" onSubmit={(e) => { e.preventDefault(); comment(c) }}>
-                    <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Viết bình luận..." maxLength={2000} />
-                    <button className="button button-primary" disabled={!draft.trim()}>Gửi</button>
-                  </form>
+                  <PostCommentSection postId={v.postId} postAuthorId={v.authorId} comments={v.comments || []} onPostChange={(updated) => patch(v.postId, (x) => ({ ...x, video: updated }))} />
                 </div>
               )}
             </article>

@@ -77,6 +77,13 @@ public class FeedController {
         return ResponseEntity.ok(feedService.addComment(postId, userId, request));
     }
 
+    @DeleteMapping("/{postId}/comments/{commentId}")
+    public ResponseEntity<FeedPostResponse> deleteComment(@CurrentUser Long userId,
+                                                           @PathVariable Long postId,
+                                                           @PathVariable Long commentId) {
+        return ResponseEntity.ok(feedService.deleteComment(postId, commentId, userId));
+    }
+
     @PostMapping("/{postId}/share")
     public ResponseEntity<FeedPostResponse> share(@CurrentUser Long userId,
                                                    @PathVariable Long postId,
