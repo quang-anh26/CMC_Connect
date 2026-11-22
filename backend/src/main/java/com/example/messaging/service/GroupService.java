@@ -139,7 +139,6 @@ public class GroupService {
         if (request.category() != null) group.setCategory(clean(request.category()));
         if (request.visibility() != null) group.setVisibility(normalizeVisibility(request.visibility()));
         if (request.postApprovalRequired() != null) group.setPostApprovalRequired(request.postApprovalRequired());
-        if (request.spamKeywords() != null) group.setSpamKeywords(clean(request.spamKeywords()));
         return groupSummary(groupRepository.save(group), requesterId);
     }
 
@@ -239,7 +238,6 @@ public class GroupService {
         if ((content == null || content.isBlank()) && mediaUrl == null) throw ApiException.badRequest("Bài viết cần có nội dung hoặc tệp đính kèm");
         if (mediaUrl != null && !Set.of("IMAGE", "VIDEO", "FILE").contains(mediaType)) throw ApiException.badRequest("Loại tệp không hợp lệ");
         if (mediaUrl != null && "PRIVATE".equals(group.getVisibility())) privateGroupUploadPath(mediaUrl, groupId);
-        if (containsSpam(group, content)) throw ApiException.badRequest("Bài viết chứa từ khóa không được phép");
         boolean pending = group.isPostApprovalRequired();
         GroupPost post = postRepository.save(GroupPost.builder().group(group).author(userService.getByIdOrThrow(authorId))
                 .content(content == null ? "" : content).mediaUrl(mediaUrl).mediaType(mediaType)
@@ -260,7 +258,6 @@ public class GroupService {
             mediaUrl = post.getMediaUrl();
         }
         if ((content == null || content.isBlank()) && mediaUrl == null) throw ApiException.badRequest("Bài viết cần có nội dung hoặc tệp đính kèm");
-        if (containsSpam(post.getGroup(), content)) throw ApiException.badRequest("Bài viết chứa từ khóa không được phép");
         String mediaType = request.mediaType() == null ? post.getMediaType() : request.mediaType().trim().toUpperCase(Locale.ROOT);
         if (mediaUrl != null && !Set.of("IMAGE", "VIDEO", "FILE").contains(mediaType)) throw ApiException.badRequest("Loại tệp không hợp lệ");
         if (mediaUrl != null && "PRIVATE".equals(post.getGroup().getVisibility())) privateGroupUploadPath(mediaUrl, groupId);
@@ -285,7 +282,6 @@ public class GroupService {
         requireMember(groupId, authorId);
         enforcePostRateLimit(groupId, authorId);
         String question = request.question().trim();
-        if (containsSpam(group, question)) throw ApiException.badRequest("Câu hỏi chứa từ khóa không được phép");
         if (request.endsAt() != null && !request.endsAt().isAfter(java.time.LocalDateTime.now())) {
             throw ApiException.badRequest("Thời điểm kết thúc phải ở tương lai");
         }
@@ -307,7 +303,6 @@ public class GroupService {
         if (!post.getAuthor().getUserId().equals(requesterId)) throw ApiException.forbidden("Chỉ người tạo mới được sửa bình chọn");
 
         String question = request.question().trim();
-        if (containsSpam(post.getGroup(), question)) throw ApiException.badRequest("Câu hỏi chứa từ khóa không được phép");
         List<String> labels = request.options().stream().map(String::trim).filter(label -> !label.isBlank()).distinct().toList();
         if (labels.size() < 2) throw ApiException.badRequest("Bình chọn cần ít nhất hai lựa chọn khác nhau");
 
@@ -362,9 +357,6 @@ public class GroupService {
     public Map<String, Object> createEvent(Long groupId, Long creatorId, GroupRequests.CreateEvent request) {
         SocialGroup group = requireReadableGroup(groupId, creatorId);
         requireMember(groupId, creatorId);
-        if (containsSpam(group, request.title() + " " + (request.description() == null ? "" : request.description()))) {
-            throw ApiException.badRequest("Sự kiện chứa từ khóa không được phép");
-        }
         if (request.endsAt() != null && !request.endsAt().isAfter(request.startsAt())) {
             throw ApiException.badRequest("Thời gian kết thúc phải sau thời gian bắt đầu");
         }
@@ -431,11 +423,9 @@ public class GroupService {
             throw ApiException.conflict("Bạn đang bình luận quá nhanh. Vui lòng thử lại sau.");
         }
         String content = request.content().trim();
-        if (containsSpam(post.getGroup(), content)) throw ApiException.badRequest("Bình luận chứa từ khóa không được phép");
         GroupComment parent = request.parentCommentId() == null ? null : commentRepository.findById(request.parentCommentId())
                 .filter(comment -> comment.getPost().getPostId().equals(postId))
                 .orElseThrow(() -> ApiException.badRequest("Bình luận cha không hợp lệ"));
-        if (parent != null && parent.getParentComment() != null) throw ApiException.badRequest("Chỉ hỗ trợ trả lời một cấp bình luận");
         GroupComment comment = commentRepository.save(GroupComment.builder().post(post).author(userService.getByIdOrThrow(authorId))
                 .parentComment(parent).content(content).build());
         if (!post.getAuthor().getUserId().equals(authorId)) notifyGroup(post.getGroup(), post.getAuthor().getUserId(), "COMMENT", postId, "Có bình luận mới trên bài viết của bạn");
@@ -448,8 +438,7 @@ public class GroupService {
         if (!comment.getPost().getGroup().getGroupId().equals(groupId)) throw ApiException.notFound("Không tìm thấy bình luận");
         requireMember(groupId, requesterId);
         if (!comment.getAuthor().getUserId().equals(requesterId)) requireModerator(groupId, requesterId);
-        commentRepository.deleteAll(commentRepository.findByParentCommentCommentId(commentId));
-        commentRepository.delete(comment);
+        deleteCommentTree(comment);
     }
 
     @Transactional
@@ -766,21 +755,18 @@ public class GroupService {
 
     private void deleteComments(Long postId) {
         List<GroupComment> comments = commentRepository.findByPostPostIdOrderByCreatedAtAsc(postId);
-        Collections.reverse(comments);
-        commentRepository.deleteAll(comments);
+        comments.stream().filter(comment -> comment.getParentComment() == null).forEach(this::deleteCommentTree);
+    }
+
+    private void deleteCommentTree(GroupComment comment) {
+        commentRepository.findByParentCommentCommentId(comment.getCommentId()).forEach(this::deleteCommentTree);
+        commentRepository.delete(comment);
     }
 
     private void notifyGroup(SocialGroup group, Long targetId, String type, Long referenceId, String message) {
         if (targetId == null) return;
         notificationRepository.save(GroupNotification.builder().group(group).user(userService.getByIdOrThrow(targetId))
                 .type(type).referenceId(referenceId).message(message).build());
-    }
-
-    private boolean containsSpam(SocialGroup group, String content) {
-        if (content == null || group.getSpamKeywords() == null || group.getSpamKeywords().isBlank()) return false;
-        String normalized = content.toLowerCase(Locale.ROOT);
-        return Arrays.stream(group.getSpamKeywords().split(",")).map(String::trim).filter(word -> !word.isEmpty())
-                .anyMatch(word -> normalized.contains(word.toLowerCase(Locale.ROOT)));
     }
 
     private void enforcePostRateLimit(Long groupId, Long authorId) {
@@ -799,7 +785,6 @@ public class GroupService {
         result.put("ownerName", displayName(group.getOwner())); result.put("memberCount", memberRepository.countByGroupGroupId(group.getGroupId()));
         result.put("joined", membership != null); result.put("role", membership == null ? null : membership.getRole());
         result.put("postApprovalRequired", group.isPostApprovalRequired()); result.put("createdAt", group.getCreatedAt());
-        if (membership != null && isModeratorRole(membership.getRole())) result.put("spamKeywords", group.getSpamKeywords());
         return result;
     }
 

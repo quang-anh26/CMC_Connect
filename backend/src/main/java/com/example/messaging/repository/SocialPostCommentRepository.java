@@ -12,6 +12,7 @@ import java.util.Optional;
 public interface SocialPostCommentRepository extends JpaRepository<SocialPostComment, Long> {
     List<SocialPostComment> findByPostPostIdOrderByCreatedAtAsc(Long postId);
     Optional<SocialPostComment> findByCommentIdAndPostPostId(Long commentId, Long postId);
+    List<SocialPostComment> findByParentCommentCommentId(Long parentCommentId);
 
     @Modifying
     @Query("DELETE FROM SocialPostComment c WHERE c.post.postId = :postId")

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 import { useNavigate, useOutletContext, useParams } from "react-router-dom"
 import { Icon } from "../components/Icon"
 import { Avatar, Button, EmptyState, ErrorBlock, Loading, Modal, useAsync, useToast } from "../components/ui"
@@ -139,6 +140,7 @@ export default function ProfilePage() {
   const [friendQuery, setFriendQuery] = useState("")
   const [editing, setEditing] = useState(false)
   const [friendMenu, setFriendMenu] = useState(false)
+  const [removeFriendConfirmOpen, setRemoveFriendConfirmOpen] = useState(false)
   const [viewer, setViewer] = useState(-1)
   const [friendActionBusy, setFriendActionBusy] = useState(false)
   const targetId = profileUserId || user?.userId
@@ -212,11 +214,11 @@ export default function ProfilePage() {
     } finally { setFriendActionBusy(false) }
   }
   const removeFriend = async () => {
-    setFriendMenu(false)
-    if (!window.confirm(`Bạn có chắc muốn hủy kết bạn với ${p?.displayName || "người này"}?`)) return
+    if (friendActionBusy) return
     setFriendActionBusy(true)
     try {
       await friendApi.remove(targetId)
+      setRemoveFriendConfirmOpen(false)
       toast("Đã hủy kết bạn.")
       profile.reload()
       window.dispatchEvent(new Event("cmctalk-friends-updated"))
@@ -247,7 +249,7 @@ export default function ProfilePage() {
           <Button variant="secondary" icon="users" disabled={friendActionBusy} onClick={() => setFriendMenu((v) => !v)}>Bạn bè</Button>
           {friendMenu && (
             <div className="pf-menu" role="menu">
-              <button type="button" role="menuitem" onClick={removeFriend}>Hủy kết bạn</button>
+              <button type="button" role="menuitem" onClick={() => { setFriendMenu(false); setRemoveFriendConfirmOpen(true) }}>Hủy kết bạn</button>
             </div>
           )}
         </div>
@@ -464,6 +466,28 @@ export default function ProfilePage() {
 
       {viewer >= 0 && photos.length > 0 && <Lightbox photos={photos} index={Math.min(viewer, photos.length - 1)} onClose={() => setViewer(-1)} onIndex={setViewer} />}
       {editing && <EditModal profile={p} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); profile.reload(); window.dispatchEvent(new Event("cmctalk-profile-updated")) }} />}
+      {removeFriendConfirmOpen && createPortal(
+        <div className="friend-remove-confirm-layer" onMouseDown={(event) => event.target === event.currentTarget && !friendActionBusy && setRemoveFriendConfirmOpen(false)}>
+          <section className="group-confirm-dialog friend-remove-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="friend-remove-confirm-title">
+            <header>
+              <h2 id="friend-remove-confirm-title">Hủy kết bạn</h2>
+              <button type="button" aria-label="Đóng" disabled={friendActionBusy} onClick={() => setRemoveFriendConfirmOpen(false)}><Icon name="close" /></button>
+            </header>
+            <div className="group-member-action-summary group-confirm-summary remove">
+              <span className="group-member-action-icon"><Icon name="users" size={19} /></span>
+              <div>
+                <strong>{p.displayName || "Người này"}</strong>
+                <p>Bạn và {p.displayName || "người này"} sẽ không còn là bạn bè. Bạn có thể gửi lời mời kết bạn lại sau.</p>
+              </div>
+            </div>
+            <div className="modal-actions">
+              <Button type="button" variant="secondary" disabled={friendActionBusy} onClick={() => setRemoveFriendConfirmOpen(false)}>Hủy</Button>
+              <Button type="button" variant="danger" disabled={friendActionBusy} onClick={removeFriend}>{friendActionBusy ? "Đang hủy..." : "Hủy kết bạn"}</Button>
+            </div>
+          </section>
+        </div>,
+        document.body
+      )}
     </div>
   )
 }

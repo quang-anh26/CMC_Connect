@@ -123,7 +123,7 @@ export default function FriendsPage() {
   const friends = state.friends.filter((f) => match(f.name))
   const sent = state.sent.filter((r) => match(r.receiverDisplayName) || match(r.receiverUsername))
   const people = state.people.filter((p) => match(p.displayName) || match(p.username))
-  const sectionTitles = { sent: "Lời mời đã gửi", friends: "Bạn bè của bạn", suggestions: "Gợi ý cho bạn" }
+  const sectionTitles = { received: "Lời mời kết bạn", sent: "Lời mời đã gửi", friends: "Bạn bè của bạn", suggestions: "Gợi ý cho bạn" }
   const searchPlaceholders = { sent: "Tìm lời mời đã gửi", friends: "Tìm bạn bè", suggestions: "Tìm gợi ý kết bạn" }
 
   return (
@@ -145,7 +145,7 @@ export default function FriendsPage() {
             </>
           )}
         </div>
-        {friendsSection && <label className="inline-search">
+        {friendsSection && !["received", "sent"].includes(friendsSection) && <label className="inline-search">
           <Icon name="search" />
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={searchPlaceholders[friendsSection] || "Tìm trong danh sách"} />
         </label>}
@@ -154,28 +154,29 @@ export default function FriendsPage() {
       {state.error && <ErrorBlock message={state.error} onRetry={load} />}
       {!state.loading && !state.error && (
         <>
-          {!friendsSection && state.received.length > 0 && (
-            <section className="request-strip">
-              <div>
-                <h2>Lời mời kết bạn</h2>
-                <span>{state.received.length} lời mời mới</span>
+          {(friendsSection === "received" || (!friendsSection && state.received.length > 0)) && (
+            <>
+              <div className="section-title">
+                <h2>Lời mời kết bạn ({state.received.length})</h2>
+                {!friendsSection && state.received.length > 0 && <button type="button" onClick={() => navigate("/friends/received")}>Xem tất cả</button>}
               </div>
-              <div className="request-list">
-                {state.received.map((r) => (
-                  <article key={r.id}>
-                    <span style={{ cursor: "pointer" }} onClick={() => navigate(`/profile/${r.senderId}`)}><Avatar name={r.senderDisplayName} src={r.senderAvatar} size="lg" /></span>
-                    <div>
+              {state.received.length === 0 ? <EmptyState title="Không có lời mời kết bạn" icon="users" /> : (
+                <div className="people-grid">
+                  {state.received.slice(0, friendsSection === "received" ? state.received.length : 4).map((r, i) => (
+                    <article className="person-card person-card-link" key={r.id} role="link" tabIndex={0} onClick={(event) => openProfileFromCard(event, r.senderId)} onKeyDown={(event) => openProfileFromCardKey(event, r.senderId)}>
+                      <div className={`person-cover pc${i % 4}`} />
+                      <Avatar name={r.senderDisplayName} src={r.senderAvatar} size="lg" />
                       <h3>{r.senderDisplayName}</h3>
                       <p>@{r.senderUsername}</p>
-                    </div>
-                    <div>
-                      <Button disabled={busyIds.includes(`r${r.id}`)} onClick={() => accept(r)}>Chấp nhận</Button>
-                      <Button variant="secondary" disabled={busyIds.includes(`r${r.id}`)} onClick={() => run(`r${r.id}`, () => friendApi.reject(r.id))}>Xóa</Button>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            </section>
+                      <div className="friend-request-actions">
+                        <Button disabled={busyIds.includes(`r${r.id}`)} onClick={() => accept(r)}>Chấp nhận</Button>
+                        <Button variant="secondary" disabled={busyIds.includes(`r${r.id}`)} onClick={() => run(`r${r.id}`, () => friendApi.reject(r.id), "Đã xóa lời mời kết bạn.")}>Xóa</Button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </>
           )}
           {(!friendsSection || friendsSection === "sent") && (
             <>

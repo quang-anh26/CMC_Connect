@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { Icon } from "./Icon"
 import { Avatar, Button, Modal, useToast } from "./ui"
@@ -8,6 +9,7 @@ import { storyApi } from "../api/storyApi"
 import { videoApi } from "../api/videoApi"
 import { getApiErrorMessage } from "../utils/apiError"
 import { isVideoUrl, mediaUrl, timeAgo } from "../utils/format"
+import { useAuth } from "../context/AuthContext"
 
 export const PRIVACY = {
   PUBLIC: { label: "Công khai", icon: "globe" },
@@ -221,11 +223,156 @@ function SharedPost({ post, onOpen }) {
   )
 }
 
+const MAX_COMMENT_REPLY_DEPTH = 2
+const buildCommentTree = (comments = []) => {
+  const nodes = new Map(comments.map((comment) => [String(comment.commentId), { ...comment, children: [] }]))
+  const roots = []
+  comments.forEach((comment) => {
+    const node = nodes.get(String(comment.commentId))
+    const parent = comment.parentCommentId == null ? null : nodes.get(String(comment.parentCommentId))
+    if (parent) parent.children.push(node)
+    else roots.push(node)
+  })
+  return roots
+}
+
+export function PostCommentSection({ postId, postAuthorId, comments = [], onPostChange, onProfileOpen, sectionRef }) {
+  const navigate = useNavigate()
+  const toast = useToast()
+  const { user } = useAuth()
+  const [draft, setDraft] = useState("")
+  const [replyTo, setReplyTo] = useState(null)
+  const [expandedIds, setExpandedIds] = useState(() => new Set())
+  const [busy, setBusy] = useState(false)
+  const [deletingCommentId, setDeletingCommentId] = useState(null)
+  const [commentToDelete, setCommentToDelete] = useState(null)
+  const commentTree = buildCommentTree(comments)
+  const mayDeleteComment = (comment) => user?.userId != null && (String(comment.authorId) === String(user.userId) || String(postAuthorId) === String(user.userId))
+  const openProfile = (authorId) => {
+    onProfileOpen?.()
+    navigate(`/profile/${authorId}`)
+  }
+
+  const sendComment = async (event) => {
+    event.preventDefault()
+    const content = draft.trim()
+    if (!content || busy) return
+    setBusy(true)
+    try {
+      const { data } = await feedApi.comment(postId, content, replyTo?.commentId || null)
+      onPostChange?.(data)
+      setDraft("")
+      setReplyTo(null)
+    } catch (error) {
+      toast(getApiErrorMessage(error, "Không thể gửi bình luận."), "error")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const beginReply = (comment, ancestorIds) => {
+    setDraft("")
+    setReplyTo({ commentId: comment.commentId, name: comment.authorName })
+    setExpandedIds((current) => new Set([...current, ...ancestorIds.map(String), String(comment.commentId)]))
+  }
+
+  const removeComment = async () => {
+    const comment = commentToDelete
+    if (!comment) return
+    if (deletingCommentId != null || !mayDeleteComment(comment)) return
+    setDeletingCommentId(comment.commentId)
+    try {
+      const { data } = await feedApi.removeComment(postId, comment.commentId)
+      onPostChange?.(data)
+      const remainingIds = new Set((data.comments || []).map((item) => String(item.commentId)))
+      setExpandedIds((current) => new Set([...current].filter((id) => remainingIds.has(id))))
+      if (replyTo && !remainingIds.has(String(replyTo.commentId))) {
+        setReplyTo(null)
+        setDraft("")
+      }
+      setCommentToDelete(null)
+    } catch (error) {
+      toast(getApiErrorMessage(error, "Không thể xóa bình luận."), "error")
+    } finally {
+      setDeletingCommentId(null)
+    }
+  }
+
+  const renderComment = (comment, depth = 0, ancestorIds = [], parentComment = null) => {
+    const children = comment.children || []
+    const commentId = String(comment.commentId)
+    const expanded = expandedIds.has(commentId)
+    const replyingHere = String(replyTo?.commentId) === commentId
+    return (
+      <div className="post-comment-node" key={comment.commentId}>
+        <div className="post-viewer-comment">
+          <button type="button" className="post-viewer-comment-profile" aria-label={`Mở trang cá nhân của ${comment.authorName}`} onClick={() => openProfile(comment.authorId)}><Avatar name={comment.authorName} src={comment.authorAvatar} size="sm" /></button>
+          <div className="post-viewer-comment-body">
+            <div className="post-viewer-comment-meta"><button type="button" onClick={() => openProfile(comment.authorId)}>{comment.authorName}</button><small>{timeAgo(comment.createdAt)}</small></div>
+            <p>{parentComment && <><button type="button" className="post-comment-reply-target" onClick={() => openProfile(parentComment.authorId)}>{parentComment.authorName}</button>{" "}</>}{comment.content}</p>
+            <span className="post-comment-links">
+              <button type="button" onClick={() => beginReply(comment, ancestorIds)}>Trả lời</button>
+              {mayDeleteComment(comment) && <button type="button" disabled={deletingCommentId != null} onClick={() => setCommentToDelete(comment)}>Xóa</button>}
+            </span>
+          </div>
+        </div>
+        {children.length > 0 && <button type="button" className="post-comment-toggle" aria-expanded={expanded} onClick={() => setExpandedIds((current) => {
+          const next = new Set(current)
+          if (next.has(commentId)) next.delete(commentId)
+          else next.add(commentId)
+          return next
+        })}>{expanded ? "Ẩn câu trả lời" : `Xem ${children.length} câu trả lời`}</button>}
+        {expanded && children.length > 0 && <div className={`post-comment-children${depth >= MAX_COMMENT_REPLY_DEPTH ? " capped" : ""}`}>{children.map((child) => renderComment(child, depth + 1, [...ancestorIds, commentId], comment))}</div>}
+        {replyingHere && <form className="post-inline-reply-form" onSubmit={sendComment}>
+          <Avatar name={user?.displayName || user?.name || user?.username || "Bạn"} src={user?.avatar} size="sm" />
+          <input autoFocus value={draft} onChange={(event) => setDraft(event.target.value)} placeholder={`Trả lời ${comment.authorName}...`} maxLength={1000} />
+          <button type="button" className="post-inline-reply-cancel" onClick={() => { setReplyTo(null); setDraft("") }}>Hủy</button>
+          <button type="submit" disabled={!draft.trim() || busy}>{busy ? "Đang gửi..." : "Gửi"}</button>
+        </form>}
+      </div>
+    )
+  }
+
+  return <>
+    <div className="post-comment-section" ref={sectionRef}>
+      <div className="post-comments-list">
+        {commentTree.map((comment) => renderComment(comment))}
+        {comments.length === 0 && <p className="post-viewer-empty">Chưa có bình luận nào.</p>}
+      </div>
+      {!replyTo && <form className="post-viewer-comment-form" onSubmit={sendComment}>
+        <input value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="Viết bình luận..." maxLength={1000} />
+        <button type="submit" disabled={!draft.trim() || busy}>{busy ? "Đang gửi..." : "Gửi"}</button>
+      </form>}
+    </div>
+    {commentToDelete && createPortal(
+      <div className="group-comment-confirm-layer" onMouseDown={(event) => event.target === event.currentTarget && deletingCommentId == null && setCommentToDelete(null)}>
+        <div className="modal collection-delete-modal group-comment-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="post-comment-confirm-title" onMouseDown={(event) => event.stopPropagation()}>
+          <header>
+            <h2 id="post-comment-confirm-title">Xóa bình luận</h2>
+            <button type="button" aria-label="Đóng" disabled={deletingCommentId != null} onClick={() => setCommentToDelete(null)}><Icon name="close" /></button>
+          </header>
+          <div className="collection-delete-content">
+            <span className="collection-delete-icon"><Icon name="trash" size={20} /></span>
+            <div>
+              <strong>Bạn có chắc muốn xóa bình luận này?</strong>
+              <p>{commentToDelete.children?.length ? "Bình luận này và các câu trả lời bên dưới sẽ bị xóa khỏi bài viết và không thể khôi phục." : "Bình luận sẽ bị xóa khỏi bài viết và không thể khôi phục."}</p>
+            </div>
+          </div>
+          <div className="modal-actions">
+            <Button variant="secondary" disabled={deletingCommentId != null} onClick={() => setCommentToDelete(null)}>Hủy</Button>
+            <Button variant="danger" disabled={deletingCommentId != null} onClick={removeComment}>{deletingCommentId != null ? "Đang xóa..." : "Xóa bình luận"}</Button>
+          </div>
+        </div>
+      </div>,
+      document.body
+    )}
+  </>
+}
+
 export function PostCard({ post, meId, onChange, onRemove, onHide, onShared, openCommentsOnMount = false, hideCard = false, onCloseComments, onOpenSharedPost }) {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const toast = useToast()
-  const [draft, setDraft] = useState("")
   const [menuOpen, setMenuOpen] = useState(false)
   const [reactionPickerOpen, setReactionPickerOpen] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
@@ -326,18 +473,6 @@ export function PostCard({ post, meId, onChange, onRemove, onHide, onShared, ope
     if (res) {
       onChange?.({ ...post, savedByViewer: res.data.saved })
       toast(res.data.saved ? "Đã lưu bài viết." : "Đã bỏ lưu bài viết.")
-    }
-  }
-
-  const sendComment = async (event) => {
-    event.preventDefault()
-    if (!draft.trim() || busy) return
-    setBusy(true)
-    const res = await run(() => feedApi.comment(post.postId, draft.trim()), "Không thể gửi bình luận.")
-    setBusy(false)
-    if (res) {
-      onChange?.(res.data)
-      setDraft("")
     }
   }
 
@@ -511,7 +646,7 @@ export function PostCard({ post, meId, onChange, onRemove, onHide, onShared, ope
         </button>
       </div>
       {commentsModalOpen && (
-        <Modal title={`Bài viết của ${post.authorName}`} close={closeComments} wide className="post-comments-modal" backdropClassName="post-comments-backdrop" portal preservePage>
+        <Modal title={`Bài viết của ${post.authorName}`} close={closeComments} wide className="post-comments-modal post-feed-comments-modal" backdropClassName="post-comments-backdrop" portal preservePage>
           <div className="post-comments-dialog">
             <div className="post-comments-scroll">
               <div className="post-comments-author">
@@ -532,21 +667,8 @@ export function PostCard({ post, meId, onChange, onRemove, onHide, onShared, ope
                 <button type="button" onClick={() => setShareOpen(true)}><Icon name="share" /> Chia sẻ</button>
                 <button type="button" onClick={save}><Icon name="bookmark" /> {post.savedByViewer ? "Đã lưu" : "Lưu"}</button>
               </div>
-              <div className="post-comments-list" ref={commentsModalListRef}>
-                {comments.map((c) => <div className="post-viewer-comment" key={c.commentId}>
-                  <button type="button" className="post-viewer-comment-profile" aria-label={`Mở trang cá nhân của ${c.authorName}`} onClick={() => { closeComments(); navigate(`/profile/${c.authorId}`) }}><Avatar name={c.authorName} src={c.authorAvatar} size="sm" /></button>
-                  <div className="post-viewer-comment-body">
-                    <div className="post-viewer-comment-meta"><button type="button" onClick={() => { closeComments(); navigate(`/profile/${c.authorId}`) }}>{c.authorName}</button><small>{timeAgo(c.createdAt)}</small></div>
-                    <p>{c.content}</p>
-                  </div>
-                </div>)}
-                {comments.length === 0 && <p className="post-viewer-empty">Chưa có bình luận nào.</p>}
-              </div>
+              <PostCommentSection sectionRef={commentsModalListRef} postId={post.postId} postAuthorId={post.authorId} comments={comments} onPostChange={onChange} onProfileOpen={closeComments} />
             </div>
-            <form className="post-viewer-comment-form" onSubmit={sendComment}>
-              <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Viết bình luận..." maxLength={2000} />
-              <button type="submit" disabled={!draft.trim() || busy}>Gửi</button>
-            </form>
           </div>
         </Modal>
       )}
@@ -573,19 +695,8 @@ export function PostCard({ post, meId, onChange, onRemove, onHide, onShared, ope
               <span>{comments.length} bình luận · {post.shareCount || 0} lượt chia sẻ</span>
             </div>
             <div className="post-viewer-comments" ref={viewerCommentsRef}>
-              {comments.map((c) => <div className="post-viewer-comment" key={c.commentId}>
-                <button type="button" className="post-viewer-comment-profile" aria-label={`Mở trang cá nhân của ${c.authorName}`} onClick={() => { setViewerOpen(false); navigate(`/profile/${c.authorId}`) }}><Avatar name={c.authorName} src={c.authorAvatar} size="sm" /></button>
-                <div className="post-viewer-comment-body">
-                  <div className="post-viewer-comment-meta"><button type="button" onClick={() => { setViewerOpen(false); navigate(`/profile/${c.authorId}`) }}>{c.authorName}</button><small>{timeAgo(c.createdAt)}</small></div>
-                  <p>{c.content}</p>
-                </div>
-              </div>)}
-              {comments.length === 0 && <p className="post-viewer-empty">Chưa có bình luận nào.</p>}
+              <PostCommentSection postId={post.postId} postAuthorId={post.authorId} comments={comments} onPostChange={onChange} onProfileOpen={() => setViewerOpen(false)} />
             </div>
-            <form className="post-viewer-comment-form" onSubmit={sendComment}>
-              <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Viết bình luận..." maxLength={2000} />
-              <button type="submit" disabled={!draft.trim() || busy}>Gửi</button>
-            </form>
           </aside>
         </div>
       )}

@@ -24,8 +24,7 @@ public final class GroupRequests {
             @Size(max = 500) String coverImage,
             @Size(max = 80) String category,
             @Size(max = 20) String visibility,
-            Boolean postApprovalRequired,
-            @Size(max = 2000) String spamKeywords) {}
+            Boolean postApprovalRequired) {}
 
     public record CreatePost(
             @Size(max = 10000) String content,
