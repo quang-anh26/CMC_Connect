@@ -4,6 +4,7 @@ import com.example.messaging.dto.feed.CreateCommentRequest;
 import com.example.messaging.dto.feed.CreatePostRequest;
 import com.example.messaging.dto.feed.FeedCommentResponse;
 import com.example.messaging.dto.feed.FeedPostResponse;
+import com.example.messaging.dto.feed.PostMediaItem;
 import com.example.messaging.dto.feed.PostReactionSummary;
 import com.example.messaging.dto.feed.SharedPostResponse;
 import com.example.messaging.dto.feed.SharePostRequest;
@@ -23,12 +24,15 @@ import com.example.messaging.repository.FriendRequestRepository;
 import com.example.messaging.repository.SavedItemRepository;
 import com.example.messaging.entity.enums.FriendRequestStatus;
 import com.example.messaging.security.VideoMediaTokenService;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -54,6 +58,7 @@ public class FeedService {
     private final VideoMediaTokenService videoMediaTokenService;
     private final SavedItemRepository savedItemRepository;
     private final NotificationService notificationService;
+    private final ObjectMapper objectMapper;
 
     @Transactional(readOnly = true)
     public List<FeedPostResponse> list(Long viewerId) {
@@ -94,28 +99,51 @@ public class FeedService {
     @Transactional
     public FeedPostResponse create(Long authorId, CreatePostRequest request) {
         String content = request.getContent() == null ? null : request.getContent().trim();
-        String imageUrl = request.getImageUrl() == null ? null : request.getImageUrl().trim();
-        String mediaType = request.getMediaType() == null ? null : request.getMediaType().trim().toUpperCase();
         boolean hasContent = content != null && !content.isBlank();
-        boolean hasMedia = imageUrl != null && !imageUrl.isBlank();
 
-        if (!hasContent && !hasMedia) {
+        // Gom danh sách media: ưu tiên mediaItems (nhiều ảnh/video); nếu không có thì dùng imageUrl/mediaType cũ.
+        List<PostMediaItem> media = new ArrayList<>();
+        if (request.getMediaItems() != null) {
+            for (PostMediaItem item : request.getMediaItems()) {
+                if (item == null || item.getUrl() == null || item.getUrl().isBlank()) continue;
+                String url = item.getUrl().trim();
+                String type = item.getType() == null || item.getType().isBlank()
+                        ? resolveMediaType(url) : item.getType().trim().toUpperCase(Locale.ROOT);
+                if (!"IMAGE".equals(type) && !"VIDEO".equals(type)) {
+                    throw ApiException.badRequest("Loại media không hợp lệ");
+                }
+                media.add(new PostMediaItem(url, type));
+            }
+        }
+        if (media.isEmpty()) {
+            String imageUrl = request.getImageUrl() == null ? null : request.getImageUrl().trim();
+            String mediaType = request.getMediaType() == null ? null : request.getMediaType().trim().toUpperCase(Locale.ROOT);
+            boolean hasMedia = imageUrl != null && !imageUrl.isBlank();
+            if (hasMedia && mediaType != null && !"IMAGE".equals(mediaType) && !"VIDEO".equals(mediaType)) {
+                throw ApiException.badRequest("Loại media không hợp lệ");
+            }
+            if (!hasMedia && mediaType != null) {
+                throw ApiException.badRequest("Thiếu ảnh hoặc video cho bài viết");
+            }
+            if (hasMedia) media.add(new PostMediaItem(imageUrl, mediaType == null ? resolveMediaType(imageUrl) : mediaType));
+        }
+        if (media.size() > 10) {
+            throw ApiException.badRequest("Mỗi bài viết chỉ được đăng tối đa 10 ảnh/video");
+        }
+        if (!hasContent && media.isEmpty()) {
             throw ApiException.badRequest("Bài viết cần có nội dung hoặc ảnh/video");
-        }
-        if (hasMedia && mediaType != null && !"IMAGE".equals(mediaType) && !"VIDEO".equals(mediaType)) {
-            throw ApiException.badRequest("Loại media không hợp lệ");
-        }
-        if (!hasMedia && mediaType != null) {
-            throw ApiException.badRequest("Thiếu ảnh hoặc video cho bài viết");
         }
 
         User author = userService.getByIdOrThrow(authorId);
         String privacy = normalizePrivacy(request.getPrivacy());
+        PostMediaItem first = media.isEmpty() ? null : media.get(0);
         SocialPost post = postRepository.save(SocialPost.builder()
                 .author(author)
                 .content(hasContent ? content : "")
-                .imageUrl(hasMedia ? imageUrl : null)
-                .mediaType(hasMedia ? (mediaType == null ? resolveMediaType(imageUrl) : mediaType) : null)
+                // media đầu tiên vẫn lưu ở imageUrl/mediaType để các chức năng cũ (trang Video, lưu bài...) hoạt động như trước
+                .imageUrl(first == null ? null : first.getUrl())
+                .mediaType(first == null ? null : first.getType())
+                .mediaItems(media.size() > 1 ? writeMedia(media) : null)
                 .privacy(privacy)
                 .build());
         notifyFriendsAboutPost(post, authorId);
@@ -333,6 +361,7 @@ public class FeedService {
                 .content(post.getContent())
                 .imageUrl(playbackUrl(post, viewerId))
                 .mediaType(post.getMediaType() == null ? resolveMediaType(post.getImageUrl()) : post.getMediaType())
+                .mediaItems(mediaItemsFor(post, viewerId))
                 .privacy(post.getPrivacy() == null ? "PUBLIC" : post.getPrivacy())
                 .viewCount(post.getViewCount())
                 .createdAt(post.getCreatedAt())
@@ -366,6 +395,7 @@ public class FeedService {
                 .content(post.getContent())
                 .imageUrl(playbackUrl(post, viewerId))
                 .mediaType(post.getMediaType() == null ? resolveMediaType(post.getImageUrl()) : post.getMediaType())
+                .mediaItems(mediaItemsFor(post, viewerId))
                 .createdAt(post.getCreatedAt())
                 .build();
     }
@@ -374,6 +404,41 @@ public class FeedService {
         String mediaType = post.getMediaType() == null ? resolveMediaType(post.getImageUrl()) : post.getMediaType();
         if (!"VIDEO".equals(mediaType) || post.getImageUrl() == null) return post.getImageUrl();
         return "/api/videos/" + post.getPostId() + "/media?token=" + videoMediaTokenService.issue(post.getPostId(), viewerId);
+    }
+
+    /** Danh sách media trả về cho client. Bài cũ (chỉ 1 media) cũng trả về danh sách 1 phần tử. */
+    private List<PostMediaItem> mediaItemsFor(SocialPost post, Long viewerId) {
+        List<PostMediaItem> stored = readMedia(post.getMediaItems());
+        if (stored.isEmpty()) {
+            if (post.getImageUrl() == null || post.getImageUrl().isBlank()) return List.of();
+            String type = post.getMediaType() == null ? resolveMediaType(post.getImageUrl()) : post.getMediaType();
+            return List.of(new PostMediaItem(playbackUrl(post, viewerId), type));
+        }
+        List<PostMediaItem> result = new ArrayList<>();
+        for (int i = 0; i < stored.size(); i++) {
+            PostMediaItem item = stored.get(i);
+            // Media đầu tiên là video thì phát qua đường dẫn có token như cũ; các media còn lại dùng /uploads/ công khai.
+            String url = i == 0 ? playbackUrl(post, viewerId) : item.getUrl();
+            result.add(new PostMediaItem(url, item.getType()));
+        }
+        return result;
+    }
+
+    private String writeMedia(List<PostMediaItem> media) {
+        try {
+            return objectMapper.writeValueAsString(media);
+        } catch (Exception exception) {
+            throw ApiException.badRequest("Không thể lưu danh sách ảnh/video");
+        }
+    }
+
+    private List<PostMediaItem> readMedia(String json) {
+        if (json == null || json.isBlank()) return List.of();
+        try {
+            return objectMapper.readValue(json, new TypeReference<List<PostMediaItem>>() { });
+        } catch (Exception exception) {
+            return List.of();
+        }
     }
 
     private String resolveMediaType(String mediaUrl) {

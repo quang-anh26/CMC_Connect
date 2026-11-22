@@ -4,6 +4,7 @@ import lombok.Builder;
 import lombok.Value;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Value
 @Builder
@@ -15,5 +16,6 @@ public class SharedPostResponse {
     String content;
     String imageUrl;
     String mediaType;
+    List<PostMediaItem> mediaItems;
     LocalDateTime createdAt;
 }

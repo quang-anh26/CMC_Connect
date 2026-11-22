@@ -92,6 +92,9 @@ export default function CallOverlay({ conversationInfo, conversations = [], visi
   const publishRef = useRef(publish)
   const connectedRef = useRef(connected)
   const signalChainRef = useRef(Promise.resolve())
+  const peerUsernameRef = useRef(null) // 1-1: username của người đang gọi cùng (để kết thúc đúng người)
+  const finishRef = useRef(null) // luôn trỏ tới finish() mới nhất (dùng trong timer/callback WebRTC)
+  const hadRemotePeersRef = useRef(false)
   // --- cuộc gọi nhóm ---
   const callStateRef = useRef('idle')
   const isGroupRef = useRef(false)
@@ -214,7 +217,7 @@ export default function CallOverlay({ conversationInfo, conversations = [], visi
     publishRef.current('/app/call.group', { ...payload, conversationId: Number(groupIdRef.current) })
     return true
   }
-  const sendSignal = (payload) => sendTo(targetUsername, payload)
+  const sendSignal = (payload) => sendTo(peerUsernameRef.current || targetUsername, payload)
 
   /* ---------- dọn dẹp ---------- */
   const cleanup = () => {
@@ -228,6 +231,8 @@ export default function CallOverlay({ conversationInfo, conversations = [], visi
     localStreamRef.current = null
     connectedAtRef.current = null
     isInitiatorRef.current = false
+    peerUsernameRef.current = null
+    hadRemotePeersRef.current = false
     isGroupRef.current = false
     groupIdRef.current = null
     setIsGroup(false)
@@ -281,6 +286,14 @@ export default function CallOverlay({ conversationInfo, conversations = [], visi
     onClose?.()
     return saveLog
   }
+  finishRef.current = finish
+
+  // Bên kia bị mất kết nối hẳn (tắt máy, mất mạng...) -> tự kết thúc cuộc gọi bên này
+  const endBecauseConnectionLost = () => {
+    if (!['calling', 'connected'].includes(callStateRef.current)) return
+    window.dispatchEvent(new CustomEvent('cmctalk-server-error', { detail: 'Cuộc gọi đã kết thúc do mất kết nối.' }))
+    finishRef.current?.()
+  }
 
   /* ---------- 1-1 ---------- */
   const createPeer = (remoteUsername) => {
@@ -305,9 +318,24 @@ export default function CallOverlay({ conversationInfo, conversations = [], visi
         try { peer.restartIce() } catch { /* ignore */ }
       }
     }
+    let dropTimer = null
     peer.onconnectionstatechange = () => {
-      if (['failed', 'disconnected'].includes(peer.connectionState)) {
-        setError(`Kết nối cuộc gọi ${peer.connectionState === 'failed' ? 'thất bại' : 'bị ngắt'}.`)
+      const state = peer.connectionState
+      if (state === 'connected') {
+        if (dropTimer) { window.clearTimeout(dropTimer); dropTimer = null }
+        setError('')
+      } else if (state === 'failed' || state === 'disconnected') {
+        setError(`Kết nối cuộc gọi ${state === 'failed' ? 'thất bại' : 'bị ngắt'}.`)
+        // Chờ một lúc cho trường hợp rớt mạng thoáng qua; không phục hồi được thì tự kết thúc
+        if (!dropTimer) {
+          dropTimer = window.setTimeout(() => {
+            dropTimer = null
+            if (peerRef.current === peer && peer.connectionState !== 'connected') endBecauseConnectionLost()
+          }, state === 'failed' ? 4000 : 10000)
+        }
+      } else if (state === 'closed' && dropTimer) {
+        window.clearTimeout(dropTimer)
+        dropTimer = null
       }
     }
     peerRef.current = peer
@@ -371,6 +399,19 @@ export default function CallOverlay({ conversationInfo, conversations = [], visi
       if (peer.iceConnectionState === 'failed') {
         setError(`Không kết nối được âm thanh với ${entry.name} (có thể cần máy chủ TURN).`)
         try { peer.restartIce() } catch { /* ignore */ }
+      }
+    }
+    let dropTimer = null
+    peer.onconnectionstatechange = () => {
+      const state = peer.connectionState
+      if (state === 'connected') {
+        if (dropTimer) { window.clearTimeout(dropTimer); dropTimer = null }
+      } else if ((state === 'failed' || state === 'disconnected') && !dropTimer) {
+        // Người này mất kết nối với mình quá lâu -> bỏ khỏi cuộc gọi (nếu không còn ai thì tự ngắt)
+        dropTimer = window.setTimeout(() => {
+          dropTimer = null
+          if (groupPeersRef.current.get(username)?.peer === peer && peer.connectionState !== 'connected') removeGroupPeer(username)
+        }, state === 'failed' ? 4000 : 10000)
       }
     }
     const local = localStreamRef.current
@@ -527,6 +568,39 @@ export default function CallOverlay({ conversationInfo, conversations = [], visi
         if (inGroupCall(cid)) removeGroupPeer(from)
         break
       }
+      case 'group-active': {
+        // Nhóm ĐANG CÓ cuộc gọi diễn ra -> tham gia cuộc gọi đó thay vì tạo cuộc gọi mới
+        if (!isGroupRef.current || String(groupIdRef.current) !== String(cid)) return
+        if (callStateRef.current !== 'calling' || !isInitiatorRef.current) return
+        const activeType = signal.callType || 'audio'
+        try {
+          isInitiatorRef.current = false // người tạo cuộc gọi sẽ tự lưu nhật ký
+          callLogSavedRef.current = true
+          if (activeType !== callTypeRef.current) {
+            localStreamRef.current?.getTracks().forEach((track) => track.stop())
+            localStreamRef.current = await navigator.mediaDevices.getUserMedia({ video: activeType === 'video', audio: true })
+            callTypeRef.current = activeType
+            setCallType(activeType)
+          }
+          connectedAtRef.current = Date.now()
+          updateCallState('connected')
+          broadcastGroup({ type: 'group-join', callType: activeType })
+        } catch (err) {
+          cleanup()
+          setError(mediaErrorMessage(err, activeType, 'Không thể tham gia cuộc gọi nhóm'))
+        }
+        break
+      }
+      case 'group-closed': {
+        // Server báo cuộc gọi đã kết thúc (hết người / chỉ còn 1 người) -> tự ngắt, tắt chuông
+        if (!isGroupRef.current || String(groupIdRef.current) !== String(cid)) return
+        if (!['incoming', 'calling', 'connected'].includes(callStateRef.current)) return
+        const saveLog = isInitiatorRef.current ? saveCallLog() : null
+        cleanup()
+        if (saveLog) await saveLog
+        onClose?.()
+        break
+      }
       case 'group-end': {
         // Người gọi đã tắt khi chưa ai nghe -> tắt chuông cho ai chưa nhấc máy
         if (callStateRef.current === 'incoming' && String(groupIdRef.current) === String(cid)) {
@@ -553,6 +627,7 @@ export default function CallOverlay({ conversationInfo, conversations = [], visi
       callTypeRef.current = type
       callConversationRef.current = activeConversation
       isInitiatorRef.current = true
+      peerUsernameRef.current = targetUsername
       callLogSavedRef.current = false
       connectedAtRef.current = null
       pendingCandidatesRef.current = []
@@ -650,6 +725,7 @@ export default function CallOverlay({ conversationInfo, conversations = [], visi
             callConversationRef.current = matchingConversation
           }
           pendingCandidatesRef.current = []
+          peerUsernameRef.current = signal.fromUsername
           callTypeRef.current = signal.callType || 'audio'
           setCaller({ username: signal.fromUsername, offer: signal.offer, displayName: signal.fromDisplayName, avatar: signal.fromAvatar })
           setCallType(signal.callType || 'audio')
@@ -667,6 +743,9 @@ export default function CallOverlay({ conversationInfo, conversations = [], visi
             pendingCandidatesRef.current.push(candidate)
           }
         } else if (signal.type === 'end' || signal.type === 'reject') {
+          if (callStateRef.current === 'idle') return
+          // Chỉ nghe tín hiệu kết thúc từ đúng người đang gọi cùng mình
+          if (peerUsernameRef.current && signal.fromUsername && signal.fromUsername !== peerUsernameRef.current) return
           const saveLog = isInitiatorRef.current ? saveCallLog() : null
           cleanup()
           if (saveLog) await saveLog
@@ -680,6 +759,42 @@ export default function CallOverlay({ conversationInfo, conversations = [], visi
   }, [callSignal])
 
   useEffect(() => cleanup, [])
+
+  // Đóng tab / tải lại trang giữa cuộc gọi -> báo cho bên kia (server cũng tự báo khi mất kết nối)
+  useEffect(() => {
+    const leaveOnUnload = () => {
+      const state = callStateRef.current
+      if (state === 'idle') return
+      try {
+        if (isGroupRef.current) {
+          if (state === 'incoming') return
+          publishRef.current('/app/call.group', {
+            type: groupPeersRef.current.size === 0 ? 'group-end' : 'group-leave',
+            conversationId: Number(groupIdRef.current),
+          })
+        } else if (peerUsernameRef.current) {
+          publishRef.current('/app/call.signal', { type: state === 'incoming' ? 'reject' : 'end', toUsername: peerUsernameRef.current })
+        }
+      } catch { /* bỏ qua */ }
+    }
+    window.addEventListener('pagehide', leaveOnUnload)
+    return () => window.removeEventListener('pagehide', leaveOnUnload)
+  }, [])
+
+  // Cuộc gọi nhóm: đã có người khác nhưng giờ chỉ còn mình bạn -> tự ngắt
+  useEffect(() => {
+    if (!isGroup || callState !== 'connected') {
+      hadRemotePeersRef.current = false
+      return undefined
+    }
+    if (remotePeers.length > 0) {
+      hadRemotePeersRef.current = true
+      return undefined
+    }
+    if (!hadRemotePeersRef.current) return undefined
+    const timer = window.setTimeout(() => finishRef.current?.(), 1500)
+    return () => window.clearTimeout(timer)
+  }, [remotePeers.length, callState, isGroup])
 
   const resumeAudio = () => {
     document.querySelectorAll('.call-overlay audio, .call-overlay video').forEach((el) => {
