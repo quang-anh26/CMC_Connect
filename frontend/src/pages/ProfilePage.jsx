@@ -4,13 +4,16 @@ import { useNavigate, useOutletContext, useParams } from "react-router-dom"
 import { Icon } from "../components/Icon"
 import { Avatar, Button, EmptyState, ErrorBlock, Loading, Modal, useAsync, useToast } from "../components/ui"
 import { Composer, PostCard } from "../components/Posts"
+import { StoryViewer } from "../components/Stories"
 import { userApi } from "../api/userApi"
 import { feedApi } from "../api/feedApi"
+import { storyApi } from "../api/storyApi"
+import { videoApi } from "../api/videoApi"
 import { friendApi } from "../api/friendApi"
 import { conversationApi } from "../api/conversationApi"
 import { useAuth } from "../context/AuthContext"
 import { getApiErrorMessage } from "../utils/apiError"
-import { friendOf, mediaUrl } from "../utils/format"
+import { friendOf, mediaUrl, timeAgo } from "../utils/format"
 import "../styles/profile.css"
 
 const RELATIONSHIPS = ["Độc thân", "Đang hẹn hò", "Đã đính hôn", "Đã kết hôn", "Mối quan hệ phức tạp"]
@@ -24,8 +27,6 @@ function PfIcon({ name, size = 20 }) {
   if (name === "camera") return <svg {...common}><path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z" /><circle cx="12" cy="13" r="3.5" /></svg>
   if (name === "heart") return <svg {...common}><path d="M12 20s-7-4.4-9-9.2C1.7 7.5 3.6 4.5 6.8 4.5c2 0 3.5 1.1 5.2 3 1.7-1.9 3.2-3 5.2-3 3.2 0 5.1 3 3.8 6.3C19 15.6 12 20 12 20Z" /></svg>
   if (name === "dots") return <svg {...common} fill="currentColor" stroke="none"><circle cx="5" cy="12" r="1.8" /><circle cx="12" cy="12" r="1.8" /><circle cx="19" cy="12" r="1.8" /></svg>
-  if (name === "chev-l") return <svg {...common}><path d="m15 5-7 7 7 7" /></svg>
-  if (name === "chev-r") return <svg {...common}><path d="m9 5 7 7-7 7" /></svg>
   return null
 }
 
@@ -84,31 +85,6 @@ function EditModal({ profile, onClose, onSaved }) {
   )
 }
 
-/* ---------- Xem ảnh phóng to ---------- */
-function Lightbox({ photos, index, onClose, onIndex }) {
-  const total = photos.length
-  useEffect(() => {
-    const onKey = (e) => {
-      if (e.key === "Escape") onClose()
-      if (e.key === "ArrowLeft") onIndex((index - 1 + total) % total)
-      if (e.key === "ArrowRight") onIndex((index + 1) % total)
-    }
-    window.addEventListener("keydown", onKey)
-    return () => window.removeEventListener("keydown", onKey)
-  }, [index, total])
-  const photo = photos[index]
-  if (!photo) return null
-  return (
-    <div className="pf-lightbox" onClick={onClose}>
-      <button type="button" className="pf-lb-close" aria-label="Đóng" onClick={onClose}><Icon name="close" size={22} /></button>
-      {total > 1 && <button type="button" className="pf-lb-nav prev" aria-label="Ảnh trước" onClick={(e) => { e.stopPropagation(); onIndex((index - 1 + total) % total) }}><PfIcon name="chev-l" size={26} /></button>}
-      <img src={mediaUrl(photo.imageUrl)} alt="" onClick={(e) => e.stopPropagation()} />
-      {total > 1 && <button type="button" className="pf-lb-nav next" aria-label="Ảnh sau" onClick={(e) => { e.stopPropagation(); onIndex((index + 1) % total) }}><PfIcon name="chev-r" size={26} /></button>}
-      <span className="pf-lb-count">{index + 1} / {total}</span>
-    </div>
-  )
-}
-
 /* ---------- 1 dòng thông tin ---------- */
 function InfoRow({ icon, label, value, mine, addText, onAdd }) {
   if (!value && !mine) return null
@@ -141,7 +117,10 @@ export default function ProfilePage() {
   const [editing, setEditing] = useState(false)
   const [friendMenu, setFriendMenu] = useState(false)
   const [removeFriendConfirmOpen, setRemoveFriendConfirmOpen] = useState(false)
-  const [viewer, setViewer] = useState(-1)
+  const [activeMediaPost, setActiveMediaPost] = useState(null)
+  const [stories, setStories] = useState([])
+  const [storyViewer, setStoryViewer] = useState(null)
+  const [expandedMedia, setExpandedMedia] = useState({ stories: false, photos: false, videos: false })
   const [friendActionBusy, setFriendActionBusy] = useState(false)
   const targetId = profileUserId || user?.userId
   const mine = String(targetId) === String(user?.userId)
@@ -150,9 +129,28 @@ export default function ProfilePage() {
   const p = profile.data
   const posts = useMemo(() => (feed.data || []).filter((x) => String(x.authorId) === String(targetId)), [feed.data, targetId])
   const photos = useMemo(() => posts.filter((x) => x.imageUrl && String(x.mediaType).toUpperCase() !== "VIDEO"), [posts])
+  const videos = useMemo(() => posts.filter((x) => x.imageUrl && String(x.mediaType).toUpperCase() === "VIDEO"), [posts])
+  const visibleStories = expandedMedia.stories ? stories : stories.slice(0, 6)
+  const visiblePhotos = expandedMedia.photos ? photos : photos.slice(0, 6)
+  const visibleVideos = expandedMedia.videos ? videos : videos.slice(0, 4)
+  const storyGroups = useMemo(() => stories.length ? [{
+    authorId: String(targetId),
+    name: stories[0].authorName,
+    avatar: stories[0].authorAvatar,
+    items: [...stories].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)),
+  }] : [], [stories, targetId])
+
+  useEffect(() => {
+    let active = true
+    setStories([])
+    storyApi.list().then(({ data }) => {
+      if (active) setStories((data || []).filter((story) => String(story.authorId) === String(targetId)))
+    }).catch(() => { if (active) setStories([]) })
+    return () => { active = false }
+  }, [targetId])
 
   // Đổi sang trang cá nhân người khác -> về tab đầu
-  useEffect(() => { setTab("posts"); setAboutSection("overview"); setFriendQuery(""); setViewer(-1) }, [targetId])
+  useEffect(() => { setTab("posts"); setAboutSection("overview"); setFriendQuery(""); setActiveMediaPost(null); setStoryViewer(null); setExpandedMedia({ stories: false, photos: false, videos: false }) }, [targetId])
 
   // Danh sách bạn bè (API chỉ trả bạn của chính mình)
   useEffect(() => {
@@ -240,7 +238,7 @@ export default function ProfilePage() {
     mine ? `${friends.length} người bạn` : null,
     `${posts.length} bài viết`,
   ].filter(Boolean).join(" · ")
-  const tabs = [["posts", "Bài viết"], ["about", "Giới thiệu"], ...(mine ? [["friends", "Bạn bè"]] : []), ["photos", "Ảnh"]]
+  const tabs = [["posts", "Bài viết"], ["about", "Giới thiệu"], ...(mine ? [["friends", "Bạn bè"]] : []), ["photos", "Bài đăng"]]
 
   const friendButton = () => {
     if (p.friendshipStatus === "ACCEPTED") {
@@ -373,7 +371,7 @@ export default function ProfilePage() {
               <div className="pf-card-head"><h3>Ảnh</h3>{photos.length > 0 && <button type="button" onClick={() => setTab("photos")}>Xem tất cả ảnh</button>}</div>
               {photos.length === 0 ? <p className="pf-bio muted">Chưa có ảnh nào.</p> : (
                 <div className="pf-mini-grid">
-                  {photos.slice(0, 9).map((x, i) => <button type="button" key={x.postId} onClick={() => setViewer(i)}><img src={mediaUrl(x.imageUrl)} alt="" loading="lazy" /></button>)}
+                  {photos.slice(0, 9).map((x) => <button type="button" key={x.postId} onClick={() => setActiveMediaPost(x)}><img src={mediaUrl(x.imageUrl)} alt="" loading="lazy" /></button>)}
                 </div>
               )}
             </section>
@@ -430,14 +428,59 @@ export default function ProfilePage() {
           )}
 
           {tab === "photos" && (
-            <section className="panel pf-card pf-wide">
-              <div className="pf-card-head"><h3>Ảnh</h3><span>{photos.length} ảnh</span></div>
-              {photos.length === 0 ? <EmptyState title="Chưa có ảnh" icon="image" /> : (
-                <div className="pf-photo-grid">
-                  {photos.map((x, i) => <button type="button" key={x.postId} onClick={() => setViewer(i)}><img src={mediaUrl(x.imageUrl)} alt="" loading="lazy" /></button>)}
+            <div className="pf-media-posts">
+              <section className="panel pf-card pf-wide">
+                <div className="pf-card-head">
+                  <h3>Tin đã đăng</h3>
+                  <div className="pf-card-head-actions"><span>{stories.length} tin</span>{stories.length > 0 && <button type="button" onClick={() => setExpandedMedia((current) => ({ ...current, stories: !current.stories }))}>{expandedMedia.stories ? "Thu gọn" : "Xem tất cả"}</button>}</div>
                 </div>
-              )}
-            </section>
+                {stories.length === 0 ? <EmptyState title="Chưa có tin nào đang hoạt động" icon="clock" /> : (
+                  <div className="pf-story-grid">
+                    {visibleStories.map((story) => <button type="button" className="pf-story-tile" key={story.storyId} onClick={() => setStoryViewer(story)}>
+                      {story.mediaUrl ? (String(story.mediaType).toUpperCase() === "VIDEO"
+                        ? <video src={videoApi.resolveMediaUrl(mediaUrl(story.mediaUrl))} muted playsInline preload="metadata" />
+                        : <img src={mediaUrl(story.mediaUrl)} alt="" loading="lazy" />) : <span className="pf-story-text">{story.content}</span>}
+                      {story.mediaUrl && story.content && <span className="pf-story-caption">{story.content}</span>}
+                      <small>{timeAgo(story.createdAt)}</small>
+                    </button>)}
+                  </div>
+                )}
+              </section>
+
+              <section className="panel pf-card pf-wide">
+                <div className="pf-card-head">
+                  <h3>Ảnh đã đăng</h3>
+                  <div className="pf-card-head-actions"><span>{photos.length} ảnh</span>{photos.length > 0 && <button type="button" onClick={() => setExpandedMedia((current) => ({ ...current, photos: !current.photos }))}>{expandedMedia.photos ? "Thu gọn" : "Xem tất cả"}</button>}</div>
+                </div>
+                {photos.length === 0 ? <EmptyState title="Chưa có ảnh" icon="image" /> : (
+                  <div className="pf-photo-grid">
+                    {visiblePhotos.map((x) => <button type="button" key={x.postId} onClick={() => setActiveMediaPost(x)}><img src={mediaUrl(x.imageUrl)} alt="" loading="lazy" /></button>)}
+                  </div>
+                )}
+              </section>
+
+              <section className="panel pf-card pf-wide">
+                <div className="pf-card-head">
+                  <h3>Video đã đăng</h3>
+                  <div className="pf-card-head-actions"><span>{videos.length} video</span>{videos.length > 0 && <button type="button" onClick={() => setExpandedMedia((current) => ({ ...current, videos: !current.videos }))}>{expandedMedia.videos ? "Thu gọn" : "Xem tất cả"}</button>}</div>
+                </div>
+                {videos.length === 0 ? <EmptyState title="Chưa có video" icon="video" /> : (
+                  <div className="pf-video-grid">
+                    {visibleVideos.map((video) => <article key={video.postId}>
+                      <button type="button" className="pf-video-open" aria-label="Mở video và bài đăng" onClick={() => setActiveMediaPost(video)}>
+                        <video src={videoApi.resolveMediaUrl(mediaUrl(video.imageUrl))} muted playsInline preload="metadata" onLoadedData={(event) => {
+                          const element = event.currentTarget
+                          if (element.duration > 0) element.currentTime = Math.min(0.1, element.duration / 2)
+                        }} />
+                        <span aria-hidden="true">▶</span>
+                      </button>
+                      {video.content && <p>{video.content}</p>}
+                      <small>{timeAgo(video.createdAt)}</small>
+                    </article>)}
+                  </div>
+                )}
+              </section>
+            </div>
           )}
 
           {tab === "friends" && mine && (
@@ -464,7 +507,11 @@ export default function ProfilePage() {
         </main>
       </div>
 
-      {viewer >= 0 && photos.length > 0 && <Lightbox photos={photos} index={Math.min(viewer, photos.length - 1)} onClose={() => setViewer(-1)} onIndex={setViewer} />}
+      {activeMediaPost && <PostCard key={`profile-media-${activeMediaPost.postId}`} post={activeMediaPost} meId={user?.userId} hideCard openMediaOnMount onCloseMediaViewer={() => setActiveMediaPost(null)} onChange={(updated) => {
+        replacePost(updated)
+        setActiveMediaPost((current) => current && String(current.postId) === String(updated.postId) ? { ...current, ...updated } : current)
+      }} />}
+      {storyViewer && storyGroups.length > 0 && <StoryViewer groups={storyGroups} startStory={storyViewer} meId={user?.userId} onClose={() => setStoryViewer(null)} onViewed={() => {}} onDeleted={(id) => setStories((list) => list.filter((story) => String(story.storyId) !== String(id)))} />}
       {editing && <EditModal profile={p} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); profile.reload(); window.dispatchEvent(new Event("cmctalk-profile-updated")) }} />}
       {removeFriendConfirmOpen && createPortal(
         <div className="friend-remove-confirm-layer" onMouseDown={(event) => event.target === event.currentTarget && !friendActionBusy && setRemoveFriendConfirmOpen(false)}>

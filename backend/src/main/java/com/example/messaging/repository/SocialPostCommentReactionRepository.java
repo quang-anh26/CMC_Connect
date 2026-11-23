@@ -10,6 +10,7 @@ import java.util.Optional;
 public interface SocialPostCommentReactionRepository extends JpaRepository<SocialPostCommentReaction, Long> {
     Optional<SocialPostCommentReaction> findByCommentCommentIdAndUserUserId(Long commentId, Long userId);
     long countByCommentCommentId(Long commentId);
+    boolean existsByCommentCommentIdAndUserUserId(Long commentId, Long userId);
     @Modifying
     @Query("DELETE FROM SocialPostCommentReaction r WHERE r.comment.commentId = :commentId")
     void deleteAllByCommentId(@Param("commentId") Long commentId);

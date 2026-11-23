@@ -77,6 +77,21 @@ public class FeedController {
         return ResponseEntity.ok(feedService.addComment(postId, userId, request));
     }
 
+    @PutMapping("/{postId}/comments/{commentId}")
+    public ResponseEntity<FeedPostResponse> updateComment(@CurrentUser Long userId,
+                                                           @PathVariable Long postId,
+                                                           @PathVariable Long commentId,
+                                                           @Valid @RequestBody CreateCommentRequest request) {
+        return ResponseEntity.ok(feedService.updateComment(postId, commentId, userId, request.getContent()));
+    }
+
+    @PostMapping("/{postId}/comments/{commentId}/like")
+    public ResponseEntity<FeedPostResponse> likeComment(@CurrentUser Long userId,
+                                                         @PathVariable Long postId,
+                                                         @PathVariable Long commentId) {
+        return ResponseEntity.ok(feedService.toggleCommentLike(postId, commentId, userId));
+    }
+
     @DeleteMapping("/{postId}/comments/{commentId}")
     public ResponseEntity<FeedPostResponse> deleteComment(@CurrentUser Long userId,
                                                            @PathVariable Long postId,

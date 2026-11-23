@@ -85,13 +85,13 @@ export function OnlineFriends() {
       <div className="online-list">
         {online.length === 0 && <p className="aside-empty">Hiện chưa có bạn bè nào trực tuyến.</p>}
         {online.slice(0, 6).map((f) => (
-          <button key={f.id} onClick={() => open(f.id)}>
-            <Avatar name={f.name} src={f.avatar} size="sm" online />
-            <span>
-              <strong>{f.name}</strong>
-              <small>Đang hoạt động</small>
-            </span>
-          </button>
+          <div className="online-friend" key={f.id}>
+            <button type="button" className="online-friend-profile" aria-label={`Mở trang cá nhân của ${f.name}`} onClick={() => navigate(`/profile/${f.id}`)}>
+              <Avatar name={f.name} src={f.avatar} size="sm" online />
+              <span><strong>{f.name}</strong><small>Đang hoạt động</small></span>
+            </button>
+            <button type="button" className="icon-button online-friend-message" aria-label={`Nhắn tin cho ${f.name}`} onClick={() => open(f.id)}><Icon name="message" size={16} /></button>
+          </div>
         ))}
       </div>
     </section>

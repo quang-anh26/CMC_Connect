@@ -11,6 +11,7 @@ import com.example.messaging.dto.feed.UpdatePostRequest;
 import com.example.messaging.entity.HiddenPostAuthor;
 import com.example.messaging.entity.SocialPost;
 import com.example.messaging.entity.SocialPostComment;
+import com.example.messaging.entity.SocialPostCommentReaction;
 import com.example.messaging.entity.SocialPostReaction;
 import com.example.messaging.entity.User;
 import com.example.messaging.exception.ApiException;
@@ -212,6 +213,34 @@ public class FeedService {
     }
 
     @Transactional
+    public FeedPostResponse updateComment(Long postId, Long commentId, Long requesterId, String content) {
+        SocialPost post = getReadablePost(postId, requesterId);
+        SocialPostComment comment = commentRepository.findByCommentIdAndPostPostId(commentId, postId)
+                .orElseThrow(() -> ApiException.notFound("Không tìm thấy bình luận"));
+        if (!comment.getAuthor().getUserId().equals(requesterId)) {
+            throw ApiException.forbidden("Chỉ tác giả bình luận mới có thể chỉnh sửa");
+        }
+        comment.setContent(content.trim());
+        commentRepository.save(comment);
+        return toResponse(post, requesterId);
+    }
+
+    @Transactional
+    public FeedPostResponse toggleCommentLike(Long postId, Long commentId, Long requesterId) {
+        SocialPost post = getReadablePost(postId, requesterId);
+        SocialPostComment comment = commentRepository.findByCommentIdAndPostPostId(commentId, postId)
+                .orElseThrow(() -> ApiException.notFound("Không tìm thấy bình luận"));
+        var existing = commentReactionRepository.findByCommentCommentIdAndUserUserId(commentId, requesterId);
+        if (existing.isPresent()) {
+            commentReactionRepository.delete(existing.get());
+        } else {
+            commentReactionRepository.save(SocialPostCommentReaction.builder()
+                    .comment(comment).user(userService.getByIdOrThrow(requesterId)).build());
+        }
+        return toResponse(post, requesterId);
+    }
+
+    @Transactional
     public FeedPostResponse deleteComment(Long postId, Long commentId, Long requesterId) {
         SocialPost post = getReadablePost(postId, requesterId);
         SocialPostComment comment = commentRepository.findByCommentIdAndPostPostId(commentId, postId)
@@ -258,6 +287,7 @@ public class FeedService {
             throw ApiException.forbidden("Chỉ tác giả mới có thể xóa bài viết");
         }
         postRepository.deleteAll(postRepository.findBySharedPostPostId(postId));
+        commentReactionRepository.deleteAllByPostId(postId);
         commentRepository.deleteAllByPostId(postId);
         postRepository.delete(post);
     }
@@ -323,6 +353,9 @@ public class FeedService {
                         .authorAvatar(comment.getAuthor().getAvatar())
                         .content(comment.getContent())
                         .createdAt(comment.getCreatedAt())
+                        .reactionCount(commentReactionRepository.countByCommentCommentId(comment.getCommentId()))
+                        .likedByViewer(commentReactionRepository.existsByCommentCommentIdAndUserUserId(
+                                comment.getCommentId(), viewerId))
                         .build()).collect(Collectors.toList());
 
         return FeedPostResponse.builder()

@@ -25,6 +25,7 @@ public class GroupService {
     private final GroupJoinRequestRepository joinRequestRepository;
     private final GroupPostRepository postRepository;
     private final GroupCommentRepository commentRepository;
+    private final GroupCommentReactionRepository commentReactionRepository;
     private final GroupReactionRepository reactionRepository;
     private final GroupBanRepository banRepository;
     private final GroupReportRepository reportRepository;
@@ -429,7 +430,38 @@ public class GroupService {
         GroupComment comment = commentRepository.save(GroupComment.builder().post(post).author(userService.getByIdOrThrow(authorId))
                 .parentComment(parent).content(content).build());
         if (!post.getAuthor().getUserId().equals(authorId)) notifyGroup(post.getGroup(), post.getAuthor().getUserId(), "COMMENT", postId, "Có bình luận mới trên bài viết của bạn");
-        return commentResponse(comment);
+        return commentResponse(comment, authorId);
+    }
+
+    @Transactional
+    public Map<String, Object> updateComment(Long groupId, Long commentId, Long requesterId, GroupRequests.UpdateComment request) {
+        GroupComment comment = commentRepository.findById(commentId)
+                .orElseThrow(() -> ApiException.notFound("Không tìm thấy bình luận"));
+        if (!comment.getPost().getGroup().getGroupId().equals(groupId)) throw ApiException.notFound("Không tìm thấy bình luận");
+        requireMember(groupId, requesterId);
+        if (!comment.getAuthor().getUserId().equals(requesterId)) {
+            throw ApiException.forbidden("Chỉ tác giả bình luận mới có thể chỉnh sửa");
+        }
+        comment.setContent(request.content().trim());
+        commentRepository.save(comment);
+        return postResponse(comment.getPost(), requesterId);
+    }
+
+    @Transactional
+    public Map<String, Object> toggleCommentLike(Long groupId, Long postId, Long commentId, Long requesterId) {
+        GroupPost post = getPostOrThrow(groupId, postId, requesterId);
+        requireMember(groupId, requesterId);
+        GroupComment comment = commentRepository.findById(commentId)
+                .filter(item -> item.getPost().getPostId().equals(postId))
+                .orElseThrow(() -> ApiException.notFound("Không tìm thấy bình luận"));
+        var existing = commentReactionRepository.findByCommentCommentIdAndUserUserId(commentId, requesterId);
+        if (existing.isPresent()) {
+            commentReactionRepository.delete(existing.get());
+        } else {
+            commentReactionRepository.save(GroupCommentReaction.builder()
+                    .comment(comment).user(userService.getByIdOrThrow(requesterId)).build());
+        }
+        return postResponse(post, requesterId);
     }
 
     @Transactional
@@ -548,7 +580,8 @@ public class GroupService {
         return reportRepository.findByGroupGroupIdAndStatusOrderByCreatedAtDesc(groupId, "OPEN").stream().map(report -> {
             Map<String, Object> item = new LinkedHashMap<>();
             item.put("id", report.getId()); item.put("targetType", report.getTargetType()); item.put("targetId", report.getTargetId());
-            item.put("reason", report.getReason()); item.put("reporter", displayName(report.getReporter())); item.put("createdAt", report.getCreatedAt());
+            item.put("reason", report.getReason()); item.put("reporterId", report.getReporter().getUserId());
+            item.put("reporter", displayName(report.getReporter())); item.put("createdAt", report.getCreatedAt());
             if ("POST".equals(report.getTargetType())) {
                 GroupPost post = postRepository.findByPostIdAndGroupGroupId(report.getTargetId(), groupId).orElse(null);
                 item.put("targetExists", post != null);
@@ -559,6 +592,7 @@ public class GroupService {
                 item.put("targetExists", comment != null);
                 if (comment != null) {
                     Map<String, Object> targetComment = new LinkedHashMap<>();
+                    targetComment.put("authorId", comment.getAuthor().getUserId());
                     targetComment.put("authorName", displayName(comment.getAuthor()));
                     targetComment.put("content", comment.getContent());
                     targetComment.put("createdAt", comment.getCreatedAt());
@@ -760,6 +794,7 @@ public class GroupService {
 
     private void deleteCommentTree(GroupComment comment) {
         commentRepository.findByParentCommentCommentId(comment.getCommentId()).forEach(this::deleteCommentTree);
+        commentReactionRepository.deleteAllByCommentId(comment.getCommentId());
         commentRepository.delete(comment);
     }
 
@@ -799,7 +834,7 @@ public class GroupService {
     private Map<String, Object> postResponse(GroupPost post, Long viewerId) {
         GroupReaction viewerReaction = reactionRepository.findByPostPostIdAndUserUserId(post.getPostId(), viewerId).orElse(null);
         List<Map<String, Object>> comments = commentRepository.findByPostPostIdOrderByCreatedAtAsc(post.getPostId()).stream()
-                .map(this::commentResponse).toList();
+                .map(comment -> commentResponse(comment, viewerId)).toList();
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("postId", post.getPostId()); result.put("groupId", post.getGroup().getGroupId());
         result.put("authorId", post.getAuthor().getUserId()); result.put("authorName", displayName(post.getAuthor()));
@@ -855,11 +890,13 @@ public class GroupService {
         });
     }
 
-    private Map<String, Object> commentResponse(GroupComment comment) {
+    private Map<String, Object> commentResponse(GroupComment comment, Long viewerId) {
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("commentId", comment.getCommentId()); result.put("parentCommentId", comment.getParentComment() == null ? null : comment.getParentComment().getCommentId());
         result.put("authorId", comment.getAuthor().getUserId()); result.put("authorName", displayName(comment.getAuthor()));
         result.put("authorAvatar", comment.getAuthor().getAvatar()); result.put("content", comment.getContent()); result.put("createdAt", comment.getCreatedAt());
+        result.put("reactionCount", commentReactionRepository.countByCommentCommentId(comment.getCommentId()));
+        result.put("likedByViewer", commentReactionRepository.existsByCommentCommentIdAndUserUserId(comment.getCommentId(), viewerId));
         return result;
     }
 

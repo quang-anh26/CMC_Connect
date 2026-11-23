@@ -52,6 +52,7 @@ const TABS = [
 const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => ((Math.random() * 16) | 0).toString(16)))
 
 function TopicDetail({ topicId, meId, onClose, onChanged }) {
+  const navigate = useNavigate()
   const toast = useToast()
   const { data: topic, loading, error, setData } = useAsync(() => getForumTopic(topicId), [topicId])
   const [reply, setReply] = useState("")
@@ -167,9 +168,9 @@ function TopicDetail({ topicId, meId, onClose, onChanged }) {
               {topic.resourceKind && <span>{RESOURCE_KIND[topic.resourceKind]}</span>}
             </div>
             <div className="topic-detail-author">
-              <Avatar name={topic.authorName} src={topic.authorAvatar} size="sm" />
+              <button type="button" className="profile-avatar-link" aria-label={`Mở trang cá nhân của ${topic.authorName}`} onClick={() => navigate(`/profile/${topic.authorId}`)}><Avatar name={topic.authorName} src={topic.authorAvatar} size="sm" /></button>
               <span>
-                <strong>{topic.authorName}</strong> · {timeAgo(topic.createdAt)} · {topic.viewCount} lượt xem
+                <button type="button" className="profile-identity-link strong" onClick={() => navigate(`/profile/${topic.authorId}`)}>{topic.authorName}</button> · {timeAgo(topic.createdAt)} · {topic.viewCount} lượt xem
               </span>
             </div>
             {editing ? (
@@ -205,9 +206,9 @@ function TopicDetail({ topicId, meId, onClose, onChanged }) {
             <div className="reply-list">
               {(topic.replies || []).map((r) => (
                 <div className="comment-preview comment-item" key={r.id}>
-                  <Avatar name={r.author} src={r.authorAvatar} size="sm" />
+                  <button type="button" className="profile-avatar-link" aria-label={`Mở trang cá nhân của ${r.author}`} onClick={() => navigate(`/profile/${r.authorId}`)}><Avatar name={r.author} src={r.authorAvatar} size="sm" /></button>
                   <div>
-                    <strong>{r.author}</strong>
+                    <button type="button" className="profile-identity-link strong" onClick={() => navigate(`/profile/${r.authorId}`)}>{r.author}</button>
                     <p>{r.content}</p>
                     <span>{timeAgo(r.createdAt)}</span>
                   </div>
@@ -488,7 +489,7 @@ export default function ForumPage() {
                       {(t.faculty || t.category) && <span>{t.faculty || t.category}</span>}
                     </div>
                     <h3>{t.title}</h3>
-                    <p>{t.authorName} · {timeAgo(t.createdAt)}</p>
+                    <p><button type="button" className="profile-identity-link" onClick={(event) => { event.stopPropagation(); navigate(`/profile/${t.authorId}`) }}>{t.authorName}</button> · {timeAgo(t.createdAt)}</p>
                   </div>
                   <div className="topic-stats">
                     <strong>{t.type === "RESOURCE" ? "Tệp" : t.replyCount}</strong>

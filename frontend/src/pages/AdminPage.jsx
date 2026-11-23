@@ -57,7 +57,7 @@ function AdminInner() {
           {users.error && <ErrorBlock message={users.error} onRetry={users.reload} />}
           {(users.data || []).map((u) => (
             <div className="table-row" key={u.userId}>
-              <span><Avatar name={u.displayName} size="sm" /><strong>{u.displayName}</strong></span>
+              <span><button type="button" className="profile-avatar-link" aria-label={`Mở trang cá nhân của ${u.displayName}`} onClick={() => navigate(`/profile/${u.userId}`)}><Avatar name={u.displayName} size="sm" /></button><button type="button" className="profile-identity-link strong" onClick={() => navigate(`/profile/${u.userId}`)}>{u.displayName}</button></span>
               <span>@{u.username}{u.online ? " · online" : ""}</span>
               <span><em className={u.status === "LOCKED" ? "locked" : "pending"}>{u.status === "LOCKED" ? "Đã khóa" : "Hoạt động"}</em></span>
               <span>{u.role}</span>
