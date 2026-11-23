@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useNavigate } from "react-router-dom"
 import { Icon } from "./Icon"
 import { Avatar, Button, Modal, useToast } from "./ui"
 import { storyApi } from "../api/storyApi"
@@ -30,7 +31,8 @@ function orderStories(list, meId) {
   return groups.sort((a, b) => (a.authorId === String(meId) ? -1 : b.authorId === String(meId) ? 1 : new Date(b.items[b.items.length - 1].createdAt) - new Date(a.items[a.items.length - 1].createdAt)))
 }
 
-function StoryViewer({ groups, startStory, meId, onClose, onDeleted, onViewed }) {
+export function StoryViewer({ groups, startStory, meId, onClose, onDeleted, onViewed }) {
+  const navigate = useNavigate()
   const toast = useToast()
   const flat = useMemo(() => groups.flatMap((g) => g.items), [groups])
   const [activeId, setActiveId] = useState(startStory.storyId)
@@ -123,6 +125,10 @@ function StoryViewer({ groups, startStory, meId, onClose, onDeleted, onViewed })
 
   if (!story) return null
   const fail = (err, fb) => setError(getApiErrorMessage(err, fb))
+  const openProfile = (authorId) => {
+    onClose()
+    navigate(`/profile/${authorId}`)
+  }
 
   const react = async (type) => {
     setError("")
@@ -153,7 +159,9 @@ function StoryViewer({ groups, startStory, meId, onClose, onDeleted, onViewed })
   return (
     <div className="story-overlay" onMouseDown={onClose}>
       <button className="story-close" aria-label="Đóng" onClick={onClose}><Icon name="close" size={22} /></button>
-      <div className="story-stage" onMouseDown={(e) => e.stopPropagation()}>
+      <div className="story-viewer-frame" onMouseDown={(e) => e.stopPropagation()}>
+        <button type="button" className="story-nav prev" aria-label="Tin trước" disabled={index === 0} onClick={() => move(-1)}><Icon name="chevron" size={24} /></button>
+        <div className="story-stage">
         <div className="story-progress">
           {flat.filter((s) => String(s.authorId) === String(story.authorId)).map((s) => {
             const pos = flat.findIndex((x) => x.storyId === s.storyId)
@@ -161,8 +169,10 @@ function StoryViewer({ groups, startStory, meId, onClose, onDeleted, onViewed })
           })}
         </div>
         <header>
-          <Avatar name={story.authorName} src={story.authorAvatar} size="sm" />
-          <div><strong>{story.authorName}</strong><span>{timeAgo(story.createdAt)}</span></div>
+          <button type="button" className="story-author" aria-label={`Mở trang cá nhân của ${story.authorName}`} onClick={() => openProfile(story.authorId)}>
+            <Avatar name={story.authorName} src={story.authorAvatar} size="sm" />
+            <span><strong>{story.authorName}</strong><small>{timeAgo(story.createdAt)}</small></span>
+          </button>
           {mine && <button type="button" className="icon-button" aria-label="Xóa tin" onClick={removeStory}><Icon name="trash" size={18} /></button>}
         </header>
         <div className="story-media" onClick={(e) => {
@@ -175,8 +185,6 @@ function StoryViewer({ groups, startStory, meId, onClose, onDeleted, onViewed })
             <img src={mediaUrl(story.mediaUrl)} alt="Tin" />
           ))}
           {story.content && <p className={story.mediaUrl ? "caption" : "text-only"}>{story.content}</p>}
-          <button type="button" className="story-nav prev" aria-label="Tin trước" disabled={index === 0} onClick={() => move(-1)}><Icon name="chevron" size={24} /></button>
-          <button type="button" className="story-nav next" aria-label="Tin kế tiếp" onClick={() => move(1)}><Icon name="chevron" size={24} /></button>
         </div>
         {error && <p className="story-error">{error}</p>}
         <footer>
@@ -189,9 +197,9 @@ function StoryViewer({ groups, startStory, meId, onClose, onDeleted, onViewed })
           </div>
           <div className="story-comments">
             {(interaction?.comments || []).map((c) => (
-              <div key={c.commentId}>
-                <Avatar name={c.authorName} src={c.authorAvatar} size="sm" />
-                <p><strong>{c.authorName}</strong> {c.content}</p>
+              <div className="story-comment" key={c.commentId}>
+                <button type="button" className="story-comment-avatar" aria-label={`Mở trang cá nhân của ${c.authorName}`} onClick={() => openProfile(c.authorId)}><Avatar name={c.authorName} src={c.authorAvatar} size="sm" /></button>
+                <p><button type="button" className="story-comment-name" onClick={() => openProfile(c.authorId)}>{c.authorName}</button>{" "}{c.content}</p>
                 {(mine || String(c.authorId) === String(meId)) && <button type="button" aria-label="Xóa bình luận" onClick={() => removeComment(c.commentId)}><Icon name="close" size={14} /></button>}
               </div>
             ))}
@@ -201,6 +209,8 @@ function StoryViewer({ groups, startStory, meId, onClose, onDeleted, onViewed })
             <button className="button button-primary" disabled={!draft.trim() || sending}>Gửi</button>
           </form>
         </footer>
+        </div>
+        <button type="button" className="story-nav next" aria-label="Tin kế tiếp" onClick={() => move(1)}><Icon name="chevron" size={24} /></button>
       </div>
     </div>
   )
@@ -221,7 +231,9 @@ function CreateStory({ onClose, onCreated }) {
     return () => URL.revokeObjectURL(url)
   }, [file])
 
-  const submit = async () => {
+  const submit = async (event) => {
+    event?.preventDefault()
+    if (busy) return
     if (!file && !text.trim()) return setError("Hãy nhập nội dung hoặc chọn ảnh/video.")
     setBusy(true)
     setError("")
@@ -245,17 +257,24 @@ function CreateStory({ onClose, onCreated }) {
   }
 
   return (
-    <Modal title="Tạo tin mới" close={onClose}>
-      <div className="form-grid">
-        <label className="full story-file-label">Ảnh hoặc video
-          <span className="story-file-picker"><span>Choose file</span>{file && <span className="story-file-name">{file.name}</span>}</span>
-          <input className="story-file-input" type="file" accept="image/*,video/*" onChange={(e) => setFile(e.target.files?.[0] || null)} />
-        </label>
-        {preview && <div className="full story-preview">{file?.type?.startsWith("video/") ? <video src={preview} controls /> : <img src={preview} alt="Xem trước" />}</div>}
-        <label className="full">Nội dung<textarea rows={3} value={text} maxLength={500} onChange={(e) => setText(e.target.value)} placeholder="Bạn muốn chia sẻ điều gì?" /></label>
-        {error && <p className="full" style={{ color: "var(--red)", fontSize: 12 }}>{error}</p>}
-      </div>
-      <div className="modal-actions"><Button variant="secondary" onClick={onClose}>Hủy</Button><Button disabled={busy} onClick={submit}>{busy ? "Đang đăng..." : "Đăng tin"}</Button></div>
+    <Modal title="Tạo tin mới" close={onClose} preservePage>
+      <form onSubmit={submit}>
+        <div className="form-grid">
+          <label className="full story-file-label">Ảnh hoặc video
+            <span className="story-file-picker"><span>Choose file</span>{file && <span className="story-file-name">{file.name}</span>}</span>
+            <input className="story-file-input" type="file" accept="image/*,video/*" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+          </label>
+          {preview && <div className="full story-preview">{file?.type?.startsWith("video/") ? <video src={preview} controls /> : <img src={preview} alt="Xem trước" />}</div>}
+          <label className="full">Nội dung<textarea rows={3} value={text} maxLength={500} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault()
+              e.currentTarget.form?.requestSubmit()
+            }
+          }} placeholder="Bạn muốn chia sẻ điều gì?" /></label>
+          {error && <p className="full" style={{ color: "var(--red)", fontSize: 12 }}>{error}</p>}
+        </div>
+        <div className="modal-actions"><Button variant="secondary" onClick={onClose}>Hủy</Button><Button type="submit" disabled={busy}>{busy ? "Đang đăng..." : "Đăng tin"}</Button></div>
+      </form>
     </Modal>
   )
 }

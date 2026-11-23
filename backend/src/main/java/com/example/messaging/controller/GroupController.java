@@ -170,6 +170,19 @@ public class GroupController {
         return ResponseEntity.ok(groupService.addComment(groupId, postId, userId, request));
     }
 
+    @PutMapping("/{groupId}/comments/{commentId}")
+    public ResponseEntity<?> updateComment(@PathVariable Long groupId, @PathVariable Long commentId,
+                                           @CurrentUser Long userId,
+                                           @Valid @RequestBody GroupRequests.UpdateComment request) {
+        return ResponseEntity.ok(groupService.updateComment(groupId, commentId, userId, request));
+    }
+
+    @PostMapping("/{groupId}/posts/{postId}/comments/{commentId}/like")
+    public ResponseEntity<?> likeComment(@PathVariable Long groupId, @PathVariable Long postId,
+                                         @PathVariable Long commentId, @CurrentUser Long userId) {
+        return ResponseEntity.ok(groupService.toggleCommentLike(groupId, postId, commentId, userId));
+    }
+
     @DeleteMapping("/{groupId}/comments/{commentId}")
     public ResponseEntity<Void> deleteComment(@PathVariable Long groupId, @PathVariable Long commentId, @CurrentUser Long userId) {
         groupService.deleteComment(groupId, commentId, userId);

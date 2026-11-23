@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useNavigate } from "react-router-dom"
 import { Icon } from "../Icon"
 import { Avatar, Loading } from "../ui"
 import { messageApi } from "../../api/messageApi"
@@ -48,6 +49,7 @@ function systemMessageLabel(message, isMine, conversation) {
 }
 
 export default function ChatPanel({ conversationId, conversation, onConversationChange, infoOpen, onToggleInfo, onBack, onOpenImage, messagesRef, onMessages }) {
+  const navigate = useNavigate()
   const { user } = useAuth()
   const { subscribe, publish, connected, startCall } = useSocket()
   const [messages, setMessages] = useState([])
@@ -448,9 +450,9 @@ export default function ChatPanel({ conversationId, conversation, onConversation
                   if (el) messageRefs.current[m.messageId] = el
                 }}
               >
-                {!mine && <Avatar name={m.senderDisplayName || conversation?.name} src={m.senderAvatar || conversation?.avatar} size="sm" />}
+                {!mine && (m.senderId ? <button type="button" className="profile-avatar-link chat-sender-profile" aria-label={`Mở trang cá nhân của ${m.senderDisplayName || "người gửi"}`} onClick={(event) => { event.stopPropagation(); navigate(`/profile/${m.senderId}`) }}><Avatar name={m.senderDisplayName || conversation?.name} src={m.senderAvatar || conversation?.avatar} size="sm" /></button> : <Avatar name={m.senderDisplayName || conversation?.name} src={m.senderAvatar || conversation?.avatar} size="sm" />)}
                 <div>
-                  {isGroup && !mine && <em className="sender-name">{m.senderDisplayName}</em>}
+                  {isGroup && !mine && m.senderId ? <button type="button" className="sender-name profile-identity-link" onClick={(event) => { event.stopPropagation(); navigate(`/profile/${m.senderId}`) }}>{m.senderDisplayName}</button> : isGroup && !mine ? <em className="sender-name">{m.senderDisplayName}</em> : null}
                   <div className="bubble-wrap">
                     {m.deleted ? (
                       <div className="bubble recalled">Tin nhắn đã được thu hồi</div>

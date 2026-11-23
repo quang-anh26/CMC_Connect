@@ -115,6 +115,7 @@ function EventForm({ initial, onClose, onSaved }) {
 }
 
 function EventDetail({ eventId, meId, onClose, onChanged, onEdit }) {
+  const navigate = useNavigate()
   const toast = useToast()
   useTick()
   const { data: event, loading, error, setData } = useAsync(() => eventApi.get(eventId).then((r) => r.data), [eventId])
@@ -149,7 +150,7 @@ function EventDetail({ eventId, meId, onClose, onChanged, onEdit }) {
           <p className="event-meta"><Icon name="clock" size={16} /> {eventTimeRange(event.startsAt)} <StatusBadge event={event} /></p>
           <p className="event-meta"><Icon name="location" size={16} /> {event.location}</p>
           <p className="event-meta"><Icon name="users" size={16} /> {event.goingCount} tham gia · {event.interestedCount} quan tâm · {PRIVACY[event.privacy]}</p>
-          <p className="event-meta">Tổ chức bởi <strong>{event.organizerName}</strong></p>
+          <p className="event-meta">Tổ chức bởi <button type="button" className="profile-identity-link strong" onClick={() => navigate(`/profile/${event.organizerId}`)}>{event.organizerName}</button></p>
           {event.description && <p className="topic-detail-body">{event.description}</p>}
           {!started && (event.viewerStatus || String(event.organizerId) === String(meId)) && (
             <p className="ev-hint"><Icon name="bell" size={16} /> Bạn sẽ nhận thông báo trước giờ bắt đầu 30 phút và khi sự kiện bắt đầu.</p>
@@ -170,7 +171,7 @@ function EventDetail({ eventId, meId, onClose, onChanged, onEdit }) {
               <h3 style={{ marginTop: 16 }}>Người tham gia</h3>
               <div className="attendee-list">
                 {event.attendees.map((a) => (
-                  <span key={a.userId}><Avatar name={a.name} src={a.avatar} size="sm" /> {a.name}</span>
+                  <button type="button" className="attendee-profile-link" key={a.userId} onClick={() => navigate(`/profile/${a.userId}`)}><Avatar name={a.name} src={a.avatar} size="sm" /> {a.name}</button>
                 ))}
               </div>
             </>
@@ -240,7 +241,7 @@ export default function EventsPage() {
                   <p><Icon name="location" />{e.location}</p>
                   <div>
                     <span className="avatar-stack">
-                      {(e.attendees || []).slice(0, 3).map((a) => <Avatar key={a.userId} name={a.name} src={a.avatar} size="sm" />)}
+                      {(e.attendees || []).slice(0, 3).map((a) => <button type="button" key={a.userId} className="profile-avatar-link" aria-label={`Mở trang cá nhân của ${a.name}`} onClick={(event) => { event.stopPropagation(); navigate(`/profile/${a.userId}`) }}><Avatar name={a.name} src={a.avatar} size="sm" /></button>)}
                     </span>
                     <small>{e.goingCount} người tham gia</small>
                   </div>

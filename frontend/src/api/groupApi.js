@@ -15,6 +15,8 @@ export const groupApi = {
   removePost: (groupId, postId) => axiosClient.delete(`/api/groups/${groupId}/posts/${postId}`),
   react: (groupId, postId, type = 'LIKE') => axiosClient.post(`/api/groups/${groupId}/posts/${postId}/reactions`, null, { params: { type } }),
   comment: (groupId, postId, payload) => axiosClient.post(`/api/groups/${groupId}/posts/${postId}/comments`, payload),
+  updateComment: (groupId, commentId, content) => axiosClient.put(`/api/groups/${groupId}/comments/${commentId}`, { content }),
+  likeComment: (groupId, postId, commentId) => axiosClient.post(`/api/groups/${groupId}/posts/${postId}/comments/${commentId}/like`),
   removeComment: (groupId, commentId) => axiosClient.delete(`/api/groups/${groupId}/comments/${commentId}`),
   pin: (groupId, postId) => axiosClient.patch(`/api/groups/${groupId}/posts/${postId}/pin`),
   createPoll: (groupId, payload) => axiosClient.post(`/api/groups/${groupId}/polls`, payload),

@@ -15,4 +15,6 @@ public class FeedCommentResponse {
     String authorAvatar;
     String content;
     LocalDateTime createdAt;
+    long reactionCount;
+    boolean likedByViewer;
 }

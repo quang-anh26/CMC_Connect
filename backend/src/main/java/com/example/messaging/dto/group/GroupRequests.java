@@ -35,6 +35,8 @@ public final class GroupRequests {
             @NotBlank @Size(max = 2000) String content,
             Long parentCommentId) {}
 
+    public record UpdateComment(@NotBlank @Size(max = 2000) String content) {}
+
     public record RoleChange(@NotBlank String role) {}
     public record MemberAction(@Size(max = 500) String reason) {}
     public record JoinDecision(@NotNull Boolean approved) {}

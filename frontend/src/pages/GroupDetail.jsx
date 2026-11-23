@@ -51,7 +51,7 @@ const buildCommentTree = (comments = []) => {
 }
 
 // Tệp trong nhóm cần xác thực nên tải bằng axios (kèm token) rồi hiển thị qua blob.
-function GroupPostMedia({ post, onOpenPost, onMediaClick }) {
+function GroupPostMedia({ post, onOpenPost, onMediaClick, viewer = false }) {
   const [source, setSource] = useState("")
   const [failed, setFailed] = useState(false)
   useEffect(() => {
@@ -75,20 +75,27 @@ function GroupPostMedia({ post, onOpenPost, onMediaClick }) {
   if (!source) return <div className="group-media-loading" aria-label="Đang tải tệp đính kèm" />
   if (post.mediaType === "IMAGE") {
     const image = <img className="post-image" src={source} alt="Tệp đính kèm bài viết" />
+    if (viewer) return image
     const onClick = onOpenPost || onMediaClick
     return onClick ? <button type="button" className="group-post-media-open" onClick={onClick} aria-label="Mở bài viết và bình luận">{image}</button> : image
   }
-  if (post.mediaType === "VIDEO") return <video className="post-image" src={source} controls onClick={onMediaClick} />
+  if (post.mediaType === "VIDEO") {
+    const video = <video className="post-image" src={source} controls={!onOpenPost || viewer} autoPlay={viewer} muted={Boolean(onOpenPost) && !viewer} playsInline preload="metadata" onClick={!onOpenPost && !viewer ? onMediaClick : undefined} />
+    if (viewer) return video
+    if (onOpenPost) return <button type="button" className="group-post-media-open" onClick={onOpenPost} aria-label="Mở video và bình luận">{video}<span className="post-video-play" aria-hidden="true">▶</span></button>
+    return video
+  }
   return <a className="attachment-row" style={{ margin: "0 18px 12px", width: "auto" }} href={source} download target="_blank" rel="noreferrer"><Icon name="file" /><span><strong>Mở tệp đính kèm</strong></span><Icon name="download" size={18} /></a>
 }
 
 function ModerationPostPreview({ post, expanded = false }) {
+  const navigate = useNavigate()
   if (!post) return null
   const options = post.poll?.options || []
   return (
     <div className={`mod-target-post${expanded ? " expanded" : ""}`}>
       <div className="mod-target-post-heading">
-        <strong>{post.poll ? "Bình chọn" : "Bài viết"} · {post.authorName || "Không rõ người đăng"}</strong>
+        <strong>{post.poll ? "Bình chọn" : "Bài viết"} · {post.authorId ? <button type="button" className="profile-identity-link" onClick={() => navigate(`/profile/${post.authorId}`)}>{post.authorName || "Không rõ người đăng"}</button> : (post.authorName || "Không rõ người đăng")}</strong>
         {post.createdAt && <small>{fmt(post.createdAt)}</small>}
       </div>
       {post.content && <p className="mod-target-post-copy">{post.content}</p>}
@@ -153,11 +160,15 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
   const [pollEndAt, setPollEndAt] = useState("")
   const [posting, setPosting] = useState(false)
   const [openComments, setOpenComments] = useState({})
+  const [mediaViewerPostId, setMediaViewerPostId] = useState(null)
   const commentListRefs = useRef({})
   const [commentDraft, setCommentDraft] = useState({})
   const [replyTo, setReplyTo] = useState(null)
   const [expandedCommentIds, setExpandedCommentIds] = useState(() => new Set())
   const [commentToDelete, setCommentToDelete] = useState(null)
+  const [commentMenuId, setCommentMenuId] = useState(null)
+  const [editingComment, setEditingComment] = useState(null)
+  const [commentEditDraft, setCommentEditDraft] = useState("")
   const [deletingComment, setDeletingComment] = useState(false)
   const [postToDelete, setPostToDelete] = useState(null)
   const [deletingPost, setDeletingPost] = useState(false)
@@ -215,6 +226,12 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
   }
   const openPostComments = (postId) => {
     collapsePostReplies()
+    setMediaViewerPostId(null)
+    setOpenComments((current) => ({ ...current, [postId]: true }))
+  }
+  const openPostMedia = (postId) => {
+    collapsePostReplies()
+    setMediaViewerPostId(String(postId))
     setOpenComments((current) => ({ ...current, [postId]: true }))
   }
 
@@ -223,12 +240,14 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
     if (posts.some((post) => String(post.postId) === openCommentsPostId)) {
       setExpandedCommentIds(new Set())
       setReplyTo(null)
+      setMediaViewerPostId(null)
       setOpenComments((current) => ({ ...current, [openCommentsPostId]: true }))
     }
   }, [openCommentsPostId, posts, loading])
 
   const closePostComments = (postId) => {
     setOpenComments((current) => ({ ...current, [postId]: false }))
+    setMediaViewerPostId((current) => current === String(postId) ? null : current)
     if (replyTo?.postId === postId) setCommentDraft((draft) => ({ ...draft, [postId]: "" }))
     setReplyTo((current) => current?.postId === postId ? null : current)
     if (String(commentsOnlyPostId) === String(postId)) onCloseComments?.()
@@ -435,6 +454,23 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
       setCommentDraft((d) => ({ ...d, [post.postId]: "" })); setReplyTo(null)
       loadGroup()
     } catch (e) { fail(e, "Không thể gửi bình luận.") }
+  }
+  const toggleCommentLike = async (post, target) => {
+    try {
+      const { data } = await groupApi.likeComment(groupId, post.postId, target.commentId)
+      setPosts((list) => list.map((item) => item.postId === post.postId ? data : item))
+    } catch (e) { fail(e, "Không thể thích bình luận.") }
+  }
+  const saveCommentEdit = async (post, event) => {
+    event.preventDefault()
+    const text = commentEditDraft.trim()
+    if (!editingComment || !text) return
+    try {
+      const { data } = await groupApi.updateComment(groupId, editingComment.commentId, text)
+      setPosts((list) => list.map((item) => item.postId === post.postId ? data : item))
+      setEditingComment(null)
+      setCommentEditDraft("")
+    } catch (e) { fail(e, "Không thể sửa bình luận.") }
   }
   const removeComment = async () => {
     if (!commentToDelete || deletingComment) return
@@ -778,7 +814,7 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
             <span><Icon name="calendar" size={15} />{fmt(event.startsAt)}{event.endsAt ? ` – ${fmt(event.endsAt)}` : ""}</span>
             {event.location && <span><Icon name="location" size={15} />{event.location}</span>}
             <span><Icon name="users" size={15} />{event.participantCount ?? 0} người tham gia</span>
-            <span><Icon name="group" size={15} />{event.creatorName || "Không rõ người tạo"}</span>
+            <span><Icon name="group" size={15} />{event.creatorName && event.createdBy ? <button type="button" className="profile-identity-link" onClick={() => navigate(`/profile/${event.createdBy}`)}>{event.creatorName}</button> : (event.creatorName || "Không rõ người tạo")}</span>
           </div>
           <div className="group-event-actions">
             <Button variant="secondary" onClick={() => setViewingEvent(event)}>Xem thông tin</Button>
@@ -819,13 +855,13 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
             <div><h3>Yêu cầu tham gia ({mod.requests.length})</h3>
               {mod.requests.length === 0 && <p className="aside-empty">Không có yêu cầu đang chờ.</p>}
               {mod.requests.map((r) => (
-                <div className="mod-row" key={r.id}><div><strong>{r.name || r.userName || r.displayName}</strong><small>{timeAgo(r.createdAt)}</small></div><Button onClick={() => decide(() => groupApi.decideJoin(groupId, r.id, true), "Đã duyệt thành viên.", "Không thể duyệt.")}>Duyệt</Button><Button variant="secondary" onClick={() => decide(() => groupApi.decideJoin(groupId, r.id, false), "Đã từ chối yêu cầu.", "Không thể từ chối.")}>Từ chối</Button></div>
+                <div className="mod-row" key={r.id}><div><button type="button" className="profile-identity-link strong" onClick={() => navigate(`/profile/${r.userId}`)}>{r.name || r.userName || r.displayName}</button><small>{timeAgo(r.createdAt)}</small></div><Button onClick={() => decide(() => groupApi.decideJoin(groupId, r.id, true), "Đã duyệt thành viên.", "Không thể duyệt.")}>Duyệt</Button><Button variant="secondary" onClick={() => decide(() => groupApi.decideJoin(groupId, r.id, false), "Đã từ chối yêu cầu.", "Không thể từ chối.")}>Từ chối</Button></div>
               ))}
             </div>
             <div><h3>Thành viên bị chặn ({mod.bans.length})</h3>
               {mod.bans.length === 0 && <p className="aside-empty">Danh sách trống.</p>}
               {mod.bans.map((m) => (
-                <div className="mod-row" key={m.userId}><div><strong>{m.name}</strong><small>{m.reason || "Không có lý do được ghi lại."}</small></div><Button variant="secondary" onClick={() => unban(m)}>Gỡ chặn</Button></div>
+                <div className="mod-row" key={m.userId}><div><button type="button" className="profile-identity-link strong" onClick={() => navigate(`/profile/${m.userId}`)}>{m.name}</button><small>{m.reason || "Không có lý do được ghi lại."}</small></div><Button variant="secondary" onClick={() => unban(m)}>Gỡ chặn</Button></div>
               ))}
             </div>
             <div><h3>Báo cáo ({mod.reports.length})</h3>
@@ -840,7 +876,7 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
                         <strong>{r.targetType === "COMMENT" ? "Báo cáo bình luận" : `Báo cáo ${targetPost?.poll ? "bình chọn" : "bài viết"}`}</strong>
                         <small>{timeAgo(r.createdAt)}</small>
                       </div>
-                      <p className="mod-review-snippet"><strong>{r.reporter}</strong> báo cáo · {r.reason}</p>
+                      <p className="mod-review-snippet"><strong><button type="button" className="profile-identity-link strong" onClick={() => navigate(`/profile/${r.reporterId}`)}>{r.reporter}</button></strong> báo cáo · {r.reason}</p>
                       <p className="mod-review-snippet">{targetComment?.content || targetPost?.content || (r.targetExists === false ? "Nội dung không còn tồn tại." : "Chưa tải được nội dung báo cáo.")}</p>
                       <Button variant="secondary" disabled={loadingReportId === String(r.id)} onClick={() => openReport(r)}>{loadingReportId === String(r.id) ? "Đang tải nội dung..." : "Xem nội dung"}</Button>
                     </article>
@@ -854,7 +890,7 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
                 {mod.posts.map((p) => (
                   <article className="mod-review-card" key={p.postId}>
                     <div className="mod-report-heading">
-                      <strong>{p.poll ? "Bình chọn" : "Bài viết"} · {p.authorName}</strong>
+                      <strong>{p.poll ? "Bình chọn" : "Bài viết"} · <button type="button" className="profile-identity-link" onClick={() => navigate(`/profile/${p.authorId}`)}>{p.authorName}</button></strong>
                       {p.createdAt && <small>{timeAgo(p.createdAt)}</small>}
                     </div>
                     <p className="mod-review-snippet">{p.content || (p.mediaUrl ? "Bài viết có tệp đính kèm." : "Nội dung chưa có văn bản.")}</p>
@@ -875,7 +911,7 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
             <dl>
               <div><dt>Quyền riêng tư</dt><dd>{group.visibility === "PRIVATE" ? "Riêng tư" : "Công khai"}</dd></div>
               <div><dt>Thành viên</dt><dd>{group.memberCount}</dd></div>
-              <div><dt>Chủ nhóm</dt><dd>{group.ownerName}</dd></div>
+              <div><dt>Chủ nhóm</dt><dd><button type="button" className="profile-identity-link" onClick={() => navigate(`/profile/${group.ownerId}`)}>{group.ownerName}</button></dd></div>
               {role && <div><dt>Vai trò của bạn</dt><dd>{ROLE_LABEL[role] || role}</dd></div>}
             </dl>
           </section>
@@ -915,7 +951,7 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
                   {sidebarEvent.mediaUrl && <div className="group-event-item-media"><GroupPostMedia post={{ mediaUrl: sidebarEvent.mediaUrl, mediaType: sidebarEvent.mediaType }} /></div>}
                   <strong>{sidebarEvent.title}</strong>
                   <small>{fmt(sidebarEvent.startsAt)}{sidebarEvent.location ? ` · ${sidebarEvent.location}` : ""}</small>
-                  <small>{sidebarEvent.participantCount} người tham gia · bởi {sidebarEvent.creatorName}</small>
+                  <small>{sidebarEvent.participantCount} người tham gia · bởi {sidebarEvent.creatorName && sidebarEvent.createdBy ? <button type="button" className="profile-identity-link" onClick={() => navigate(`/profile/${sidebarEvent.createdBy}`)}>{sidebarEvent.creatorName}</button> : sidebarEvent.creatorName}</small>
                   <div className="group-event-actions">
                     <Button variant="secondary" onClick={() => setViewingEvent(sidebarEvent)}>Xem thông tin</Button>
                     {isMember && <Button variant={sidebarEvent.participating ? "primary" : "secondary"} onClick={() => participate(sidebarEvent.eventId)}>{sidebarEvent.participating ? "Đã tham gia" : "Tham gia"}</Button>}
@@ -933,8 +969,8 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
               <div className="group-members-list">
               {orderedMembers.map((m) => (
                 <div className="member-row" key={m.userId}>
-                  <span style={{ cursor: "pointer" }} onClick={() => navigate(`/profile/${m.userId}`)}><Avatar name={m.name} src={m.avatar} /></span>
-                  <div><strong>{m.name}</strong><small>{ROLE_LABEL[m.role] || "Thành viên"}</small></div>
+                  <button type="button" className="profile-avatar-link" aria-label={`Mở trang cá nhân của ${m.name}`} onClick={() => navigate(`/profile/${m.userId}`)}><Avatar name={m.name} src={m.avatar} /></button>
+                  <div><button type="button" className="profile-identity-link strong" onClick={() => navigate(`/profile/${m.userId}`)}>{m.name}</button><small>{ROLE_LABEL[m.role] || "Thành viên"}</small></div>
                   {canModerate && String(m.userId) !== String(user?.userId) && m.role !== "OWNER" && (canManageRoles || m.role !== "ADMIN") && (
                     <>
                       <div className="menu-wrap" style={{ position: "relative", marginLeft: "auto" }}>
@@ -1090,16 +1126,38 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
                 const renderComment = (c, depth = 0, ancestorIds = [], parentComment = null) => {
                   const children = c.children || []
                   const commentId = String(c.commentId)
+                  const menuId = `${p.postId}:${commentId}`
                   const expanded = expandedCommentIds.has(commentId)
                   const replyingHere = replyTo?.postId === p.postId && String(replyTo.commentId) === commentId
+                  const canEditComment = String(c.authorId) === String(user?.userId)
+                  const canDeleteThisComment = canEditComment || canModerate
+                  const editingHere = String(editingComment?.commentId) === commentId
                   return (
                     <div className={`group-comment-node${depth ? " nested" : ""}`} key={c.commentId}>
                       <div className="post-viewer-comment">
                         <button type="button" className="post-viewer-comment-profile" aria-label={`Mở trang cá nhân của ${c.authorName}`} onClick={() => { closePostComments(p.postId); navigate(`/profile/${c.authorId}`) }}><Avatar name={c.authorName} src={c.authorAvatar} size="sm" /></button>
                         <div className="post-viewer-comment-body">
                           <div className="post-viewer-comment-meta"><button type="button" onClick={() => { closePostComments(p.postId); navigate(`/profile/${c.authorId}`) }}>{c.authorName}</button><small>{timeAgo(c.createdAt)}</small></div>
-                          <p>{parentComment && <><button type="button" className="group-comment-reply-target" onClick={() => { closePostComments(p.postId); navigate(`/profile/${parentComment.authorId}`) }}>{parentComment.authorName}</button>{" "}</>}{c.content}</p>
-                          <span className="group-comment-links">{isMember && <button className="link-btn" onClick={() => beginReply(c, ancestorIds)}>Trả lời</button>}{(String(c.authorId) === String(user?.userId) || canModerate) && <button className="link-btn" onClick={() => setCommentToDelete(c)}>Xóa</button>}</span>
+                          {editingHere ? <form className="comment-edit-form" onSubmit={(event) => saveCommentEdit(p, event)}>
+                            <textarea autoFocus value={commentEditDraft} onChange={(event) => setCommentEditDraft(event.target.value)} onKeyDown={(event) => {
+                              if (event.key === "Enter" && !event.shiftKey) {
+                                event.preventDefault()
+                                event.currentTarget.form?.requestSubmit()
+                              }
+                            }} maxLength={2000} aria-label="Sửa bình luận" />
+                            <span><button type="button" onClick={() => { setEditingComment(null); setCommentEditDraft("") }}>Hủy</button><button type="submit" disabled={!commentEditDraft.trim()}>Lưu</button></span>
+                          </form> : <p>{parentComment && <><button type="button" className="group-comment-reply-target" onClick={() => { closePostComments(p.postId); navigate(`/profile/${parentComment.authorId}`) }}>{parentComment.authorName}</button>{" "}</>}{c.content}</p>}
+                          <span className="group-comment-links">
+                            <button type="button" className={`comment-like${c.likedByViewer ? " liked" : ""}`} aria-label={c.likedByViewer ? "Bỏ thích bình luận" : "Thích bình luận"} aria-pressed={Boolean(c.likedByViewer)} disabled={!isMember} onClick={() => toggleCommentLike(p, c)}><Icon name="heart" size={15} />{c.reactionCount > 0 && <span>{c.reactionCount}</span>}</button>
+                            {isMember && <button type="button" className="link-btn" onClick={() => beginReply(c, ancestorIds)}>Trả lời</button>}
+                          </span>
+                        </div>
+                        <div className="post-comment-more-wrap">
+                          <button type="button" className="post-comment-more" aria-label="Tùy chọn bình luận" aria-expanded={commentMenuId === menuId} onClick={() => setCommentMenuId((current) => current === menuId ? null : menuId)}><Icon name="more" size={17} /></button>
+                          {commentMenuId === menuId && <div className="pop-menu post-comment-more-menu">
+                            <button type="button" disabled={!canEditComment} onClick={() => { setEditingComment(c); setCommentEditDraft(c.content); setCommentMenuId(null) }}><Icon name="edit" size={15} />Sửa bình luận</button>
+                            <button type="button" className="danger" disabled={!canDeleteThisComment || deletingComment} onClick={() => { setCommentMenuId(null); if (p.mediaUrl) closePostComments(p.postId); setCommentToDelete(c) }}><Icon name="trash" size={15} />Xóa bình luận</button>
+                          </div>}
                         </div>
                       </div>
                       {children.length > 0 && <button type="button" className="group-comment-toggle" aria-expanded={expanded} onClick={() => setExpandedCommentIds((current) => {
@@ -1122,8 +1180,8 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
                   <article className={`post panel${menu === `p${p.postId}` ? " group-post-menu-open" : ""}`} key={p.postId}>
                     {p.pinned && <div className="pinned-label"><Icon name="pin" size={14} /> {p.poll ? "Bình chọn đã ghim" : "Bài viết đã ghim"}</div>}
                     <header className="post-head">
-                      <span style={{ cursor: "pointer" }} onClick={() => navigate(`/profile/${p.authorId}`)}><Avatar name={p.authorName} src={p.authorAvatar} /></span>
-                      <div><strong>{p.authorName}</strong><span>{fmt(p.createdAt)}</span></div>
+                      <button type="button" className="profile-avatar-link" aria-label={`Mở trang cá nhân của ${p.authorName}`} onClick={() => navigate(`/profile/${p.authorId}`)}><Avatar name={p.authorName} src={p.authorAvatar} /></button>
+                      <div><button type="button" className="profile-identity-link strong" onClick={() => navigate(`/profile/${p.authorId}`)}>{p.authorName}</button><span>{fmt(p.createdAt)}</span></div>
                       <div className="menu-wrap" style={{ marginLeft: "auto", position: "relative" }}>
                         <button className="icon-button" aria-label={`Tùy chọn ${p.poll ? "bình chọn" : "bài viết"}`} onClick={() => setMenu(menu === `p${p.postId}` ? null : `p${p.postId}`)}><Icon name="more" /></button>
                         {menu === `p${p.postId}` && (
@@ -1139,19 +1197,58 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
                     </header>
                     {p.content && <div className="post-copy"><p style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{p.content}</p></div>}
                     {p.poll && <PollCard post={p} canVote={isMember} onVote={votePoll} />}
-                    {p.mediaUrl && <GroupPostMedia post={p} onOpenPost={() => openPostComments(p.postId)} onMediaClick={collapsePostReplies} />}
+                    {p.mediaUrl && <GroupPostMedia post={p} onOpenPost={() => openPostMedia(p.postId)} onMediaClick={collapsePostReplies} />}
                     <div className="post-meta"><span><b>♥</b> {p.reactionCount} lượt thích</span><span>{comments.length} bình luận</span></div>
                     <div className="post-actions" style={{ gridTemplateColumns: "repeat(2,1fr)" }}>
                       <button type="button" className={picked ? "liked" : ""} aria-pressed={Boolean(picked)} disabled={!isMember} onClick={() => react(p, picked?.type || "LIKE")}><Icon name="heart" />Thích</button>
                       <button type="button" onClick={() => openPostComments(p.postId)}><Icon name="comment" />Bình luận</button>
                     </div>
-                    {openComments[p.postId] && (
+                    {openComments[p.postId] && (mediaViewerPostId === String(p.postId) ? createPortal(
+                      <div className="post-viewer has-media group-post-viewer" onClick={() => closePostComments(p.postId)} role="dialog" aria-modal="true" aria-label={`Xem ${p.poll ? "bình chọn" : "bài viết"}`}>
+                        <button type="button" className="post-viewer-close" aria-label="Đóng" onClick={() => closePostComments(p.postId)}><Icon name="close" size={22} /></button>
+                        <div className="post-viewer-media" onClick={(event) => event.stopPropagation()}>
+                          <GroupPostMedia post={p} viewer />
+                        </div>
+                        <aside className="post-viewer-side" onClick={(event) => event.stopPropagation()}>
+                          <header>
+                            <button type="button" className="profile-avatar-link" aria-label={`Mở trang cá nhân của ${p.authorName}`} onClick={() => navigate(`/profile/${p.authorId}`)}><Avatar name={p.authorName} src={p.authorAvatar} /></button>
+                            <div><button type="button" className="profile-identity-link strong" onClick={() => navigate(`/profile/${p.authorId}`)}>{p.authorName}</button><span>{fmt(p.createdAt)} · {group.name}</span></div>
+                            <div className="menu-wrap group-comments-post-menu">
+                              <button type="button" className="icon-button" aria-label={`Tùy chọn ${p.poll ? "bình chọn" : "bài viết"}`} onClick={() => setMenu(menu === `cv${p.postId}` ? null : `cv${p.postId}`)}><Icon name="more" /></button>
+                              {menu === `cv${p.postId}` && <div className="pop-menu post-menu">
+                                <button onClick={() => toggleSave(p)}><Icon name="bookmark" size={16} />{saved[p.postId] ? (p.poll ? "Bỏ lưu bình chọn" : "Bỏ lưu bài viết") : (p.poll ? "Lưu bình chọn" : "Lưu bài viết")}</button>
+                                {authored(p) && <button onClick={() => { closePostComments(p.postId); editPost(p) }}><Icon name="edit" size={16} />{p.poll ? "Sửa bình chọn" : "Sửa bài viết"}</button>}
+                                {canModerate && <button onClick={() => pin(p)}><Icon name="pin" size={16} />{p.pinned ? (p.poll ? "Bỏ ghim bình chọn" : "Bỏ ghim bài viết") : (p.poll ? "Ghim bình chọn" : "Ghim bài viết")}</button>}
+                                {!authored(p) && isMember && <button onClick={() => { closePostComments(p.postId); reportPost(p) }}><Icon name="flag" size={16} />{p.poll ? "Báo cáo bình chọn" : "Báo cáo bài viết"}</button>}
+                                {(authored(p) || canModerate) && <button className="danger" onClick={() => { setMenu(null); closePostComments(p.postId); setPostToDelete(p) }}><Icon name="trash" size={16} />{p.poll ? "Xóa bình chọn" : "Xóa bài viết"}</button>}
+                              </div>}
+                            </div>
+                          </header>
+                          {p.content && <p className="post-viewer-copy">{p.content}</p>}
+                          {p.poll && <div className="group-viewer-poll"><PollCard post={p} canVote={isMember} onVote={votePoll} /></div>}
+                          <div className="post-viewer-actions group-comments-actions">
+                            <button type="button" className={picked ? "liked" : ""} aria-pressed={Boolean(picked)} disabled={!isMember} onClick={() => react(p, picked?.type || "LIKE")}><Icon name="heart" />Thích</button>
+                            <button type="button" onClick={() => commentListRefs.current[p.postId]?.scrollIntoView({ behavior: "smooth", block: "start" })}><Icon name="comment" />Bình luận</button>
+                          </div>
+                          <div className="post-viewer-stats">♥ {p.reactionCount || 0} lượt thích <span>{comments.length} bình luận</span></div>
+                          <div className="post-viewer-comments group-viewer-comments" ref={(element) => { commentListRefs.current[p.postId] = element }}>
+                            {commentTree.map((comment) => renderComment(comment))}
+                            {comments.length === 0 && <p className="post-viewer-empty">Chưa có bình luận nào.</p>}
+                          </div>
+                          {isMember && replyTo?.postId !== p.postId && <form className="post-viewer-comment-form" onSubmit={(event) => comment(p, event)}>
+                            <input value={commentDraft[p.postId] || ""} onChange={(event) => setCommentDraft((draft) => ({ ...draft, [p.postId]: event.target.value }))} placeholder="Viết bình luận..." maxLength={2000} />
+                            <button type="submit" disabled={!(commentDraft[p.postId] || "").trim()}>Gửi</button>
+                          </form>}
+                        </aside>
+                      </div>,
+                      document.body
+                    ) : (
                       <Modal title={`${p.poll ? "Bình chọn" : "Bài viết"} của ${p.authorName}`} close={() => closePostComments(p.postId)} wide className="post-comments-modal" backdropClassName="post-comments-backdrop" portal preservePage>
                         <div className="post-comments-dialog">
                           <div className="post-comments-scroll">
                             <div className="post-comments-author">
-                              <Avatar name={p.authorName} src={p.authorAvatar} />
-                              <div><strong>{p.authorName}</strong><span>{fmt(p.createdAt)} · {group.name}</span></div>
+                              <button type="button" className="profile-avatar-link" aria-label={`Mở trang cá nhân của ${p.authorName}`} onClick={() => navigate(`/profile/${p.authorId}`)}><Avatar name={p.authorName} src={p.authorAvatar} /></button>
+                              <div><button type="button" className="profile-identity-link strong" onClick={() => navigate(`/profile/${p.authorId}`)}>{p.authorName}</button><span>{fmt(p.createdAt)} · {group.name}</span></div>
                               <div className="menu-wrap group-comments-post-menu">
                                 <button type="button" className="icon-button" aria-label={`Tùy chọn ${p.poll ? "bình chọn" : "bài viết"}`} onClick={() => setMenu(menu === `cp${p.postId}` ? null : `cp${p.postId}`)}><Icon name="more" /></button>
                                 {menu === `cp${p.postId}` && <div className="pop-menu post-menu">
@@ -1165,7 +1262,7 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
                             </div>
                             {p.content && <p className="post-comments-copy">{p.content}</p>}
                             {p.poll && <PollCard post={p} canVote={isMember} onVote={votePoll} />}
-                            {p.mediaUrl && <div className="group-comments-media"><GroupPostMedia post={p} onMediaClick={collapsePostReplies} /></div>}
+                            {p.mediaUrl && <div className="group-comments-media"><GroupPostMedia post={p} onOpenPost={() => openPostMedia(p.postId)} onMediaClick={collapsePostReplies} /></div>}
                             <div className="post-viewer-stats">♥ {p.reactionCount || 0} lượt thích <span>{comments.length} bình luận</span></div>
                             <div className="post-viewer-actions group-comments-actions">
                               <button type="button" className={picked ? "liked" : ""} aria-pressed={Boolean(picked)} disabled={!isMember} onClick={() => react(p, picked?.type || "LIKE")}><Icon name="heart" />Thích</button>
@@ -1182,7 +1279,7 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
                           </form>}
                         </div>
                       </Modal>
-                    )}
+                    ))}
                   </article>
                 )
               })}
@@ -1379,7 +1476,7 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
                 {moderationTarget.item.targetPost && <ModerationPostPreview post={moderationTarget.item.targetPost} expanded />}
                 {moderationTarget.item.targetComment && (
                   <div className="mod-target-comment">
-                    <strong>Bình luận của {moderationTarget.item.targetComment.authorName || "Không rõ người bình luận"}</strong>
+                    <strong>Bình luận của {moderationTarget.item.targetComment.authorId ? <button type="button" className="profile-identity-link strong" onClick={() => navigate(`/profile/${moderationTarget.item.targetComment.authorId}`)}>{moderationTarget.item.targetComment.authorName || "Không rõ người bình luận"}</button> : (moderationTarget.item.targetComment.authorName || "Không rõ người bình luận")}</strong>
                     {moderationTarget.item.targetComment.createdAt && <small>{fmt(moderationTarget.item.targetComment.createdAt)}</small>}
                     <p>{moderationTarget.item.targetComment.content || "Bình luận không có nội dung."}</p>
                   </div>
@@ -1476,7 +1573,7 @@ export default function GroupDetail({ groupId, commentsOnlyPostId = null, onClos
                 </div>
                 <div className="group-event-detail-card">
                   <span className="group-event-detail-icon"><Icon name="group" size={18} /></span>
-                  <div><small>Người tạo</small><strong>{viewingEvent.creatorName || "Không rõ"}</strong></div>
+                  <div><small>Người tạo</small>{viewingEvent.creatorName && viewingEvent.createdBy ? <button type="button" className="profile-identity-link strong" onClick={() => navigate(`/profile/${viewingEvent.createdBy}`)}>{viewingEvent.creatorName}</button> : <strong>{viewingEvent.creatorName || "Không rõ"}</strong>}</div>
                 </div>
               </div>
             </div>

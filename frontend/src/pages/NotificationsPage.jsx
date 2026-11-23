@@ -134,21 +134,24 @@ export default function NotificationsPage() {
                 const r = item.request
                 return (
                   <div className="notif-request unread" key={item.id}>
-                    <span className="note-avatar"><Avatar name={r.senderDisplayName} src={r.senderAvatar} /><i><Icon name="users" size={14} /></i></span>
-                    <span><strong>{r.senderDisplayName}</strong><p>đã gửi cho bạn lời mời kết bạn · {timeAgo(r.createdAt)}</p></span>
+                    <span className="note-avatar"><button type="button" className="profile-avatar-link" aria-label={`Mở trang cá nhân của ${r.senderDisplayName}`} onClick={() => navigate(`/profile/${r.senderId}`)}><Avatar name={r.senderDisplayName} src={r.senderAvatar} /></button><i><Icon name="users" size={14} /></i></span>
+                    <span><button type="button" className="profile-identity-link strong" onClick={() => navigate(`/profile/${r.senderId}`)}>{r.senderDisplayName}</button><p>đã gửi cho bạn lời mời kết bạn · {timeAgo(r.createdAt)}</p></span>
                     <Button disabled={busy} onClick={() => respondFriend(r, true)}>Xác nhận</Button>
                     <Button variant="secondary" disabled={busy} onClick={() => respondFriend(r, false)}>Xóa</Button>
                   </div>
                 )
               }
               const n = item.notification
+              const actorName = n.actorDisplayName || n.actorUsername
+              const activityText = messageText(n)
+              const activityDetail = actorName && activityText.startsWith(actorName) ? activityText.slice(actorName.length).trimStart() : activityText
               return (
-                <button className={item.unread ? "unread" : ""} key={item.id} disabled={busy} onClick={() => openActivity(n)}>
-                  <span className="note-avatar"><Avatar name={n.actorDisplayName || n.actorUsername || "Sự kiện"} src={n.actorAvatar} /><i><Icon name={iconFor(item)} size={14} /></i></span>
-                  <span><strong>{messageText(n)}</strong><small>{timeAgo(n.createdAt)}</small></span>
+                <div className={`notification-activity${item.unread ? " unread" : ""}`} key={item.id}>
+                  <span className="note-avatar">{n.actorId ? <button type="button" className="profile-avatar-link" aria-label={`Mở trang cá nhân của ${actorName || "người dùng"}`} onClick={() => navigate(`/profile/${n.actorId}`)}><Avatar name={actorName || "Sự kiện"} src={n.actorAvatar} /></button> : <Avatar name={actorName || "Sự kiện"} src={n.actorAvatar} />}<i><Icon name={iconFor(item)} size={14} /></i></span>
+                  <span className="notification-activity-content"><strong>{actorName && <>{n.actorId ? <button type="button" className="profile-identity-link strong" onClick={() => navigate(`/profile/${n.actorId}`)}>{actorName}</button> : actorName}{activityDetail ? " " : ""}</>}<button type="button" className="notification-open" disabled={busy} onClick={() => openActivity(n)}>{activityDetail}</button></strong><small>{timeAgo(n.createdAt)}</small></span>
                   {item.unread && <em />}
-                  <span className="notif-del" role="button" tabIndex={0} aria-label="Xóa thông báo" onClick={(e) => { e.stopPropagation(); removeActivity(n) }}><Icon name="close" size={16} /></span>
-                </button>
+                  <button type="button" className="notif-del" aria-label="Xóa thông báo" disabled={busy} onClick={() => removeActivity(n)}><Icon name="close" size={16} /></button>
+                </div>
               )
         })}
       </div>
