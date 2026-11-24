@@ -7,6 +7,7 @@ public class ForumCategory {
  @Id @GeneratedValue(strategy=GenerationType.IDENTITY) private Long id;
  @Column(nullable=false,unique=true,length=100) private String name;
  @Column(length=500) private String description;
+ @Column(name="post_type",length=20) private String postType;
  @Column(nullable=false) private boolean active=true;
  private LocalDateTime createdAt;
  @PrePersist void create(){createdAt=LocalDateTime.now();}

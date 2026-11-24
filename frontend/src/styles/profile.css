@@ -13,6 +13,7 @@
 .pf-id { display: flex; align-items: flex-end; gap: 20px; padding: 0 28px 18px; }
 .pf-avatar { position: relative; flex: none; margin-top: -64px; z-index: 3; }
 .pf-avatar-btn { display: block; padding: 0; border: 0; background: none; border-radius: 50%; cursor: default; }
+.pf-avatar-btn:disabled { cursor: default; opacity: 1; }
 .pf-avatar-btn:not(:disabled) { cursor: pointer; }
 .pf-avatar .avatar { width: 168px; height: 168px; font-size: 48px; border: 5px solid var(--surface); box-sizing: border-box; }
 .pf-avatar-btn:not(:disabled):hover .avatar { filter: brightness(.92); }

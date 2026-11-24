@@ -137,10 +137,18 @@ public class ForumController {
         return Map.of(
                 "categories", categories.findByActiveTrueOrderByNameAsc().stream()
                         .map(category -> Map.of("id", category.getId(), "name", category.getName(),
-                                "description", Optional.ofNullable(category.getDescription()).orElse("")))
+                                "description", Optional.ofNullable(category.getDescription()).orElse(""),
+                                "postType", category.getPostType()))
                         .toList(),
                 "courses", courses.findByActiveTrueOrderByNameAsc().stream()
-                        .map(course -> Map.of("id", course.getId(), "code", course.getCode(), "name", course.getName()))
+                        .map(course -> {
+                            Map<String, Object> data = new HashMap<>();
+                            data.put("id", course.getId());
+                            data.put("code", course.getCode());
+                            data.put("name", course.getName());
+                            data.put("facultyId", course.getFaculty() == null ? null : course.getFaculty().getId());
+                            return data;
+                        })
                         .toList(),
                 "faculties", faculties.findByActiveTrueOrderByNameAsc().stream()
                         .map(faculty -> Map.of("id", faculty.getId(), "name", faculty.getName()))
@@ -286,13 +294,21 @@ public class ForumController {
         topic.setSource(request.source() == null ? null : request.source().trim());
         topic.setCategory(request.categoryId() == null ? null : categories.findById(request.categoryId())
                 .filter(ForumCategory::isActive)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Danh mục không tồn tại")));
-        topic.setCourse(request.courseId() == null ? null : courses.findById(request.courseId())
+                .filter(category -> request.type().equals(category.getPostType()))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Danh mục không khớp với loại chủ đề")));
+        ForumCourse course = request.courseId() == null ? null : courses.findById(request.courseId())
                 .filter(ForumCourse::isActive)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Môn học không tồn tại")));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Môn học không tồn tại"));
         ForumFaculty faculty = request.facultyId() == null ? null : faculties.findById(request.facultyId())
                 .filter(ForumFaculty::isActive)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Khoa không tồn tại"));
+        if (course != null && course.getFaculty() != null) {
+            if (faculty != null && !faculty.getId().equals(course.getFaculty().getId())) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Môn học không thuộc khoa đã chọn");
+            }
+            if (faculty == null) faculty = course.getFaculty();
+        }
         ForumMajor major = request.majorId() == null ? null : majors.findById(request.majorId())
                 .filter(ForumMajor::isActive)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Chuyên ngành không tồn tại"));
@@ -301,6 +317,7 @@ public class ForumController {
         }
         topic.setFaculty(faculty);
         topic.setMajor(major);
+        topic.setCourse(course);
     }
 
     @GetMapping("/topics/{id}")

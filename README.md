@@ -52,7 +52,9 @@ Container mở PostgreSQL tại `localhost:5432` với database `messaging_db`, 
 Nếu `backend/.env` đặt `POSTGRES_HOST_PORT`, PostgreSQL sẽ dùng cổng đó trên máy host
 (backend trong Docker Compose vẫn kết nối qua cổng nội bộ `5432`).
 Hibernate tự tạo/cập nhật bảng khi backend khởi động, gồm các bảng bổ sung của Forum;
-danh mục Forum mặc định chỉ được thêm nếu chưa tồn tại. Các file SQL trong
+danh mục Forum được đồng bộ thành bốn nhóm Hỏi đáp & giải đáp, Chia sẻ tài liệu,
+Đồ án & tìm nhóm, và Kinh nghiệm & chia sẻ. Bài cũ được gán lại theo loại bài;
+các danh mục cũ không còn dùng sẽ được ẩn, không xóa bài viết. Các file SQL trong
 `backend/database/` và `src/main/resources/db/migration/` là script T-SQL cũ cho SQL
 Server; không chạy chúng với PostgreSQL. Database mới không có tài khoản demo cho tới
 khi người dùng đăng ký hoặc dữ liệu được nạp riêng.

@@ -28,10 +28,10 @@ const MAX_FILE_BYTES = 50 * 1024 * 1024
 const extensionOf = (name = "") => (name.includes(".") ? name.split(".").pop().toLowerCase() : "")
 
 const TYPE_LABEL = {
-  QUESTION: "Câu hỏi",
+  QUESTION: "Hỏi đáp & giải đáp",
   DISCUSSION: "Thảo luận",
-  PROJECT: "Dự án",
-  EXPERIENCE: "Kinh nghiệm",
+  PROJECT: "Đồ án & tìm nhóm",
+  EXPERIENCE: "Kinh nghiệm & chia sẻ",
   KNOWLEDGE: "Kiến thức",
   RESOURCE: "Chia sẻ tài liệu",
 }
@@ -45,8 +45,6 @@ const RESOURCE_KIND = {
 const TABS = [
   ["newest", "Mới nhất"],
   ["unanswered", "Chưa trả lời"],
-  ["DISCUSSION", "Thảo luận"],
-  ["RESOURCE", "Tài liệu"],
 ]
 
 const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => ((Math.random() * 16) | 0).toString(16)))
@@ -162,7 +160,7 @@ function TopicDetail({ topicId, meId, onClose, onChanged }) {
         {topic && (
           <>
             <div className="topic-detail-tags">
-              <span>{TYPE_LABEL[topic.type] || topic.type}</span>
+              <span>{topic.category || TYPE_LABEL[topic.type] || topic.type}</span>
               {topic.faculty && <span>{topic.faculty}</span>}
               {topic.course && <span>{topic.course}</span>}
               {topic.resourceKind && <span>{RESOURCE_KIND[topic.resourceKind]}</span>}
@@ -226,15 +224,27 @@ function TopicDetail({ topicId, meId, onClose, onChanged }) {
   )
 }
 
-function NewTopicModal({ taxonomy, onClose, onCreated, defaultType = "QUESTION" }) {
+function NewTopicModal({ taxonomy, onClose, onCreated }) {
   const toast = useToast()
-  const [form, setForm] = useState({ title: "", content: "", type: defaultType, facultyId: "", majorId: "", courseId: "", categoryId: "", resourceKind: "STUDY_MATERIAL", source: "" })
+  const [form, setForm] = useState({ title: "", content: "", facultyId: "", majorId: "", courseId: "", categoryId: "", resourceKind: "STUDY_MATERIAL", source: "" })
   const [file, setFile] = useState(null)
   const [busy, setBusy] = useState(false)
   const [submissionKey] = useState(uuid)
-  const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value, ...(key === "facultyId" ? { majorId: "" } : {}) }))
+  const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value, ...(key === "facultyId" ? { majorId: "", courseId: "" } : {}) }))
   const majors = (taxonomy?.majors || []).filter((m) => String(m.facultyId) === String(form.facultyId))
-  const isResource = form.type === "RESOURCE"
+  const availableCourses = (taxonomy?.courses || []).filter((course) => !form.facultyId || !course.facultyId || String(course.facultyId) === String(form.facultyId))
+  const setCourse = (event) => {
+    const courseId = event.target.value
+    const selectedCourse = availableCourses.find((course) => String(course.id) === String(courseId))
+    setForm((current) => ({
+      ...current,
+      courseId,
+      ...(selectedCourse?.facultyId && !current.facultyId ? { facultyId: String(selectedCourse.facultyId) } : {}),
+    }))
+  }
+  const selectedCategory = (taxonomy?.categories || []).find((category) => String(category.id) === String(form.categoryId))
+  const postType = selectedCategory?.postType || ""
+  const isResource = postType === "RESOURCE"
 
   const pickFile = (e) => {
     const picked = e.target.files?.[0] || null
@@ -253,6 +263,10 @@ function NewTopicModal({ taxonomy, onClose, onCreated, defaultType = "QUESTION" 
 
   const submit = async () => {
     if (!form.title.trim() || !form.content.trim()) return
+    if (!selectedCategory || !postType) {
+      toast("Hãy chọn loại chủ đề phù hợp.", "error")
+      return
+    }
     if (isResource && !file) {
       toast("Bài chia sẻ tài liệu cần kèm một tệp.", "error")
       return
@@ -262,7 +276,7 @@ function NewTopicModal({ taxonomy, onClose, onCreated, defaultType = "QUESTION" 
       const payload = {
         title: form.title.trim(),
         content: form.content.trim(),
-        type: form.type,
+        type: postType,
         facultyId: form.facultyId || null,
         majorId: form.majorId || null,
         courseId: form.courseId || null,
@@ -297,22 +311,15 @@ function NewTopicModal({ taxonomy, onClose, onCreated, defaultType = "QUESTION" 
           Tiêu đề
           <input value={form.title} onChange={set("title")} maxLength={180} placeholder="Viết tiêu đề rõ ràng, cụ thể" />
         </label>
-        <label>
+        <label className="full">
           Loại chủ đề
-          <select value={form.type} onChange={set("type")}>
-            {Object.entries(TYPE_LABEL).map(([value, label]) => (
-              <option key={value} value={value}>{label}</option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Danh mục
           <select value={form.categoryId} onChange={set("categoryId")}>
-            <option value="">Không chọn</option>
+            <option value="">Chọn loại chủ đề</option>
             {(taxonomy?.categories || []).map((c) => (
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </select>
+          {selectedCategory?.description && <small className="fo-category-hint">{selectedCategory.description}</small>}
         </label>
         <label>
           Khoa
@@ -334,10 +341,10 @@ function NewTopicModal({ taxonomy, onClose, onCreated, defaultType = "QUESTION" 
         </label>
         <label className="full">
           Môn học
-          <select value={form.courseId} onChange={set("courseId")}>
+          <select value={form.courseId} onChange={setCourse}>
             <option value="">Không chọn</option>
-            {(taxonomy?.courses || []).map((c) => (
-              <option key={c.id} value={c.id}>{c.code} · {c.name}</option>
+            {availableCourses.map((c) => (
+              <option key={c.id} value={c.id}>{c.code ? `${c.code} · ${c.name}` : c.name}</option>
             ))}
           </select>
         </label>
@@ -359,9 +366,12 @@ function NewTopicModal({ taxonomy, onClose, onCreated, defaultType = "QUESTION" 
         )}
         <div className="full fo-pick">
           <label>
-            Tệp đính kèm {isResource ? "(bắt buộc)" : "(không bắt buộc)"}
-            <span className="fo-hint"> · PDF, Word, PowerPoint, Excel, ZIP, MP4 · tối đa 50 MB</span>
-            <input type="file" accept={FILE_ACCEPT} onChange={pickFile} />
+            <span>Tệp đính kèm {isResource ? "(bắt buộc)" : "(không bắt buộc)"}</span>
+            <span className="fo-hint">PDF, Word, PowerPoint, Excel, ZIP, MP4 · tối đa 50 MB</span>
+            <span className="group-file-picker fo-file-picker">
+              <span>{file?.name || "Chọn tệp"}</span>
+              <input type="file" accept={FILE_ACCEPT} aria-label="Chọn tệp đính kèm" onChange={pickFile} />
+            </span>
           </label>
           {file && (
             <div className="fo-file">
@@ -412,7 +422,6 @@ export default function ForumPage() {
   const params = useMemo(
     () => ({
       q: debounced,
-      type: tab === "DISCUSSION" || tab === "RESOURCE" ? tab : "",
       facultyId: faculty || undefined,
       categoryId: category || undefined,
       majorId: major || undefined,
@@ -420,7 +429,7 @@ export default function ForumPage() {
       page,
       size: 15,
     }),
-    [debounced, tab, faculty, category, major, sort, page],
+    [debounced, faculty, category, major, sort, page],
   )
   const { data, loading, error, reload } = useAsync(() => getForumTopics(params), [JSON.stringify(params)])
   const items = (data?.items || []).filter((t) => tab !== "unanswered" || t.replyCount === 0)
@@ -431,8 +440,8 @@ export default function ForumPage() {
       <header className="forum-header">
         <div>
           <span className="eyebrow">Không gian học tập</span>
-          <h1>Hỏi đáp, thảo luận và chia sẻ tài liệu</h1>
-          <p>Kết nối kiến thức giữa các khoa, tìm lời giải từ cộng đồng sinh viên CMC.</p>
+          <h1>Hỏi đáp, tài liệu, đồ án và kinh nghiệm</h1>
+          <p>Đặt câu hỏi, tìm tài liệu, kết nối làm đồ án và chia sẻ kinh nghiệm cùng sinh viên CMC.</p>
         </div>
         <Button icon="plus" onClick={() => setCreating(true)}>Đăng chủ đề</Button>
       </header>
@@ -442,7 +451,7 @@ export default function ForumPage() {
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Tìm câu hỏi, môn học hoặc tài liệu..." />
         </label>
         <select className="toolbar-select" value={category} onChange={(e) => { setCategory(e.target.value); setPage(0) }}>
-          <option value="">Mọi danh mục</option>
+          <option value="">Mọi loại chủ đề</option>
           {(taxonomy?.categories || []).map((c) => (
             <option key={c.id} value={c.id}>{c.name}</option>
           ))}
@@ -485,8 +494,8 @@ export default function ForumPage() {
                   </div>
                   <div className="topic-main">
                     <div>
-                      <span>{TYPE_LABEL[t.type] || t.type}</span>
-                      {(t.faculty || t.category) && <span>{t.faculty || t.category}</span>}
+                      <span>{t.category || TYPE_LABEL[t.type] || t.type}</span>
+                      {(t.faculty || t.major || t.course) && <span>{t.faculty || t.major || t.course}</span>}
                     </div>
                     <h3>{t.title}</h3>
                     <p><button type="button" className="profile-identity-link" onClick={(event) => { event.stopPropagation(); navigate(`/profile/${t.authorId}`) }}>{t.authorName}</button> · {timeAgo(t.createdAt)}</p>
