@@ -5,6 +5,7 @@ public class ForumCourse {
  @Id @GeneratedValue(strategy=GenerationType.IDENTITY) private Long id;
  @Column(nullable=false,length=30) private String code;
  @Column(nullable=false,length=150) private String name;
+ @ManyToOne @JoinColumn(name="faculty_id") private ForumFaculty faculty;
  @Column(nullable=false) private boolean active=true;
  private LocalDateTime createdAt;
  @PrePersist void create(){createdAt=LocalDateTime.now();}

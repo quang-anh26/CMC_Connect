@@ -1347,11 +1347,18 @@
 }
 .forum-toolbar {
   padding: 12px;
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, .8fr) minmax(0, 1.35fr) minmax(0, 1fr) minmax(100px, .46fr);
   gap: 8px;
 }
-.forum-toolbar label {
-  flex: 1;
+.forum-toolbar > label {
+  min-width: 0;
+  width: 100%;
+  flex: none;
+}
+.forum-toolbar > .toolbar-select {
+  min-width: 0;
+  width: 100%;
 }
 .forum-toolbar > button,
 .saved-toolbar > button {
@@ -2882,6 +2889,15 @@
   }
   .people-grid {
     grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 1200px) {
+  .forum-toolbar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .forum-toolbar > label {
+    grid-column: 1 / -1;
   }
 }
 

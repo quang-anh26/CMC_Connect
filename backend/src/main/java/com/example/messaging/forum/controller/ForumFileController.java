@@ -105,9 +105,6 @@ public class ForumFileController {
         if ("RESOURCE".equals(type) && (file == null || file.isEmpty())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Bài chia sẻ tài liệu bắt buộc có tệp đính kèm");
         }
-        if (facultyId == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cần chọn khoa");
-        }
         if ("RESOURCE".equals(type) && !RESOURCE_KINDS.contains(resourceKind)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Loại tài liệu không hợp lệ");
         }
@@ -115,7 +112,6 @@ public class ForumFileController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Chỉ bài chia sẻ tài liệu mới có loại tài liệu");
         }
-        validateFacultyMajor(facultyId, majorId);
         if (file != null && !file.isEmpty()) {
             validateFile(file);
         }
@@ -129,14 +125,24 @@ public class ForumFileController {
         topic.setSubmissionKey(submissionKey);
         topic.setResourceKind(resourceKind);
         topic.setSource(source == null || source.isBlank() ? null : source.trim());
-        topic.setFaculty(findFaculty(facultyId));
+        ForumFaculty faculty = findFaculty(facultyId);
+        ForumCourse course = courseId == null ? null : courses.findById(courseId)
+                .filter(ForumCourse::isActive)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Môn học không tồn tại"));
+        if (course != null && course.getFaculty() != null) {
+            if (faculty != null && !faculty.getId().equals(course.getFaculty().getId())) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Môn học không thuộc khoa đã chọn");
+            }
+            if (faculty == null) faculty = course.getFaculty();
+        }
+        validateFacultyMajor(faculty == null ? null : faculty.getId(), majorId);
+        topic.setFaculty(faculty);
         topic.setMajor(findMajor(majorId));
         topic.setCategory(categoryId == null ? null : categories.findById(categoryId)
                 .filter(category -> category.isActive())
+                .filter(category -> type.equals(category.getPostType()))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Danh mục không tồn tại")));
-        topic.setCourse(courseId == null ? null : courses.findById(courseId)
-                .filter(ForumCourse::isActive)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Môn học không tồn tại")));
+        topic.setCourse(course);
 
         Path storedPath = null;
         try {

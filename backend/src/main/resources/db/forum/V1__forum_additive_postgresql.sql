@@ -1,18 +1,21 @@
--- Safe additive Forum schema for PostgreSQL. Never drops or alters existing Social tables.
+-- Safe additive Forum schema for PostgreSQL. Never drops or rewrites existing Social tables.
 -- The application currently uses spring.jpa.hibernate.ddl-auto=update; this script is
--- provided for controlled/manual provisioning and is intentionally CREATE-only.
+-- provided for controlled/manual provisioning and only creates tables or adds columns.
 CREATE TABLE IF NOT EXISTS forum_categories (
- id BIGSERIAL PRIMARY KEY, name VARCHAR(100) NOT NULL UNIQUE,
+ id BIGSERIAL PRIMARY KEY, name VARCHAR(100) NOT NULL UNIQUE, post_type VARCHAR(20),
  description VARCHAR(500), active BOOLEAN NOT NULL DEFAULT TRUE, created_at TIMESTAMP
 );
-CREATE TABLE IF NOT EXISTS forum_courses (
- id BIGSERIAL PRIMARY KEY, code VARCHAR(30) NOT NULL, name VARCHAR(150) NOT NULL,
- active BOOLEAN NOT NULL DEFAULT TRUE, created_at TIMESTAMP
-);
+ALTER TABLE forum_categories ADD COLUMN IF NOT EXISTS post_type VARCHAR(20);
 CREATE TABLE IF NOT EXISTS forum_faculties (
  id BIGSERIAL PRIMARY KEY, name VARCHAR(180) NOT NULL UNIQUE,
  active BOOLEAN NOT NULL DEFAULT TRUE, created_at TIMESTAMP
 );
+CREATE TABLE IF NOT EXISTS forum_courses (
+ id BIGSERIAL PRIMARY KEY, code VARCHAR(30) NOT NULL, name VARCHAR(150) NOT NULL,
+ faculty_id BIGINT REFERENCES forum_faculties(id),
+ active BOOLEAN NOT NULL DEFAULT TRUE, created_at TIMESTAMP
+);
+ALTER TABLE forum_courses ADD COLUMN IF NOT EXISTS faculty_id BIGINT REFERENCES forum_faculties(id);
 CREATE TABLE IF NOT EXISTS forum_majors (
  id BIGSERIAL PRIMARY KEY, faculty_id BIGINT NOT NULL REFERENCES forum_faculties(id),
  name VARCHAR(180) NOT NULL, active BOOLEAN NOT NULL DEFAULT TRUE, created_at TIMESTAMP,

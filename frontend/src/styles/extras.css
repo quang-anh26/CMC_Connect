@@ -22,5 +22,8 @@
 .fo-file a, .fo-file button { flex: none; padding: 6px 12px; border-radius: 8px; background: var(--blue); color: #fff; font-size: 12px; font-weight: 600; text-decoration: none; cursor: pointer; }
 .fo-file button.ghost { background: transparent; color: var(--muted); padding: 4px 8px; font-size: 18px; line-height: 1; }
 .fo-pick { display: flex; flex-direction: column; gap: 6px; }
-.fo-pick input[type="file"] { font-size: 12px; }
+.fo-file-picker { max-width: 292px; overflow: hidden; }
+.fo-file-picker > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fo-file-picker input[type="file"] { position: absolute; inset: 0; width: 100%; height: 100%; min-height: 0; padding: 0; border: 0; opacity: 0; cursor: pointer; }
 .fo-hint { color: var(--muted); font-size: 11px; font-weight: 400; }
+.fo-category-hint { color: var(--muted); font-size: 11px; font-weight: 400; line-height: 1.45; }

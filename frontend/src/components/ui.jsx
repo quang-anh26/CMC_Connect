@@ -101,9 +101,9 @@ export function Modal({ title, close, children, wide, className = "", backdropCl
     const scrollY = window.scrollY;
     const scrollbarWidth = Math.max(0, window.innerWidth - document.documentElement.clientWidth);
     const currentBodyPaddingRight = Number.parseFloat(getComputedStyle(document.body).paddingRight) || 0;
+    document.documentElement.style.scrollbarGutter = "auto";
     document.documentElement.style.overflow = "hidden";
     if (preservePage) {
-      document.documentElement.style.scrollbarGutter = "auto";
       document.body.style.position = "fixed";
       document.body.style.top = `${-scrollY}px`;
       document.body.style.left = `${-scrollX}px`;
